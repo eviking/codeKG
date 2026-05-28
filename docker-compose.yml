@@ -98,10 +98,14 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-codekg_dev}
       API_URL: http://api:8000
+      INGESTION_URL: http://ingestion:8001
+      REPOS_PATH: /repos
+      REPOS_REGISTRY: /repos/repos.json
     ports:
       - "8080:8080"
     volumes:
       - ./shared:/app/shared:ro
+      - ${REPOS_PATH:-./repos}:/repos
     depends_on:
       - api
     networks:

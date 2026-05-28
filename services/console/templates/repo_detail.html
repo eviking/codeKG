@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}{{ repo_id }}{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+  <a href="/repos" style="color:#64748b;font-size:0.85rem">← Repositories</a>
+  <h1 style="margin:0"><code>{{ repo_id }}</code></h1>
+  {% if not in_registry %}
+  <span class="badge badge-warning">not in registry</span>
+  {% endif %}
+</div>
+
+{% if request.query_params.get('scan') == 'started' %}
+<div id="scan-banner" style="background:#0f2a1f;border:1px solid #166534;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.75rem">
+  <span id="scan-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #4ade80;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>
+  <span id="scan-status-text" style="color:#4ade80;font-size:0.875rem">Full scan started — indexing in background…</span>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script>
+  (function() {
+    const banner = document.getElementById('scan-banner');
+    const text = document.getElementById('scan-status-text');
+    const spinner = document.getElementById('scan-spinner');
+    const repoId = {{ repo_id | tojson }};
+    const knownCommit = {{ (kg.last_commit or '') | tojson }};
+
+    function poll() {
+      fetch('/api/repos/' + encodeURIComponent(repoId) + '/scan-status')
+        .then(r => r.json())
+        .then(data => {
+          if (data.last_commit && data.last_commit !== knownCommit) {
+            spinner.style.display = 'none';
+            text.textContent = 'Scan complete — indexed at ' + data.last_commit.slice(0, 12);
+            banner.style.background = '#0f2a1f';
+            banner.style.borderColor = '#166534';
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            setTimeout(poll, 3000);
+          }
+        })
+        .catch(() => setTimeout(poll, 5000));
+    }
+    setTimeout(poll, 3000);
+  })();
+</script>
+{% endif %}
+
+<div class="section grid grid-2">
+
+  <!-- Left column: git + path info -->
+  <div style="display:flex;flex-direction:column;gap:1rem">
+
+    <div class="card">
+      <h2>Repository Info</h2>
+      <table>
+        <tr><th>Path (container)</th><td><code>{{ repo_path or kg.get('path', '—') }}</code></td></tr>
+        {% if git and not git.get('error') %}
+        <tr><th>Branch</th><td><code>{{ git.branch }}</code></td></tr>
+        <tr><th>HEAD commit</th><td><code>{{ git.last_commit }}</code></td></tr>
+        <tr><th>Last message</th><td style="color:#94a3b8;font-size:0.85rem">{{ git.last_message }}</td></tr>
+        <tr><th>Author</th><td style="color:#94a3b8">{{ git.last_author }}</td></tr>
+        {% elif git.get('error') %}
+        <tr><th>Git status</th><td><span style="color:#f87171">{{ git.error }}</span></td></tr>
+        {% endif %}
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>KG Provenance</h2>
+      {% if provenance and provenance.get('last_commit') %}
+      <table>
+        <tr><th>Last indexed commit</th><td><code>{{ provenance.last_commit[:12] if provenance.last_commit else '—' }}</code></td></tr>
+        <tr><th>Index freshness</th><td style="color:#94a3b8;font-size:0.85rem">{{ provenance.get('freshness_ts', '—') }}</td></tr>
+        <tr><th>Stale nodes</th>
+          <td>
+            {% if provenance.stale_node_count and provenance.stale_node_count > 0 %}
+              <span class="badge badge-warning">{{ provenance.stale_node_count }} stale</span>
+            {% else %}
+              <span class="badge badge-active">up to date</span>
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+      {% else %}
+      <div class="empty">Not yet indexed. Trigger a scan to populate the knowledge graph.</div>
+      {% endif %}
+      <div style="margin-top:1rem">
+        {% if in_registry %}
+        <form method="post" action="/repos/{{ repo_id }}/scan">
+          <button class="btn-success">Trigger Full Scan</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right column: KG stats + actions -->
+  <div style="display:flex;flex-direction:column;gap:1rem">
+
+    <div class="card">
+      <h2>Knowledge Graph Stats</h2>
+      {% if stats %}
+      <div class="grid grid-3" style="margin-bottom:0">
+        <div class="stat">
+          <div class="value">{{ stats.get('classes', 0) }}</div>
+          <div class="label">Classes</div>
+        </div>
+        <div class="stat">
+          <div class="value">{{ stats.get('methods', 0) }}</div>
+          <div class="label">Methods</div>
+        </div>
+        <div class="stat">
+          <div class="value">{{ stats.get('packages', 0) }}</div>
+          <div class="label">Packages</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty">No data yet — run a scan first.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Quick Actions</h2>
+      <div style="display:flex;flex-direction:column;gap:0.5rem">
+        <a href="/policies" class="btn btn-ghost" style="text-align:center">Manage Policies</a>
+        <a href="/modules" class="btn btn-ghost" style="text-align:center">Manage Modules</a>
+        <a href="{{ api_url }}/template/{{ repo_id }}" target="_blank" class="btn btn-ghost" style="text-align:center">
+          View Codebase Template ↗
+        </a>
+        <a href="{{ api_url }}/violations?repo_id={{ repo_id }}" target="_blank" class="btn btn-ghost" style="text-align:center">
+          View All Violations ↗
+        </a>
+      </div>
+    </div>
+
+    {% if in_registry %}
+    <div class="card" style="border-color:#3f1717">
+      <h2 style="color:#f87171">Danger Zone</h2>
+      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem">
+        Removing from registry stops the watcher from monitoring this repo.
+        KG data is preserved — run a full scan again to re-index.
+      </p>
+      <form method="post" action="/repos/{{ repo_id }}/remove"
+            onsubmit="return confirm('Remove {{ repo_id }} from the watcher registry?')">
+        <button class="btn" style="background:#7f1d1d">Remove from Registry</button>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

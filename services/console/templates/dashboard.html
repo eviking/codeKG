@@ -25,18 +25,19 @@
     <div class="card">
       {% if repos %}
       <table>
-        <thead><tr><th>Repo</th><th>Last Indexed Commit</th></tr></thead>
+        <thead><tr><th>Repo</th><th>Last Indexed Commit</th><th></th></tr></thead>
         <tbody>
           {% for r in repos %}
           <tr>
-            <td><code>{{ r.repo_id }}</code></td>
+            <td><a href="/repos/{{ r.repo_id }}"><code>{{ r.repo_id }}</code></a></td>
             <td><code>{{ (r.last_commit or 'not yet indexed')[:12] }}</code></td>
+            <td><a href="/repos/{{ r.repo_id }}" style="font-size:0.75rem;color:#4a5568">details →</a></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <div class="empty">No repositories indexed yet.<br>Mount a repo under <code>/repos</code> and the watcher will pick it up.</div>
+      <div class="empty">No repositories indexed yet.<br><a href="/repos">Register a repository →</a></div>
       {% endif %}
     </div>
   </div>

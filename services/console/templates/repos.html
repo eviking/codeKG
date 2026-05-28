@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Repositories{% endblock %}
+{% block content %}
+<h1>Repositories</h1>
+
+<div class="section grid grid-2">
+
+  <div>
+    <h2>Registered Repositories</h2>
+    <div class="card">
+      {% if repos %}
+      <table>
+        <thead>
+          <tr>
+            <th>Repo ID</th>
+            <th>Path (in container)</th>
+            <th>Git HEAD</th>
+            <th>KG Indexed</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in repos %}
+          <tr>
+            <td>
+              <a href="/repos/{{ r.repo_id }}"><code>{{ r.repo_id }}</code></a>
+              {% if r.get('orphaned') %}<span class="badge badge-warning" style="margin-left:4px">orphaned</span>{% endif %}
+            </td>
+            <td style="color:#64748b;font-size:0.8rem"><code>{{ r.path }}</code></td>
+            <td>
+              {% if r.git and not r.git.get('error') %}
+                <code style="font-size:0.75rem">{{ r.git.last_commit }}</code>
+                <span style="color:#64748b;font-size:0.75rem"> on {{ r.git.branch }}</span>
+              {% elif r.git.get('error') %}
+                <span style="color:#f87171;font-size:0.75rem">{{ r.git.error }}</span>
+              {% else %}
+                <span style="color:#4a5568">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if r.kg and r.kg.get('last_commit') %}
+                <code style="font-size:0.75rem">{{ r.kg.last_commit[:12] }}</code>
+              {% else %}
+                <span style="color:#4a5568;font-size:0.75rem">not indexed</span>
+              {% endif %}
+            </td>
+            <td style="white-space:nowrap">
+              <form method="post" action="/repos/{{ r.repo_id }}/scan" style="display:inline">
+                <button class="btn btn-sm btn-ghost">Scan</button>
+              </form>
+              {% if not r.get('orphaned') %}
+              <form method="post" action="/repos/{{ r.repo_id }}/remove" style="display:inline" onsubmit="return confirm('Remove {{ r.repo_id }} from registry?')">
+                <button class="btn btn-sm" style="background:#7f1d1d;margin-left:4px">Remove</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No repositories registered yet. Add one using the form.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <h2>Add Repository</h2>
+    <div class="card">
+      <p style="font-size:0.8rem;color:#64748b;margin-bottom:1rem">
+        Repos must be accessible inside the Docker container at the path you specify.
+        Mount your repo under <code>{{ repos_path }}</code> on the host — e.g.
+        <code>docker-compose.yml</code> <code>REPOS_PATH=/path/to/your/repos</code>.
+      </p>
+      <form method="post" action="/repos">
+        <label>Repo ID
+          <input name="repo_id" required placeholder="e.g. org/my-service"
+                 pattern="[a-zA-Z0-9_./-]+" title="Use letters, numbers, /, - or _">
+        </label>
+        <label>Path inside container
+          <input name="repo_path" required placeholder="e.g. /repos/my-service">
+          <span style="font-size:0.72rem;color:#4a5568;margin-top:2px">
+            Must contain a <code>.git</code> directory.
+          </span>
+        </label>
+        <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
+          <input type="checkbox" name="trigger_scan" value="yes" checked style="width:auto">
+          <span>Trigger full scan immediately</span>
+        </label>
+        <button type="submit">Register Repository</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:1rem">
+      <h2>Host Setup</h2>
+      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem">
+        Set <code>REPOS_PATH</code> in your <code>.env</code> to the directory on your host
+        that contains the repos you want to index. Each subdirectory becomes a mountable path.
+      </p>
+      <pre># .env
+REPOS_PATH=/Users/yourname/code
+
+# Then repos are accessible as:
+# /repos/my-service   (from /Users/yourname/code/my-service)</pre>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
