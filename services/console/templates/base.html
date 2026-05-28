@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeKG — {% block title %}Architecture Console{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    a { color: #60a5fa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    nav { background: #1a1f2e; border-bottom: 1px solid #2d3748; padding: 0 2rem; display: flex; align-items: center; gap: 2rem; height: 56px; }
+    nav .brand { font-weight: 700; font-size: 1.1rem; color: #f8fafc; letter-spacing: 0.05em; }
+    nav .brand span { color: #60a5fa; }
+    nav a { color: #94a3b8; font-size: 0.9rem; }
+    nav a:hover, nav a.active { color: #f8fafc; text-decoration: none; }
+
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #94a3b8; }
+
+    .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; padding: 1.25rem; }
+    .grid { display: grid; gap: 1rem; }
+    .grid-3 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+
+    .stat { text-align: center; }
+    .stat .value { font-size: 2.5rem; font-weight: 700; color: #60a5fa; }
+    .stat .label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; color: #64748b; font-weight: 500; border-bottom: 1px solid #2d3748; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e2533; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1e2533; }
+
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+    .badge-error { background: #3f1717; color: #f87171; }
+    .badge-warning { background: #3f2f0a; color: #fbbf24; }
+    .badge-info { background: #0f2a3f; color: #38bdf8; }
+    .badge-active { background: #0f2a1f; color: #4ade80; }
+    .badge-draft { background: #2d3748; color: #94a3b8; }
+
+    form { display: flex; flex-direction: column; gap: 1rem; }
+    label { font-size: 0.875rem; color: #94a3b8; display: flex; flex-direction: column; gap: 0.35rem; }
+    input, select, textarea { background: #0f1117; border: 1px solid #2d3748; color: #e2e8f0; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem; font-family: inherit; width: 100%; }
+    textarea { resize: vertical; min-height: 80px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #60a5fa; }
+    button, .btn { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.25rem; font-size: 0.875rem; cursor: pointer; font-weight: 500; }
+    button:hover, .btn:hover { background: #1d4ed8; }
+    .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; }
+    .btn-ghost { background: transparent; border: 1px solid #2d3748; color: #94a3b8; }
+    .btn-ghost:hover { background: #1a1f2e; color: #e2e8f0; }
+    .btn-success { background: #16a34a; }
+    .btn-success:hover { background: #15803d; }
+
+    code { font-family: 'Fira Code', monospace; font-size: 0.8rem; background: #0f1117; border: 1px solid #2d3748; border-radius: 4px; padding: 0.1rem 0.35rem; }
+    pre { background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; font-family: 'Fira Code', monospace; }
+
+    .section { margin-bottom: 2rem; }
+    .empty { color: #4a5568; font-size: 0.875rem; padding: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="brand">Code<span>KG</span></span>
+    <a href="/">Dashboard</a>
+    <a href="/policies">Policies</a>
+    <a href="/modules">Modules</a>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

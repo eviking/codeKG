@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+repos/
+neo4j_data/
+neo4j_logs/
+*.log
+.DS_Store

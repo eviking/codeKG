@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Modules{% endblock %}
+{% block content %}
+<h1>Logical Modules</h1>
+
+<div class="section grid grid-2">
+
+  <div>
+    <h2>Defined Modules</h2>
+    <div class="card">
+      {% if modules %}
+      <table>
+        <thead><tr><th>Module</th><th>Description</th><th>Packages</th></tr></thead>
+        <tbody>
+          {% for m in modules %}
+          <tr>
+            <td><code>{{ m.module_id }}</code></td>
+            <td style="color:#94a3b8">{{ m.description or '—' }}</td>
+            <td style="font-size:0.75rem;color:#64748b">{{ m.packages | join(', ') or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No modules defined yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <h2>Define a Module</h2>
+    <div class="card">
+      <form method="post" action="/modules">
+        <label>Module ID
+          <input name="module_id" required placeholder="e.g. payment">
+        </label>
+        <label>Description
+          <input name="description" placeholder="e.g. Handles all payment processing flows">
+        </label>
+        <label>Packages (comma-separated FQNs)
+          <textarea name="packages" placeholder="e.g. com.example.payment, com.example.payment.gateway"></textarea>
+        </label>
+        <button type="submit">Create Module</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

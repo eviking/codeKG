@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Policies{% endblock %}
+{% block content %}
+<h1>Architectural Policies</h1>
+
+<div class="section grid grid-2">
+
+  <div>
+    <h2>Existing Policies</h2>
+    <div class="card">
+      {% if policies %}
+      <table>
+        <thead><tr><th>Title</th><th>Severity</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for p in policies %}
+          {% set pol = p.ap if p.ap is defined else p %}
+          <tr>
+            <td><a href="/policies/{{ pol.policy_id }}">{{ pol.title }}</a></td>
+            <td><span class="badge badge-{{ pol.severity }}">{{ pol.severity }}</span></td>
+            <td><span class="badge badge-{{ pol.status }}">{{ pol.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No policies yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <h2>New Policy</h2>
+    <div class="card">
+      <form method="post" action="/policies">
+        <label>Title
+          <input name="title" required placeholder="e.g. Payment module must not call User module directly">
+        </label>
+        <label>Natural Language Statement
+          <textarea name="natural_language" required placeholder="e.g. Services in the payment module must not directly call the user module"></textarea>
+        </label>
+        <label>Severity
+          <select name="severity">
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+            <option value="info">Info</option>
+          </select>
+        </label>
+        <label>Target Modules (comma-separated)
+          <input name="module_targets" placeholder="e.g. payment, checkout">
+        </label>
+        <button type="submit">Compile &amp; Save as Draft</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

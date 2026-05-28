@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="section grid grid-3">
+  <div class="card stat">
+    <div class="value">{{ stats.get('classes', 0) }}</div>
+    <div class="label">Classes</div>
+  </div>
+  <div class="card stat">
+    <div class="value">{{ stats.get('methods', 0) }}</div>
+    <div class="label">Methods</div>
+  </div>
+  <div class="card stat">
+    <div class="value">{{ stats.get('packages', 0) }}</div>
+    <div class="label">Packages</div>
+  </div>
+</div>
+
+<div class="section grid grid-2">
+
+  <div>
+    <h2>Repositories</h2>
+    <div class="card">
+      {% if repos %}
+      <table>
+        <thead><tr><th>Repo</th><th>Last Indexed Commit</th></tr></thead>
+        <tbody>
+          {% for r in repos %}
+          <tr>
+            <td><code>{{ r.repo_id }}</code></td>
+            <td><code>{{ (r.last_commit or 'not yet indexed')[:12] }}</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No repositories indexed yet.<br>Mount a repo under <code>/repos</code> and the watcher will pick it up.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <h2>Active Policies</h2>
+    <div class="card">
+      {% if policies %}
+      <table>
+        <thead><tr><th>Policy</th><th>Severity</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for p in policies %}
+          {% set pol = p.ap if p.ap is defined else p %}
+          <tr>
+            <td><a href="/policies/{{ pol.policy_id }}">{{ pol.title }}</a></td>
+            <td><span class="badge badge-{{ pol.severity }}">{{ pol.severity }}</span></td>
+            <td><span class="badge badge-{{ pol.status }}">{{ pol.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No policies defined yet. <a href="/policies">Create one →</a></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div class="section">
+  <h2>Recent Error Violations</h2>
+  <div class="card">
+    {% if violations %}
+    <table>
+      <thead><tr><th>Violator</th><th>File</th><th>Policy</th></tr></thead>
+      <tbody>
+        {% for v in violations %}
+        <tr>
+          <td><code>{{ v.violator }}</code></td>
+          <td><code style="color:#64748b">{{ (v.file_path or '').split('/')[-1] }}</code></td>
+          <td><a href="/policies/{{ v.policy_id }}">{{ v.policy_title }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No error-level violations. All clear.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

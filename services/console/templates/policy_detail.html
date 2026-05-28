@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Policy: {{ policy.title }}{% endblock %}
+{% block content %}
+<h1>{{ policy.title }}</h1>
+
+<div class="section grid grid-2">
+  <div class="card">
+    <h2>Details</h2>
+    <table>
+      <tr><th>ID</th><td><code>{{ policy.policy_id }}</code></td></tr>
+      <tr><th>Status</th><td><span class="badge badge-{{ policy.status }}">{{ policy.status }}</span></td></tr>
+      <tr><th>Severity</th><td><span class="badge badge-{{ policy.severity }}">{{ policy.severity }}</span></td></tr>
+      <tr><th>Natural Language</th><td style="color:#94a3b8">{{ policy.natural_language }}</td></tr>
+    </table>
+    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+      {% if policy.status == 'draft' %}
+      <form method="post" action="/policies/{{ policy.policy_id }}/activate">
+        <button class="btn-success">Activate Policy</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/policies/{{ policy.policy_id }}/run">
+        <button class="btn-ghost">Run Constraint Now</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Compiled Cypher Constraint</h2>
+    <pre>{{ policy.cypher_constraint }}</pre>
+    <p style="font-size:0.75rem;color:#4a5568;margin-top:0.75rem">
+      This query is executed against the knowledge graph to find violations.
+      Edit directly in Neo4j if the auto-compiled version needs adjustment.
+    </p>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Violations ({{ violations | length }})</h2>
+  <div class="card">
+    {% if violations %}
+    <table>
+      <thead><tr><th>Class / Method</th><th>File</th></tr></thead>
+      <tbody>
+        {% for v in violations %}
+        <tr>
+          <td><code>{{ v.fqn }}</code></td>
+          <td><code style="color:#64748b">{{ v.file_path or '—' }}</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No violations found for this policy.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
