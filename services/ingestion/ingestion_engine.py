@@ -9,6 +9,10 @@ from pathlib import Path
 import git
 
 from parser.java_parser import JavaParser
+from parser.api_extractor import ApiExtractor
+from parser.concurrency_extractor import ConcurrencyExtractor
+from parser.build_extractor import BuildExtractor
+from parser.repo_structure import extract_project_identity, extract_repo_map
 from kg.writer import KGWriter
 
 log = logging.getLogger(__name__)
@@ -18,11 +22,16 @@ class IngestionEngine:
 
     def __init__(self, writer: KGWriter):
         self._parser = JavaParser()
+        self._api_extractor = ApiExtractor()
+        self._concurrency_extractor = ConcurrencyExtractor()
+        self._build_extractor = BuildExtractor()
         self._writer = writer
 
     def full_scan(self, repo_path: str, repo_id: str):
         """
         Walk every .java file in the repo and upsert into the KG.
+        Also extracts project identity, repo map, build info, API surface,
+        and concurrency model.
         Intended for initial onboarding of a repository.
         """
         path = Path(repo_path)
@@ -32,18 +41,47 @@ class IngestionEngine:
         # Register the repository node
         repo = git.Repo(repo_path)
         last_commit = repo.head.commit.hexsha if not repo.head.is_detached else None
+
+        # §1 Project identity + §9 build info
+        identity = extract_project_identity(repo_path)
+        build_info, test_categories = self._build_extractor.extract(repo_path)
         self._writer.upsert_repository(
             repo_id=repo_id,
-            name=path.name,
+            name=identity.name or path.name,
             path=str(path),
+            java_version=identity.java_version or build_info.java_version,
+            build_tool=build_info.build_tool,
+            description=identity.description,
+            test_framework=build_info.test_framework,
+            build_commands=build_info.build_commands,
+            key_dependencies=build_info.key_dependencies,
         )
+        self._writer.upsert_test_categories(repo_id, test_categories)
 
+        # §2 Repository map
+        dir_entries = extract_repo_map(repo_path)
+        self._writer.upsert_directory_entries(repo_id, dir_entries)
+
+        # Per-file pass
         for i, java_file in enumerate(java_files):
             try:
+                # §6 Structural facts (classes, methods, fields, relationships)
                 parsed = self._parser.parse_file(java_file, repo_id)
                 self._writer.upsert_parsed_file(parsed)
+
+                # §7 API surface
+                endpoints = self._api_extractor.extract_file(java_file, repo_id)
+                if endpoints:
+                    self._writer.upsert_api_endpoints(repo_id, endpoints)
+
+                # §8 Concurrency model
+                pools, asyncs, facts = self._concurrency_extractor.extract_file(java_file)
+                if pools or asyncs or facts:
+                    self._writer.upsert_concurrency_facts(repo_id, pools, asyncs, facts)
+
             except Exception as exc:
                 log.warning("Failed to parse %s: %s", java_file, exc)
+
             if (i + 1) % 100 == 0:
                 log.info("  ... processed %d / %d files", i + 1, len(java_files))
 

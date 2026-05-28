@@ -127,6 +127,23 @@ async def list_tools() -> list[Tool]:
                 "required": [],
             },
         ),
+        Tool(
+            name="get_codebase_template",
+            description=(
+                "Get the full Codebase Intelligence Template for a repository as Markdown. "
+                "This is the primary tool to call at the start of a session — it returns a "
+                "pre-computed document covering repo structure, data models, API surface, "
+                "concurrency model, build commands, architectural policies, and known violations. "
+                "Eliminates the need for the LLM to analyze the codebase from scratch."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_id": {"type": "string", "description": "Repository ID, e.g. 'org/my-service'"},
+                },
+                "required": ["repo_id"],
+            },
+        ),
     ]
 
 
@@ -155,6 +172,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
         elif name == "get_repo_summary":
             data = _get("/repos")
+
+        elif name == "get_codebase_template":
+            resp = http.get(f"/template/{arguments['repo_id']}")
+            resp.raise_for_status()
+            return [TextContent(type="text", text=resp.text)]
 
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]

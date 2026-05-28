@@ -6,6 +6,7 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from neo4j import GraphDatabase
 
 app = FastAPI(title="CodeKG Query API", version="0.1.0")
@@ -234,3 +235,24 @@ def search_class(q: str, repo_id: Optional[str] = None):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ------------------------------------------------------------------
+# Codebase Intelligence Template renderer
+# ------------------------------------------------------------------
+
+@app.get("/template/{repo_id:path}", response_class=PlainTextResponse)
+def get_template(repo_id: str):
+    """
+    Render a filled-out Codebase Intelligence Template for the given repo.
+    Returns Markdown — designed to be injected as LLM session context or
+    saved as a living document alongside the codebase.
+    """
+    from renderers.template_renderer import render_template
+    rows = run_query(
+        "MATCH (r:Repository {repo_id: $rid}) RETURN r.repo_id AS repo_id",
+        rid=repo_id,
+    )
+    if not rows:
+        raise HTTPException(404, f"Repo {repo_id} not found")
+    return render_template(driver, repo_id)
