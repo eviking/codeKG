@@ -128,6 +128,25 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="get_change_impact",
+            description=(
+                "Compute the blast radius of a set of changed files. "
+                "Returns: directly affected classes, classes that call into them, "
+                "transitive import dependents, affected logical modules, exposed API endpoints, "
+                "relevant architectural policies, suggested test classes, and a risk score (0–1). "
+                "Call this when reviewing a PR or before committing changes to understand what else might break."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_id": {"type": "string", "description": "Repository ID, e.g. 'org/my-service'"},
+                    "files": {"type": "string", "description": "Comma-separated file paths that changed"},
+                    "commit_sha": {"type": "string", "description": "Optional: commit SHA for provenance"},
+                },
+                "required": ["repo_id", "files"],
+            },
+        ),
+        Tool(
             name="get_codebase_template",
             description=(
                 "Get the full Codebase Intelligence Template for a repository as Markdown. "
@@ -172,6 +191,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
         elif name == "get_repo_summary":
             data = _get("/repos")
+
+        elif name == "get_change_impact":
+            data = _get(
+                "/impact/files",
+                files=arguments["files"],
+                repo_id=arguments["repo_id"],
+                commit_sha=arguments.get("commit_sha"),
+            )
 
         elif name == "get_codebase_template":
             resp = http.get(f"/template/{arguments['repo_id']}")

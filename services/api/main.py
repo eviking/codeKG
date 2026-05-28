@@ -238,6 +238,111 @@ def health():
 
 
 # ------------------------------------------------------------------
+# Change Impact Engine
+# ------------------------------------------------------------------
+
+@app.get("/impact/files")
+def impact_files(
+    files: str = Query(..., description="Comma-separated file paths"),
+    repo_id: str = Query(..., description="Repository ID"),
+    commit_sha: Optional[str] = None,
+):
+    """
+    Compute blast radius for a set of changed files.
+    Returns: directly affected classes, callers, transitive dependents,
+    affected modules, exposed endpoints, relevant policies, suggested tests,
+    and a heuristic risk score.
+    """
+    from impact.engine import ImpactEngine
+    file_list = [f.strip() for f in files.split(",") if f.strip()]
+    engine = ImpactEngine(driver)
+    report = engine.compute(repo_id=repo_id, changed_files=file_list, commit_sha=commit_sha)
+    return report.to_dict()
+
+
+@app.get("/impact/pr")
+def impact_pr(
+    files: str = Query(..., description="Comma-separated file paths changed in the PR"),
+    repo_id: str = Query(..., description="Repository ID"),
+    commit_sha: Optional[str] = None,
+):
+    """
+    CI/CD-friendly endpoint: given files changed in a PR, return the full
+    impact report. Identical to /impact/files but named for PR context.
+    """
+    return impact_files(files=files, repo_id=repo_id, commit_sha=commit_sha)
+
+
+@app.get("/impact/commit")
+def impact_commit(
+    repo_id: str,
+    from_sha: str = Query(..., description="Base commit SHA"),
+    to_sha: str = Query(..., description="Head commit SHA"),
+):
+    """
+    Compute impact for all files changed between two commits.
+    Requires the repo to be accessible at the path stored in the KG.
+    """
+    import git
+    from impact.engine import ImpactEngine
+
+    rows = run_query(
+        "MATCH (r:Repository {repo_id: $rid}) RETURN r.path AS path",
+        rid=repo_id,
+    )
+    if not rows or not rows[0].get("path"):
+        raise HTTPException(404, f"Repo {repo_id} not found or has no path")
+
+    try:
+        repo = git.Repo(rows[0]["path"])
+        diff = repo.commit(from_sha).diff(to_sha)
+        changed_files = []
+        for d in diff:
+            p = d.b_path or d.a_path
+            if p:
+                changed_files.append(str(rows[0]["path"]) + "/" + p)
+    except Exception as exc:
+        raise HTTPException(400, f"Could not compute diff: {exc}")
+
+    engine = ImpactEngine(driver)
+    report = engine.compute(repo_id=repo_id, changed_files=changed_files, commit_sha=to_sha)
+    return report.to_dict()
+
+
+# ------------------------------------------------------------------
+# Freshness / provenance endpoint
+# ------------------------------------------------------------------
+
+@app.get("/provenance/{repo_id:path}")
+def repo_provenance(repo_id: str):
+    """Return provenance summary: how fresh is the KG for this repo?"""
+    rows = run_query(
+        """
+        MATCH (r:Repository {repo_id: $rid})
+        RETURN r.last_commit AS last_commit,
+               r.prov_freshness_ts AS freshness_ts,
+               r.prov_commit_sha AS prov_commit_sha
+        """,
+        rid=repo_id,
+    )
+    if not rows:
+        raise HTTPException(404, f"Repo {repo_id} not found")
+    stale_nodes = run_query(
+        """
+        MATCH (c:Class {repo_id: $rid})
+        WHERE c.prov_commit_sha <> $commit OR c.prov_commit_sha IS NULL
+        RETURN count(c) AS stale_count
+        """,
+        rid=repo_id,
+        commit=rows[0].get("last_commit", ""),
+    )
+    return {
+        **rows[0],
+        "stale_node_count": stale_nodes[0]["stale_count"] if stale_nodes else 0,
+    }
+
+
+# ------------------------------------------------------------------
 # Codebase Intelligence Template renderer
 # ------------------------------------------------------------------
 

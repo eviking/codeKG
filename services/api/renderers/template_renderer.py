@@ -28,6 +28,7 @@ def render_template(driver: Driver, repo_id: str) -> str:
     sections.append(_section_7_api_surface(driver, repo_id))
     sections.append(_section_8_concurrency(driver, repo_id))
     sections.append(_section_9_build(driver, repo_id))
+    sections.append(_section_9b_freshness(driver, repo_id))
     sections.append(_section_10_working_style())
     sections.append(_section_11_known_issues(driver, repo_id))
     sections.append(_section_12_pitfalls())
@@ -416,6 +417,36 @@ def _section_9_build(driver: Driver, repo_id: str) -> str:
                 ex = c["examples"][:2]
                 lines.append(f"  Examples: {', '.join('`' + e.split('.')[-1] + '`' for e in ex)}")
 
+    return "\n".join(lines)
+
+
+def _section_9b_freshness(driver: Driver, repo_id: str) -> str:
+    rows = _q(driver,
+        """
+        MATCH (r:Repository {repo_id: $rid})
+        RETURN r.last_commit AS last_commit,
+               r.prov_freshness_ts AS freshness_ts,
+               r.prov_commit_sha AS prov_commit,
+               r.prov_confidence AS confidence,
+               r.prov_source_tool AS source_tool
+        """,
+        rid=repo_id)
+    if not rows:
+        return ""
+    r = rows[0]
+
+    lines = ["## 9b. Knowledge Graph Provenance  [AUTO]", ""]
+    lines += [
+        f"| Field | Value |",
+        f"|-------|-------|",
+        f"| Last indexed commit | `{r.get('last_commit', 'unknown')}` |",
+        f"| Index freshness | {r.get('freshness_ts', 'unknown')} |",
+        f"| Indexing tool | {r.get('source_tool', 'tree-sitter-java')} |",
+        f"| Confidence | {r.get('confidence', 0.85):.0%} |",
+        "",
+        "> Stale nodes (written at an earlier commit) can be identified via `GET /provenance/{repo_id}`.",
+        "> The watcher service re-indexes on every new commit automatically.",
+    ]
     return "\n".join(lines)
 
 

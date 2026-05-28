@@ -9,6 +9,7 @@ from pathlib import Path
 import git
 
 from parser.java_parser import JavaParser
+from parser.scip_emitter import SCIPEmitter
 from parser.api_extractor import ApiExtractor
 from parser.concurrency_extractor import ConcurrencyExtractor
 from parser.build_extractor import BuildExtractor
@@ -22,6 +23,7 @@ class IngestionEngine:
 
     def __init__(self, writer: KGWriter):
         self._parser = JavaParser()
+        self._scip = SCIPEmitter()
         self._api_extractor = ApiExtractor()
         self._concurrency_extractor = ConcurrencyExtractor()
         self._build_extractor = BuildExtractor()
@@ -41,6 +43,7 @@ class IngestionEngine:
         # Register the repository node
         repo = git.Repo(repo_path)
         last_commit = repo.head.commit.hexsha if not repo.head.is_detached else None
+        self._writer.current_commit = last_commit or "unknown"
 
         # §1 Project identity + §9 build info
         identity = extract_project_identity(repo_path)
@@ -65,9 +68,12 @@ class IngestionEngine:
         # Per-file pass
         for i, java_file in enumerate(java_files):
             try:
-                # §6 Structural facts (classes, methods, fields, relationships)
+                # §6 Structural facts — parse then emit via SCIP interchange
                 parsed = self._parser.parse_file(java_file, repo_id)
                 self._writer.upsert_parsed_file(parsed)
+                # Also write SCIP document (language-agnostic path)
+                scip_doc = self._scip.emit(parsed)
+                self._writer.upsert_scip_document(scip_doc)
 
                 # §7 API surface
                 endpoints = self._api_extractor.extract_file(java_file, repo_id)
@@ -96,6 +102,7 @@ class IngestionEngine:
         Deletes removed files, upserts modified/added files.
         """
         repo = git.Repo(repo_path)
+        self._writer.current_commit = to_commit
         diff = repo.commit(from_commit).diff(to_commit)
         log.info(
             "Incremental update %s: %s..%s (%d diffs)",

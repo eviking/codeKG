@@ -34,6 +34,61 @@ class EdgeType(str, Enum):
     TARGETS = "TARGETS"             # ArchPolicy→Module
     VIOLATES = "VIOLATES"           # Class/Method→ArchPolicy
     COMPLIES = "COMPLIES"           # Class/Method→ArchPolicy
+    EXPOSES = "EXPOSES"             # Class→ApiEndpoint
+
+
+class ConfidenceTier(str, Enum):
+    """
+    Confidence tiers tied to the source of a fact.
+    HIGH  — from a compiler/language-server (JDT LS, clangd, tsc)
+    MEDIUM — from Tree-sitter AST pattern matching
+    LOW   — inferred heuristically (name patterns, directory structure)
+    """
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class SourceTool(str, Enum):
+    TREE_SITTER_JAVA = "tree-sitter-java"
+    JDT_LS = "jdt-ls"
+    MAVEN = "maven"
+    GRADLE = "gradle"
+    REPO_STRUCTURE = "repo-structure"
+    BUILD_EXTRACTOR = "build-extractor"
+    API_EXTRACTOR = "api-extractor"
+    CONCURRENCY_EXTRACTOR = "concurrency-extractor"
+    HUMAN = "human"
+
+
+@dataclass
+class Provenance:
+    """
+    Attached to every KG node so staleness and confidence are always queryable.
+    commit_sha  — the repo commit at which this fact was extracted
+    freshness_ts — ISO-8601 UTC timestamp of last extraction
+    confidence  — 0.0–1.0 numeric score; maps to ConfidenceTier thresholds
+    source_tool — which extractor produced this fact
+    """
+    commit_sha: str
+    freshness_ts: str           # ISO-8601 UTC, e.g. "2026-05-28T14:32:00Z"
+    confidence: float = 1.0     # 0.0–1.0
+    source_tool: str = SourceTool.TREE_SITTER_JAVA
+
+    def tier(self) -> ConfidenceTier:
+        if self.confidence >= 0.9:
+            return ConfidenceTier.HIGH
+        if self.confidence >= 0.7:
+            return ConfidenceTier.MEDIUM
+        return ConfidenceTier.LOW
+
+    def to_dict(self) -> dict:
+        return {
+            "commit_sha": self.commit_sha,
+            "freshness_ts": self.freshness_ts,
+            "confidence": self.confidence,
+            "source_tool": self.source_tool,
+        }
 
 
 @dataclass
