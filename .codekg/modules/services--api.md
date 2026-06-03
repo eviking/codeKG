@@ -1,8 +1,8 @@
 # Module: services/api
-_Generated 2026-06-03 19:51 UTC_
+_Generated 2026-06-03 20:01 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  
-**Classes:** 20
+**Classes:** 22
 
 ## All classes
 
@@ -30,8 +30,10 @@ _Full list sorted by blast radius (impact if changed). Grade A=clean, F=needs at
 | `TestViolations` | class | B | 0 | 4 | TestViolations is a class designed to validate and verify violations within code repositories. The method `test_list_vio |
 | `_AnswerRequest` | class | C | 0 | 0 | _AnswerRequest is a class that handles user requests by parsing them into structured data using the `parse_request` meth |
 | `_Entry` | class | B | 0 | 2 | _Entries are recorded using the `record` method, which accepts a generic `response` object and a string `error`. The `re |
+| `_PublishRequest` | class | C | 0 | 0 | _PublishRequest is a class that encapsulates the details required to publish content or data to a specified destination. |
+| `_RegenRequest` | class | C | 0 | 0 | _The `_RegenRequest` class is designed to encapsulate the parameters necessary for regenerating a request. It includes a |
 
 ## Dependency map
 
 **This module imports from:**
-- `shared/logging/codekg_logger.py` (2 imports)
+- `shared/logging/codekg_logger.py` (4 imports)
