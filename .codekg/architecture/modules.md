@@ -1,5 +1,5 @@
 # Module Map — codeKG
-_Generated 2026-06-03 19:47 UTC_
+_Generated 2026-06-03 20:01 UTC_
 
 This repository contains **5 logical modules**.
 Read individual `modules/<name>.md` files for full class detail.
@@ -16,8 +16,8 @@ Read individual `modules/<name>.md` files for full class detail.
 
 → Full detail: `.codekg/modules/services/console.md`
 
-### `services/api` — services/api ⚠ 2 hotspot(s)
-**Path:** `/host-home/Documents/projects/codeKG/services/api` | **Classes:** 20 | **Max blast:** 0 | **Avg blast:** 0
+### `services/api` — services/api ⚠ 4 hotspot(s)
+**Path:** `/host-home/Documents/projects/codeKG/services/api` | **Classes:** 22 | **Max blast:** 0 | **Avg blast:** 0
 
 → Full detail: `.codekg/modules/services/api.md`
 

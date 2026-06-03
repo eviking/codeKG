@@ -1,5 +1,5 @@
 # Key Dependencies — codeKG
-_Generated 2026-06-03 19:47 UTC_
+_Generated 2026-06-03 20:01 UTC_
 
 ## Cross-module dependencies
 Sorted by number of import edges. High counts = tight coupling.

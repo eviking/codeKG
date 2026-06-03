@@ -1,5 +1,5 @@
 # Insights Index — codeKG
-_Generated 2026-06-03 19:47 UTC_
+_Generated 2026-06-03 20:01 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 Read the module-specific file for details.
