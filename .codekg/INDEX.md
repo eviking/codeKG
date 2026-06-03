@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-03 20:01 UTC · kept current by git commit triggers_
+_Generated 2026-06-03 20:10 UTC · kept current by git commit triggers_
 
 ## How to use this index
 These files are **always current** — regenerated automatically on every git commit.
@@ -37,17 +37,11 @@ Read the files relevant to your task **before writing any code**.
 
 ### architecture/
 - `dependencies.md` — Cross-module dependencies and high blast-radius classes
-- `hotspots.md` — High blast-radius, low hygiene classes to approach carefully
 - `modules.md` — Module map with class counts and summaries
 - `patterns.md` — Detected design patterns and anti-patterns
 
 ### insights/
 - `index.md` — Index of all captured insights by area
-- `services--api.md` — Captured insights for module `services/api`
-- `services--console.md` — Captured insights for module `services/console`
-- `services--ingestion.md` — Captured insights for module `services/ingestion`
-- `services--mcp.md` — Captured insights for module `services/mcp`
-- `services--watcher.md` — Captured insights for module `services/watcher`
 
 ### modules/
 - `services--api.md` — Classes and structure for module `services/api`
@@ -55,10 +49,6 @@ Read the files relevant to your task **before writing any code**.
 - `services--ingestion.md` — Classes and structure for module `services/ingestion`
 - `services--mcp.md` — Classes and structure for module `services/mcp`
 - `services--watcher.md` — Classes and structure for module `services/watcher`
-
-### policies/
-- `active.md` — Active architectural policies — read before making changes
-- `violations.md` — Current policy violations by class
 
 ## Modules in this repo
 - `services/api` — services/api
