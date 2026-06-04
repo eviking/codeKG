@@ -1,5 +1,5 @@
 # Module: services/ingestion
-_Generated 2026-06-04 16:17 UTC_
+_Generated 2026-06-04 16:22 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
