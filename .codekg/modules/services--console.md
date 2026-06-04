@@ -1,5 +1,5 @@
 # Module: services/console
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
 
@@ -8,6 +8,31 @@ _Generated 2026-06-04 16:45 UTC_
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 1 import(s)
+
+## Data stores
+
+_Detected from source file imports and connection patterns:_
+
+- **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/store.py`
+- **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `llm_audit.py`
+  - `nl_query.py`
+  - `routes/audit_log.py`
+  - `routes/system_health.py`
+- **mcp_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `main.py`
+  - `routes/dashboard.py`
+  - `routes/mcp_audit.py`
+- **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
+  - `deps.py`
+  - `nl_query.py`
+  - `pattern_detector.py`
+  - `routes/system_health.py`
+  - `tests/test_console.py`
+- **scan_log.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `routes/system_health.py`
+  - `scan_launcher.py`
 
 ## ⚡ Insights from previous sessions
 

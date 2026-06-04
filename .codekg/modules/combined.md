@@ -1,11 +1,11 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-04 16:45 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-04 17:06 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
 
@@ -14,6 +14,32 @@ _Generated 2026-06-04 16:45 UTC_
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 4 import(s)
+
+## Data stores
+
+_Detected from source file imports and connection patterns:_
+
+- **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `agent_index/store.py`
+- **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `llm_audit.py`
+  - `nl_query.py`
+- **mcp_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+- **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `impact/engine.py`
+  - `main.py`
+  - `nl_query.py`
+  - `renderers/template_renderer.py`
+  - `tests/test_api.py`
+- **scan_log.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+- **telemetry.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `main.py`
 
 ## ⚡ Insights from previous sessions
 
@@ -269,7 +295,7 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
 
@@ -278,6 +304,31 @@ _Generated 2026-06-04 16:45 UTC_
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 1 import(s)
+
+## Data stores
+
+_Detected from source file imports and connection patterns:_
+
+- **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/store.py`
+- **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `llm_audit.py`
+  - `nl_query.py`
+  - `routes/audit_log.py`
+  - `routes/system_health.py`
+- **mcp_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `main.py`
+  - `routes/dashboard.py`
+  - `routes/mcp_audit.py`
+- **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
+  - `deps.py`
+  - `nl_query.py`
+  - `pattern_detector.py`
+  - `routes/system_health.py`
+  - `tests/test_console.py`
+- **scan_log.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `routes/system_health.py`
+  - `scan_launcher.py`
 
 ## ⚡ Insights from previous sessions
 
@@ -604,7 +655,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -613,6 +664,19 @@ _Generated 2026-06-04 16:45 UTC_
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 3 import(s)
+
+## Data stores
+
+_Detected from source file imports and connection patterns:_
+
+- **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
+  - `kg/call_chain.py`
+  - `kg/enrichment.py`
+  - `kg/hygiene.py`
+  - `kg/object_model.py`
+  - `kg/writer.py`
+  - `pattern_detector.py`
+  - `policy_scanner.py`
 
 ## ⚡ Insights from previous sessions
 
@@ -931,7 +995,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -948,7 +1012,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

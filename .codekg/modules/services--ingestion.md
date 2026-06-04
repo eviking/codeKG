@@ -1,5 +1,5 @@
 # Module: services/ingestion
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -8,6 +8,19 @@ _Generated 2026-06-04 16:45 UTC_
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 3 import(s)
+
+## Data stores
+
+_Detected from source file imports and connection patterns:_
+
+- **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
+  - `kg/call_chain.py`
+  - `kg/enrichment.py`
+  - `kg/hygiene.py`
+  - `kg/object_model.py`
+  - `kg/writer.py`
+  - `pattern_detector.py`
+  - `policy_scanner.py`
 
 ## ⚡ Insights from previous sessions
 

@@ -1,5 +1,5 @@
 # Module: services/api
-_Generated 2026-06-04 16:45 UTC_
+_Generated 2026-06-04 17:06 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
 
@@ -8,6 +8,32 @@ _Generated 2026-06-04 16:45 UTC_
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 4 import(s)
+
+## Data stores
+
+_Detected from source file imports and connection patterns:_
+
+- **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `agent_index/store.py`
+- **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `llm_audit.py`
+  - `nl_query.py`
+- **mcp_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+- **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `impact/engine.py`
+  - `main.py`
+  - `nl_query.py`
+  - `renderers/template_renderer.py`
+  - `tests/test_api.py`
+- **scan_log.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+- **telemetry.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
+  - `agent_index/generator.py`
+  - `main.py`
 
 ## ⚡ Insights from previous sessions
 
