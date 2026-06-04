@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 15:47 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 16:17 UTC · kept current by git commit triggers_
 
 ## How to use this index
 These files are **always current** — regenerated automatically on every git commit.
@@ -36,20 +36,20 @@ Read the files relevant to your task **before writing any code**.
 - `INDEX.md` — Master navigation file — read first
 
 ### architecture/
-- `dependencies.md` — Cross-module dependencies and high blast-radius classes
-- `modules.md` — Module map with class counts and summaries
-- `patterns.md` — Detected design patterns and anti-patterns
-- `schema.md` — Neo4j graph schema — node labels, properties, relationships, query patterns
+- `dependencies.md` ⚠ stale — Cross-module dependencies and high blast-radius classes
+- `modules.md` ⚠ stale — Module map with class counts and summaries
+- `patterns.md` ⚠ stale — Detected design patterns and anti-patterns
+- `schema.md` ⚠ stale — Neo4j graph schema — node labels, properties, relationships, query patterns
 
 ### insights/
-- `index.md` — Index of all captured insights by area
+- `index.md` ⚠ stale — Index of all captured insights by area
 
 ### modules/
-- `combined.md` — All modules inlined — used when total repo LOC < 2,500
-- `services--api.md` — Classes and structure for module `services/api`
-- `services--console.md` — Classes and structure for module `services/console`
-- `services--ingestion.md` — Classes and structure for module `services/ingestion`
-- `services--watcher.md` — Classes and structure for module `services/watcher`
+- `combined.md` ⚠ stale — All modules inlined — used when total repo LOC < 2,500
+- `services--api.md` ⚠ stale — Classes and structure for module `services/api`
+- `services--console.md` ⚠ stale — Classes and structure for module `services/console`
+- `services--ingestion.md` ⚠ stale — Classes and structure for module `services/ingestion`
+- `services--watcher.md` ⚠ stale — Classes and structure for module `services/watcher`
 
 ## Modules in this repo
 - `services/api` — services/api

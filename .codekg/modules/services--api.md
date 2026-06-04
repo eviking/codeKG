@@ -1,5 +1,5 @@
 # Module: services/api
-_Generated 2026-06-04 15:47 UTC_
+_Generated 2026-06-04 16:17 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
 
@@ -11,18 +11,19 @@ _Generated 2026-06-04 15:47 UTC_
 
 ImpactEngine computes impact reports for code changes by executing Cypher queries on a graph database. It accepts a repository ID, a list of changed files, and an optional commit SHA as inputs. The method returns an ImpactReport object that details the effects of the specified changes within the repository's graph structure.
 
-**Methods:**
-- `public compute(str repo_id, list[str] changed_files, Optional[str] commit_sha) → ImpactReport`
-- `protected _exposed_endpoints(list[str] direct_fqns) → list[ImpactedEndpoint]`
-- `protected _affected_modules(list[str] all_fqns) → list[str]`
-- `protected _run(str cypher) → list[dict]`
-- `protected _relevant_policies(list[str] modules) → list[ImpactedPolicy]`
-- `protected _transitive_dependents(list[str] direct_fqns) → list[ImpactedNode]`
-- `protected _directly_affected(str repo_id, list[str] files) → list[ImpactedNode]`
-- `protected _suggested_tests(list[str] direct_fqns, list[str] modules) → list[SuggestedTest]`
-- `dunder protected __init__(Driver driver)`
-- `protected _risk_score(ImpactReport report) → float`
-- `protected _callers(list[str] direct_fqns) → list[ImpactedNode]`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public compute` | `str repo_id`<br>`list[str] changed_files`<br>`Optional[str] commit_sha` | `ImpactReport` |  |
+| `protected _exposed_endpoints` | `list[str] direct_fqns` | `list[ImpactedEndpoint]` |  |
+| `protected _affected_modules` | `list[str] all_fqns` | `list[str]` |  |
+| `protected _run` | `str cypher` | `list[dict]` |  |
+| `protected _relevant_policies` | `list[str] modules` | `list[ImpactedPolicy]` |  |
+| `protected _transitive_dependents` | `list[str] direct_fqns` | `list[ImpactedNode]` |  |
+| `protected _directly_affected` | `str repo_id`<br>`list[str] files` | `list[ImpactedNode]` |  |
+| `protected _suggested_tests` | `list[str] direct_fqns`<br>`list[str] modules` | `list[SuggestedTest]` |  |
+| `dunder protected __init__` | `Driver driver` | — |  |
+| `protected _risk_score` | `ImpactReport report` | `float` |  |
+| `protected _callers` | `list[str] direct_fqns` | `list[ImpactedNode]` |  |
 
 ### `ImpactReport` — class
 **File:** `services/api/impact/engine.py`  **LOC:** 39  **Grade:** B  **Blast:** 0
@@ -30,8 +31,9 @@ ImpactEngine computes impact reports for code changes by executing Cypher querie
 
 ImpactReport is a class that includes a method named `to_dict()`. This method converts an instance of ImpactReport into a dictionary format, facilitating easy serialization and data interchange between different parts of an application or system. The dictionary representation captures all relevant attributes of the ImpactReport object, making it straightforward to store, transmit, or manipulate th
 
-**Methods:**
-- `public to_dict() → dict`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public to_dict` | — | `dict` |  |
 
 ### `ImpactedEndpoint` — class
 **File:** `services/api/impact/engine.py`  **LOC:** 7  **Grade:** B  **Blast:** 0
@@ -57,8 +59,9 @@ ImpactedPolicy is a class that encapsulates policies related to resource access 
 
 `RequestLogMiddleware` is a middleware component designed to log details of each HTTP request processed by an application. The `dispatch` method accepts a `Request` object containing information about the incoming request and a `call_next` function, which allows the middleware to pass control to the next handler in the chain after logging the request details.
 
-**Methods:**
-- `public dispatch(Request request, call_next)`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public dispatch` | `Request request`<br>`call_next` | — |  |
 
 ### `SuggestedTest` — class
 **File:** `services/api/impact/engine.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
@@ -72,12 +75,13 @@ SuggestedTest is a class that includes methods for setting up test environments 
 
 `TestClassContext` is a class designed to handle various scenarios related to testing class loading and fallback mechanisms. The `test_fuzzy_fallback_also_404` method tests how the system handles fuzzy fallbacks, ensuring that it correctly returns a 404 error when no suitable class is found. The `test_class_found_via_prebuilt_snapshot` method verifies that classes can be successfully loaded from p
 
-**Methods:**
-- `public test_fuzzy_fallback_also_404()`
-- `public test_class_found_via_prebuilt_snapshot()`
-- `public test_live_fallback_path()`
-- `public test_class_not_found_no_ise()`
-- `public test_class_not_found_returns_404()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_fuzzy_fallback_also_404` | — | — |  |
+| `public test_class_found_via_prebuilt_snapshot` | — | — |  |
+| `public test_live_fallback_path` | — | — |  |
+| `public test_class_not_found_no_ise` | — | — |  |
+| `public test_class_not_found_returns_404` | — | — |  |
 
 ### `TestFeatureContext` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 13  **Grade:** B  **Blast:** 0
@@ -85,9 +89,10 @@ SuggestedTest is a class that includes methods for setting up test environments 
 
 The `TestFeatureContext` class includes methods to validate feature behavior. The `test_feature_returns_list()` method checks if a feature correctly returns a list, ensuring that the output is as expected. Conversely, the `test_feature_skips_missing_classes()` method tests whether the feature skips over classes that are not present or valid, maintaining robustness in scenarios where some data migh
 
-**Methods:**
-- `public test_feature_returns_list()`
-- `public test_feature_skips_missing_classes()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_feature_returns_list` | — | — |  |
+| `public test_feature_skips_missing_classes` | — | — |  |
 
 ### `TestImpactFiles` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 44  **Grade:** B  **Blast:** 0
@@ -95,12 +100,13 @@ The `TestFeatureContext` class includes methods to validate feature behavior. Th
 
 TestImpactFiles is a class designed to validate the behavior of methods related to file impact analysis in software development. The `test_impact_files_missing_params` method checks how the system handles scenarios where required parameters for file impact analysis are not provided, ensuring robust error handling. The `test_impact_pr_delegates_to_files` method tests whether pull request (PR) data 
 
-**Methods:**
-- `public test_impact_files_missing_params()`
-- `public test_impact_pr_delegates_to_files()`
-- `public test_impact_files_empty_file_list()`
-- `public test_impact_files_happy_path()`
-- `protected _make_engine_mock()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_impact_files_missing_params` | — | — |  |
+| `public test_impact_pr_delegates_to_files` | — | — |  |
+| `public test_impact_files_empty_file_list` | — | — |  |
+| `public test_impact_files_happy_path` | — | — |  |
+| `protected _make_engine_mock` | — | — |  |
 
 ### `TestModuleContext` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 25  **Grade:** B  **Blast:** 0
@@ -108,10 +114,11 @@ TestImpactFiles is a class designed to validate the behavior of methods related 
 
 TestModuleContext is a class designed to encapsulate the context for testing various scenarios within a module. The `test_no_ise_on_exception` method ensures that no unintended side effects occur when exceptions are thrown during normal operations, maintaining the integrity of the system under test. The `test_happy_path` method validates the expected behavior and outcomes when all inputs are valid
 
-**Methods:**
-- `public test_no_ise_on_exception()`
-- `public test_happy_path()`
-- `public test_empty_module()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_no_ise_on_exception` | — | — |  |
+| `public test_happy_path` | — | — |  |
+| `public test_empty_module` | — | — |  |
 
 ### `TestPatterns` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 30  **Grade:** B  **Blast:** 0
@@ -119,10 +126,11 @@ TestModuleContext is a class designed to encapsulate the context for testing var
 
 TestPatterns is a class designed to validate patterns within packages. The `test_patterns_malformed_top_packages` method checks for malformed patterns at the top level of packages, ensuring they adhere to specific formatting rules. The `test_patterns_with_data` method evaluates patterns that include data elements, verifying their correctness and integration with other components. The `test_pattern
 
-**Methods:**
-- `public test_patterns_malformed_top_packages()`
-- `public test_patterns_with_data()`
-- `public test_patterns_empty()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_patterns_malformed_top_packages` | — | — |  |
+| `public test_patterns_with_data` | — | — |  |
+| `public test_patterns_empty` | — | — |  |
 
 ### `TestPolicies` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 24  **Grade:** B  **Blast:** 0
@@ -130,12 +138,13 @@ TestPatterns is a class designed to validate patterns within packages. The `test
 
 TestPolicies is a class that includes several methods to test different scenarios related to policy management. The method `test_get_policy_not_found` checks if the system correctly handles requests for policies that do not exist, ensuring it returns an appropriate error response without internal server errors. The method `test_list_active_policies` verifies that the system accurately lists only t
 
-**Methods:**
-- `public test_get_policy_not_found()`
-- `public test_list_active_policies()`
-- `public test_list_all_policies()`
-- `public test_get_policy_404_not_500()`
-- `public test_get_policy_found()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_get_policy_not_found` | — | — |  |
+| `public test_list_active_policies` | — | — |  |
+| `public test_list_all_policies` | — | — |  |
+| `public test_get_policy_404_not_500` | — | — |  |
+| `public test_get_policy_found` | — | — |  |
 
 ### `TestProvenance` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 18  **Grade:** B  **Blast:** 0
@@ -143,10 +152,11 @@ TestPolicies is a class that includes several methods to test different scenario
 
 TestProvenance is a class designed to validate the behavior of a system in response to different scenarios related to provenance data. The method `test_provenance_not_found()` checks how the system handles cases where no provenance information is found, ensuring that it responds appropriately without errors. Similarly, `test_provenance_found()` evaluates the system's reaction when valid provenance
 
-**Methods:**
-- `public test_provenance_not_found()`
-- `public test_provenance_found()`
-- `public test_provenance_404_not_500()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_provenance_not_found` | — | — |  |
+| `public test_provenance_found` | — | — |  |
+| `public test_provenance_404_not_500` | — | — |  |
 
 ### `TestRepos` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 28  **Grade:** B  **Blast:** 0
@@ -154,12 +164,13 @@ TestProvenance is a class designed to validate the behavior of a system in respo
 
 TestRepos is a class that includes several methods to test various scenarios related to repository operations. The method `test_get_repo_not_found` checks if the system correctly handles requests for repositories that do not exist, ensuring appropriate responses are returned without throwing exceptions. Similarly, `test_list_repos_empty` verifies how the system behaves when no repositories are ava
 
-**Methods:**
-- `public test_get_repo_not_found()`
-- `public test_list_repos_empty()`
-- `public test_get_repo_found()`
-- `public test_get_repo_not_found_no_ise()`
-- `public test_list_repos_returns_data()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_get_repo_not_found` | — | — |  |
+| `public test_list_repos_empty` | — | — |  |
+| `public test_get_repo_found` | — | — |  |
+| `public test_get_repo_not_found_no_ise` | — | — |  |
+| `public test_list_repos_returns_data` | — | — |  |
 
 ### `TestSearchClass` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 33  **Grade:** B  **Blast:** 0
@@ -167,12 +178,13 @@ TestRepos is a class that includes several methods to test various scenarios rel
 
 TestSearchClass includes several methods to validate the search functionality of a system. The `test_search_missing_q_param` method checks how the system handles requests without a query parameter, ensuring it responds appropriately. The `test_search_empty_result` method tests the scenario where no results are returned for a valid query, verifying that the system correctly indicates an empty resul
 
-**Methods:**
-- `public test_search_missing_q_param()`
-- `public test_search_empty_result()`
-- `public test_search_returns_results()`
-- `public test_search_uses_object_model_when_available()`
-- `public test_search_with_repo_filter()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_search_missing_q_param` | — | — |  |
+| `public test_search_empty_result` | — | — |  |
+| `public test_search_returns_results` | — | — |  |
+| `public test_search_uses_object_model_when_available` | — | — |  |
+| `public test_search_with_repo_filter` | — | — |  |
 
 ### `TestTemplate` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 11  **Grade:** B  **Blast:** 0
@@ -180,9 +192,10 @@ TestSearchClass includes several methods to validate the search functionality of
 
 TestTemplate includes methods `test_template_renders` and `test_template_not_found`. The method `test_template_renders` checks if a template is correctly rendered, ensuring that all placeholders are replaced with appropriate values. Conversely, `test_template_not_found` verifies that the system handles cases where a requested template does not exist gracefully, possibly by returning an error messa
 
-**Methods:**
-- `public test_template_renders()`
-- `public test_template_not_found()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_template_renders` | — | — |  |
+| `public test_template_not_found` | — | — |  |
 
 ### `TestViolations` — class
 **File:** `services/api/tests/test_api.py`  **LOC:** 26  **Grade:** B  **Blast:** 0
@@ -190,11 +203,12 @@ TestTemplate includes methods `test_template_renders` and `test_template_not_fou
 
 TestViolations is a class designed to validate and verify violations within code repositories. The method `test_list_violations_with_filters` checks if the system correctly filters and lists violations based on specified criteria, ensuring that only relevant issues are returned. The method `test_list_violations_empty` tests the behavior of the system when there are no violations present in the rep
 
-**Methods:**
-- `public test_list_violations_with_filters()`
-- `public test_list_violations_empty()`
-- `public test_pr_violations_empty_files()`
-- `public test_pr_violations_returns_matches()`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_list_violations_with_filters` | — | — |  |
+| `public test_list_violations_empty` | — | — |  |
+| `public test_pr_violations_empty_files` | — | — |  |
+| `public test_pr_violations_returns_matches` | — | — |  |
 
 ### `_AnswerRequest` — class
 **File:** `services/api/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
@@ -208,9 +222,10 @@ _AnswerRequest is a class that handles user requests by parsing them into struct
 
 _Entries are recorded using the `record` method, which accepts a generic `response` object and a string `error`. The `record_error` method captures exceptions by accepting an `Exception` object.
 
-**Methods:**
-- `public record_error(Exception exc) → None`
-- `public record(Any response, str error) → None`
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public record_error` | `Exception exc` | `None` |  |
+| `public record` | `Any response`<br>`str error` | `None` |  |
 
 ### `_PublishRequest` — class
 **File:** `services/api/main.py`  **LOC:** 1  **Grade:** C  **Blast:** 0
