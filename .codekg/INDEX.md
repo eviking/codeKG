@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 20:32 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 20:35 UTC · kept current by git commit triggers_
 
 ## ⚠ STOP — read this before doing anything
 
@@ -35,7 +35,7 @@ blast radius, hygiene grades, architectural rules, and session insights.
 ## Available files
 
 ### root/
-- `CLAUDE.md` ⚠ stale — Snippet to paste into repo root CLAUDE.md
+- `CLAUDE.md` — Snippet to paste into repo root CLAUDE.md
 - `INDEX.md` — Master navigation file — read first
 
 ### architecture/
@@ -44,7 +44,7 @@ blast radius, hygiene grades, architectural rules, and session insights.
 - `hotspots.md` ⚠ stale — High blast-radius, low hygiene classes to approach carefully
 - `modules.md` ⚠ stale — Module map with class counts and summaries
 - `patterns.md` ⚠ stale — Detected design patterns and anti-patterns
-- `screens.md` — All pages/screens — URL, template, nav links, API calls, data access
+- `screens.md` ⚠ stale — All pages/screens — URL, template, nav links, API calls, data access
 
 ### insights/
 - `index.md` ⚠ stale — Index of all captured insights by area

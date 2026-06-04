@@ -1,5 +1,5 @@
 # Hotspots — codeKG
-_Generated 2026-06-04 20:32 UTC_
+_Generated 2026-06-04 20:35 UTC_
 
 Classes with both high blast radius and low hygiene score.
 **Approach these carefully** — changes here affect many downstream classes

@@ -1,9 +1,9 @@
 # All Insights — codeKG
-_Generated 2026-06-04 20:32 UTC_
+_Generated 2026-06-04 20:35 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
-**Total:** 47 insights
+**Total:** 49 insights
 
 ## `.claude.hooks.require_telemetry`
 
@@ -35,6 +35,12 @@ The repo registry stores paths as '/host-home/Documents/projects/codeKG' (upperc
 
 **[module]** _100% confidence_
 Data store detection scans source files for known import/connection patterns (_DS_SIGNATURES). The .venv and site-packages directories must be explicitly excluded from the walk or the neo4j package files themselves trigger false positives for every service. Exclude dirs: __pycache__, .git, node_modules, .codekg, .venv, venv, .venv-test, site-packages.
+
+**[module]** _100% confidence_
+generate_screens_index requires repo_path (the on-disk repo root) just like generate_datastores_index — it walks the filesystem for route files and templates. It is registered in FILE_REGISTRY with generator=None and handled as a special case in _ai_regen_file alongside the datastores branch. If you add more filesystem-dependent generators, follow this same pattern.
+
+**[module]** _100% confidence_
+The screens index parser splits route source by `@router.` decorator boundaries using regex, not AST — this means it works on any FastAPI route file without importing it, but it will miss routes defined programmatically (e.g. router.add_api_route()). All current console routes use decorator syntax so this is fine, but any future programmatic route registration will need a separate detection pass.
 
 ## `services.api.main`
 
@@ -95,13 +101,6 @@ aggregate_stats accepted a `days` parameter and computed a `cutoff` timestamp bu
 **[module]** _100% confidence_
 Templates are baked into Docker images at build time — there is no volume mount for the console or api service templates. Any template change requires docker compose up --build to take effect. This is a common source of confusion when edits appear not to apply.
 
-**[module]** _100% confidence_
-Jinja2 set inside an if block does not escape that block's scope within the same loop iteration for outer-scope variables. Always set loop-scoped variables (like turn_idx) unconditionally at the top of the for block, not inside a nested if — otherwise the variable is unset or stale for turns where the if condition is false.
-
-**[module]** _95% confidence_
-The base.html template defines the navigation, layout shell, and all shared component styles. Page templates extend it and add their own <style> blocks. CSS custom properties (--bg, --surface, --primary etc.) set in base.html :root are the right abstraction point for theming — all page styles should reference these vars, not raw hex values.
-
-**[system]** _80% confidence_
-The base.html CSS already uses green (#16a34a) as --primary. The blue appearance likely come
+**[module]** _100% co
 
 > ⚠ truncated to stay within file size limit
