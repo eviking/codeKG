@@ -1,5 +1,5 @@
 # Key Dependencies — codeKG
-_Generated 2026-06-04 21:01 UTC_
+_Generated 2026-06-04 21:06 UTC_
 
 ## Import edges by module
 All outgoing imports from each module, including to shared/external code.

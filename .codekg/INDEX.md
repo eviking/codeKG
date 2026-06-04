@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 21:01 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 21:06 UTC · kept current by git commit triggers_
 
 ## ⚠ STOP — read this before doing anything
 
