@@ -1,5 +1,5 @@
 # Screen & Page Catalog — codeKG
-_Generated 2026-06-04 20:39 UTC_
+_Generated 2026-06-04 20:43 UTC_
 
 Complete map of every user-facing page and API endpoint.
 Covers URL patterns, templates, navigation links, downstream calls, and data access.
@@ -50,6 +50,8 @@ _26 page endpoint(s) detected._
 **Template:** `dashboard.html`  **Route file:** `services/console/routes/dashboard.py`
 **Description:** Dashboard — repo overview, class counts, KG stats, token savings summary
 
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_stats`, `gc`, `recent_events`, `token_savings`, `tk_total`, `tk_by_repo`
+
 **Links to:** `/hygiene/{{ r.repo_id }}`, `/policies/{{ ev.policy_id }}`, `/repos`, `/repos/{{ ev.repo_id }}`, `/repos/{{ r.repo_id }}`, `/tribal-knowledge`
 
 **Data access:** Neo4j (via `run_query`)
@@ -57,6 +59,8 @@ _26 page endpoint(s) detected._
 #### `GET /agent-index`
 **Template:** `agent_index_overview.html`  **Route file:** `services/console/routes/agent_index.py`
 **Description:** Agent Index — browse, regenerate, and publish the .codekg/ index files
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `files`, `standard_grouped`, `module_files`, `modules`, `has_files`
 
 **Linked from:** `/agent-index/file/{file_key:path}`
 
@@ -68,6 +72,10 @@ _26 page endpoint(s) detected._
 **Template:** `agent_index_file.html`  **Route file:** `services/console/routes/agent_index.py`
 **Description:** Agent index file viewer — rendered content of one .codekg/ index file
 
+**Parameters:** `file_key: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `file`, `file_key`
+
 **Linked from:** `/agent-index`
 
 **Links to:** `/agent-index`
@@ -78,6 +86,8 @@ _26 page endpoint(s) detected._
 **Template:** `ask.html`  **Route file:** `services/console/routes/ask.py`
 **Description:** Ask — natural language Q&A over the knowledge graph using Claude
 
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `result`
+
 **Linked from:** `/ask`
 
 **Form actions (POST):** `/ask`
@@ -85,6 +95,10 @@ _26 page endpoint(s) detected._
 #### `POST /ask`
 **Template:** `ask.html`  **Route file:** `services/console/routes/ask.py`
 **Description:** Ask — natural language Q&A over the knowledge graph using Claude
+
+**Parameters:** `question: str` = `Form(...`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `question`, `repo_id`, `result`
 
 **Linked from:** `/ask`
 
@@ -97,11 +111,19 @@ _26 page endpoint(s) detected._
 **Template:** `audit.html`  **Route file:** `services/console/routes/audit_log.py`
 **Description:** LLM Audit — log of every Claude API call: tokens, cost, cache rate, latency
 
+**Parameters:** `source: str` = `""`, `limit: int` = `200`, `hours: int` = `24`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `calls`, `stats`, `source_filter`, `limit`, `hours`
+
 **Links to:** `/audit`
 
 #### `GET /classes`
 **Template:** `classes.html`  **Route file:** `services/console/routes/classes.py`
 **Description:** Class browser — searchable/sortable class list with hygiene grade and blast radius
+
+**Parameters:** `q: str` = `""`, `role: str` = `""`, `repo_id: str` = `""`, `sort: str` = `"coupling"`, `has_summary: str` = `"false"`, `page: int` = `1`
+
+**Template context:** `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `classes`, `total`, `page`, `pages`, `page_size`, `q`, `role`, `repo_id`, `sort`, `has_summary`, `summary_total`, `class_total`, `roles`, `repos`
 
 **Linked from:** `/classes/summarise/{job_id}`, `/classes/{fqn:path}`, `/hygiene/{repo_id:path}`, `/modules/{module_id:path}`
 
@@ -115,11 +137,17 @@ _26 page endpoint(s) detected._
 **Template:** `—`  **Route file:** `services/console/routes/classes.py`
 **Description:** /classes/summarise
 
+**Parameters:** `repo_id: str` = `Form(...`
+
 **Linked from:** `/classes`
 
 #### `GET /classes/summarise/{job_id}`
 **Template:** `summarise_progress.html`  **Route file:** `services/console/routes/classes.py`
 **Description:** Summarise Progress page
+
+**Parameters:** `job_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `job_id`, `status`, `done`, `total`, `log`
 
 **Linked from:** `/classes`
 
@@ -128,6 +156,8 @@ _26 page endpoint(s) detected._
 #### `GET /classes/{fqn:path}`
 **Template:** `class_detail.html`  **Route file:** `services/console/routes/classes.py`
 **Description:** Class detail — full method signatures, javadoc, summary, policy violations
+
+**Parameters:** `fqn: str`
 
 **Linked from:** `/classes`, `/classes/summarise/{job_id}`, `/hygiene/{repo_id:path}`, `/modules/{module_id:path}`
 
@@ -139,6 +169,8 @@ _26 page endpoint(s) detected._
 **Template:** `hygiene_overview.html`  **Route file:** `services/console/routes/hygiene.py`
 **Description:** Hygiene overview — per-repo grade distribution and worst offenders
 
+**Template context:** `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos`
+
 **Linked from:** `/`, `/hygiene/{repo_id:path}`
 
 **Links to:** `/hygiene/{{ r.repo_id }}`
@@ -148,6 +180,10 @@ _26 page endpoint(s) detected._
 #### `GET /hygiene/{repo_id:path}`
 **Template:** `hygiene_detail.html`  **Route file:** `services/console/routes/hygiene.py`
 **Description:** Hygiene detail — per-class grades, scores, and method counts for one repo
+
+**Parameters:** `repo_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_score`, `classes`, `stats`
 
 **Linked from:** `/`, `/hygiene`
 
@@ -159,9 +195,13 @@ _26 page endpoint(s) detected._
 **Template:** `mcp_audit.html`  **Route file:** `services/console/routes/mcp_audit.py`
 **Description:** MCP Audit — log of every MCP tool call from Claude Code sessions
 
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`
+
 #### `GET /modules`
 **Template:** `modules.html`  **Route file:** `services/console/routes/modules.py`
 **Description:** Module list — all logical modules for the selected repo with class counts
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `modules`, `module_tree`, `edges`
 
 **Linked from:** `/classes`, `/classes/{fqn:path}`, `/hygiene/{repo_id:path}`, `/modules/{module_id:path}`, `/repos/{repo_id:path}`
 
@@ -173,6 +213,10 @@ _26 page endpoint(s) detected._
 **Template:** `module_detail.html`  **Route file:** `services/console/routes/modules.py`
 **Description:** Module detail — classes, methods, dependencies, insights for one module
 
+**Parameters:** `module_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `mod`, `module_id`, `stat`
+
 **Linked from:** `/classes`, `/classes/{fqn:path}`, `/hygiene/{repo_id:path}`, `/modules`, `/repos/{repo_id:path}`
 
 **Links to:** `/classes/{{ c.fqn }}`, `/modules`, `/modules/{{ d.dep_module }}`, `/repos/{{ mod.repo_id }}`
@@ -183,6 +227,8 @@ _26 page endpoint(s) detected._
 **Template:** `pattern_catalog.html`  **Route file:** `services/console/routes/patterns.py`
 **Description:** Pattern catalog — manage which patterns are active and their config
 
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `patterns`, `patterns_json`
+
 **Linked from:** `/patterns`
 
 **Links to:** `/patterns`
@@ -190,6 +236,8 @@ _26 page endpoint(s) detected._
 #### `GET /patterns`
 **Template:** `patterns.html`  **Route file:** `services/console/routes/patterns.py`
 **Description:** Pattern detector — run detection and view results for the selected repo
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `results`
 
 **Linked from:** `/pattern-catalog`, `/patterns`
 
@@ -201,6 +249,10 @@ _26 page endpoint(s) detected._
 **Template:** `patterns.html`  **Route file:** `services/console/routes/patterns.py`
 **Description:** Pattern detector — run detection and view results for the selected repo
 
+**Parameters:** `repo_id: str` = `Form(""`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `results`
+
 **Linked from:** `/pattern-catalog`, `/patterns`
 
 **Links to:** `/pattern-catalog`
@@ -210,6 +262,8 @@ _26 page endpoint(s) detected._
 #### `GET /policies`
 **Template:** `policies.html`  **Route file:** `services/console/routes/policies.py`
 **Description:** Policy list — active architectural policies with severity and violation counts
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policies`, `modules`
 
 **Linked from:** `/`, `/policies/{policy_id}`, `/repos/{repo_id:path}`
 
@@ -223,6 +277,10 @@ _26 page endpoint(s) detected._
 **Template:** `policy_detail.html`  **Route file:** `services/console/routes/policies.py`
 **Description:** Policy detail — full policy definition, targets, and current violations
 
+**Parameters:** `policy_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run`
+
 **Linked from:** `/`, `/policies`, `/repos/{repo_id:path}`
 
 **Form actions (POST):** `/policies/{{ policy.policy_id }}/activate`, `/policies/{{ policy.policy_id }}/run`
@@ -233,6 +291,8 @@ _26 page endpoint(s) detected._
 **Template:** `repos.html`  **Route file:** `services/console/routes/repos.py`
 **Description:** Repository list — registered repos with scan status and last commit
 
+**Template context:** `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos`, `repos_path`
+
 **Linked from:** `/`, `/modules/{module_id:path}`, `/repos/{repo_id:path}`
 
 **Links to:** `/repos/{{ r.repo_id }}`
@@ -242,6 +302,10 @@ _26 page endpoint(s) detected._
 #### `GET /repos/{repo_id:path}`
 **Template:** `repo_detail.html`  **Route file:** `services/console/routes/repos.py`
 **Description:** Repository detail — scan history, module breakdown, quick-scan trigger
+
+**Parameters:** `repo_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_path`, `git`, `kg`, `provenance`, `stats`, `in_registry`, `scanning`, `api_url`
 
 **Linked from:** `/`, `/modules/{module_id:path}`, `/repos`
 
@@ -255,9 +319,13 @@ _26 page endpoint(s) detected._
 **Template:** `system_health.html`  **Route file:** `services/console/routes/system_health.py`
 **Description:** System health — service status, DB connectivity, scan log summary
 
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`
+
 #### `GET /telemetry`
 **Template:** `telemetry.html`  **Route file:** `services/console/routes/telemetry.py`
 **Description:** Telemetry — Claude Code session list with token counts and cache hit rates
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sessions`
 
 **Linked from:** `/telemetry/{session_id}`
 
@@ -270,6 +338,10 @@ _26 page endpoint(s) detected._
 **Template:** `telemetry_detail.html`  **Route file:** `services/console/routes/telemetry.py`
 **Description:** Telemetry detail — per-turn tool calls, token breakdown, CodeKG savings, query plan
 
+**Parameters:** `session_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail`, `query_plan`
+
 **Linked from:** `/telemetry`
 
 **Links to:** `/telemetry`
@@ -277,6 +349,8 @@ _26 page endpoint(s) detected._
 #### `GET /tribal-knowledge`
 **Template:** `tribal_knowledge.html`  **Route file:** `services/console/routes/tribal_knowledge.py`
 **Description:** Insights (tribal knowledge) — non-obvious facts captured from coding sessions
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`
 
 **Linked from:** `/`
 

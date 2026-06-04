@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-04 20:39 UTC_
+_Generated 2026-06-04 20:43 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -293,9 +293,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `name` | `backfill_javadoc` |
 | `object_model` | `{"fqn":"tools.backfill_javadoc","name":"backfill_javadoc","kind":"module","modul` |
 | `package_fqn` | `tools` |
-| `prov_commit_sha` | `ba59a23d43e4a2e47c419c7d6cbf73f4d9fbdaa3` |
+| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
 | `prov_confidence` | `0.85` |
-| `prov_freshness_ts` | `2026-06-03T21:47:39Z` |
+| `prov_freshness_ts` | `2026-06-04T20:39:53Z` |
 | `prov_source_tool` | `tree-sitter-java` |
 | `repo_id` | `codeKG` |
 | `role` | `CLASS` |
@@ -316,9 +316,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `modifiers` | `['public']` |
 | `name` | `write_batch` |
 | `parameters` | `['driver', 'list[dict] rows']` |
-| `prov_commit_sha` | `ba59a23d43e4a2e47c419c7d6cbf73f4d9fbdaa3` |
+| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
 | `prov_confidence` | `0.85` |
-| `prov_freshness_ts` | `2026-06-03T21:47:39Z` |
+| `prov_freshness_ts` | `2026-06-04T20:39:53Z` |
 | `prov_source_tool` | `tree-sitter-java` |
 | `repo_id` | `codeKG` |
 | `start_line` | `124` |
@@ -342,13 +342,13 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | Property | Example value |
 |---|---|
 | `build_tool` | `unknown` |
-| `hygiene_computed_at` | `2026-06-03T21:49:03.591000000+00:00` |
+| `hygiene_computed_at` | `2026-06-04T20:41:25.161000000+00:00` |
 | `hygiene_grade` | `B` |
-| `hygiene_score` | `74.4` |
-| `hygiene_stats` | `{"repo_score":74.4,"repo_grade":"B","total_classes":153,"scored_classes":116,"go` |
+| `hygiene_score` | `74.1` |
+| `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":156,"scored_classes":119,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
+| `last_commit` | `2a7fac467a1a00cdca62984294c4187f97dd08bc` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
 | `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
