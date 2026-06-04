@@ -1,9 +1,9 @@
 # All Insights — codeKG
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
-**Total:** 44 insights
+**Total:** 45 insights
 
 ## `.claude.hooks.require_telemetry`
 
@@ -26,6 +26,9 @@ The insight query in generate_insights_module used CONTAINS $module_id where mod
 
 **[module]** _100% confidence_
 The cross-module dependency query required BOTH source and target classes to belong to a Module node. Since shared/logging/codekg_logger.py is outside all modules, all imports resolved to zero rows. Fix: use OPTIONAL MATCH for the target module and fall back to the filename for display.
+
+**[module]** _100% confidence_
+Class-level "Used by" comes from blast_radius (array of dependent FQNs stored on each Class node). Module-level "Used by" comes from intra-repo IMPORTS edges. In this repo, blast_radius is only non-empty on codekg_logger (blast=8) in shared/ — all service module classes have blast=0 because the ingestion hasn't resolved deeper Python import chains beyond direct class imports.
 
 ## `services.api.main`
 
@@ -101,9 +104,6 @@ The base.html CSS already uses green (#16a34a) as --primary. The blue appearance
 summarise_classes.py is NOT copied into any Docker container — it lives only in tools/ on the host. The console loads it at runtime via importlib from /host-home/Documents/projects/codeKG/tools/summarise_classes.py through the host-home mount. If that path is wrong or the mount is missing, the job errors immediately.
 
 **[module]** _100% confidence_
-summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes with exit status 1. Fix: strip the bootstrap block from the source string before exec()-ing it. All deps (neo4j, requests) must be pre-installed in the container image.
-
-**[module]** _100% confidence_
-FastAPI route registration order is critical when a path-parameter catch-all exists. GET /classes/{fqn:path} greedily matches everything under /classes/. More-specific routes like /classes/summarise/{job_id} MUS
+summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes w
 
 > ⚠ truncated to stay within file size limit

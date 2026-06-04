@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 16:38 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 16:45 UTC · kept current by git commit triggers_
 
 ## How to use this index
 These files are **always current** — regenerated automatically on every git commit.
@@ -44,10 +44,6 @@ Read the files relevant to your task **before writing any code**.
 
 ### insights/
 - `index.md` ⚠ stale — Index of all captured insights by area
-- `services--api.md` — Captured insights for module `services/api`
-- `services--console.md` — Captured insights for module `services/console`
-- `services--ingestion.md` — Captured insights for module `services/ingestion`
-- `services--mcp.md` — Captured insights for module `services/mcp`
 
 ### modules/
 - `combined.md` ⚠ stale — All modules inlined — used when total repo LOC < 2,500

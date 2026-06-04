@@ -1,11 +1,11 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-04 16:38 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-04 16:45 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
 
@@ -28,7 +28,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 - **services.api.main** (100%): _content_is_empty scans the full body for sentinel phrases like 'not found'. This causes false positives when actual insight text contains those words (e.g. 'FastAPI route registration... path-parameter catch-all... not found'). Fix: only scan the first 200 chars of body, where empty-file sentinels always appear.
 - **services.api.agent_index.generator** (100%): The cross-module dependency query required BOTH source and target classes to belong to a Module node. Since shared/logging/codekg_logger.py is outside all modules, all imports resolved to zero rows. Fix: use OPTIONAL MATCH for the target module and fall back to the filename for display.
 - **services.api.main** (100%): The publish cleanup only deleted files that were hidden in the store — it missed files removed from the store entirely (e.g. deprecated per-module insight files). Fix: build the expected_paths set from visible store entries, then delete any .codekg/ file on disk not in that set using rglob.
-- **services.api.main** (90%): TribalKnowledge nodes use applies_to as a plain string FQN (not a required relationship) — the APPLIES_TO edge to the target node is optional and may not exist if the FQN wasn't found in the KG at write time. Always query by tk.applies_to string, not by traversing the edge.
+- **services.api.agent_index.generator** (100%): Class-level "Used by" comes from blast_radius (array of dependent FQNs stored on each Class node). Module-level "Used by" comes from intra-repo IMPORTS edges. In this repo, blast_radius is only non-empty on codekg_logger (blast=8) in shared/ — all service module classes have blast=0 because the ingestion hasn't resolved deeper Python import chains beyond direct class imports.
 
 ## Classes
 
@@ -269,7 +269,7 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
 
@@ -604,7 +604,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -931,7 +931,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -948,7 +948,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

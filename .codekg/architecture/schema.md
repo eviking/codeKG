@@ -1,5 +1,5 @@
 # Knowledge Graph Schema — codeKG
-_Generated 2026-06-04 16:38 UTC_
+_Generated 2026-06-04 16:45 UTC_
 
 Use this file to write correct Cypher queries without probing the KG.
 All nodes are scoped to a repo via `repo_id` — always include it in MATCH clauses.
@@ -78,7 +78,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `hygiene_stats` | `{"repo_score":74.4,"repo_grade":"B","total_classes":153,"scored_classes":116,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `aac12cf17e6ba8adf7e09d78069b7686cc82159d` |
+| `last_commit` | `c5e38c2c44a743200555836a05d8b3f14188271e` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
 | `prov_commit_sha` | `ba59a23d43e4a2e47c419c7d6cbf73f4d9fbdaa3` |
