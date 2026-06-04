@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 20:57 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 21:01 UTC · kept current by git commit triggers_
 
 ## ⚠ STOP — read this before doing anything
 
@@ -33,7 +33,7 @@ blast radius, hygiene grades, architectural rules, and session insights.
 
 ### root/
 - `CLAUDE.md` — Snippet to paste into repo root CLAUDE.md
-- `INDEX.md` ⚠ stale — Master navigation file — read first
+- `INDEX.md` — Master navigation file — read first
 
 ### architecture/
 - `datastores.md` ⚠ stale — All data stores (Neo4j, SQLite DBs) — schemas and which modules use them
