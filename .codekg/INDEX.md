@@ -1,38 +1,40 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 17:14 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 17:24 UTC · kept current by git commit triggers_
 
-## How to use this index
-These files are **always current** — regenerated automatically on every git commit.
-Treat them as the primary source of truth for this codebase.
-Read the files relevant to your task **before writing any code**.
+## ⚠ STOP — read this before doing anything
 
-**Before starting any task, read:**
-1. `policies/active.md` — rules you must not violate
-2. The relevant `modules/<name>.md` — classes, structure, key entry points
-3. `architecture/hotspots.md` — if you plan to touch high-blast-radius classes
-4. `insights/<name>.md` — non-obvious facts from previous sessions in this area
+Do **NOT** use `find`, `ls`, `grep`, or open source files to understand this codebase.
+The files in `.codekg/` contain complete, pre-computed intelligence — use them instead.
+They include every class, every method with full parameter and return type signatures,
+blast radius, hygiene grades, architectural rules, and session insights.
+
+**Required reading before writing any code:**
+1. `.codekg/policies/active.md` — rules you must not violate
+2. `.codekg/modules/<name>.md` — every class and method for the module you're working in
+3. `.codekg/architecture/hotspots.md` — before touching any high-blast-radius class
+4. `.codekg/insights/index.md` — non-obvious facts from previous sessions
 
 **Only call CodeKG MCP tools directly for:**
 - Live impact analysis on files you just changed (`get_change_impact`)
-- Full method-level class detail not in the module file (`get_class`)
 - Searching for a class when you don't know its module (`search_classes`)
-- Submitting session telemetry at the end of your task
+- Submitting session telemetry (`capture_insight`) — always do this at the end
 
-| When you need to... | Read |
+| When you need to... | Read this file |
 |---|---|
-| Understand the repo structure | `architecture/modules.md` |
-| Find key dependencies | `architecture/dependencies.md` |
-| Check design patterns | `architecture/patterns.md` |
-| Identify risky classes before changing | `architecture/hotspots.md` |
-| Know the rules before making changes | `policies/active.md` |
-| Check current violations | `policies/violations.md` |
-| Work on a specific module | `modules/<name>.md` |
-| Get non-obvious facts about a module | `insights/<name>.md` |
+| Understand repo structure | `.codekg/architecture/modules.md` |
+| Cross-module dependencies | `.codekg/architecture/dependencies.md` |
+| Data stores & schemas | `.codekg/architecture/datastores.md` |
+| Design patterns in use | `.codekg/architecture/patterns.md` |
+| Identify risky classes | `.codekg/architecture/hotspots.md` |
+| Architectural rules | `.codekg/policies/active.md` |
+| Current violations | `.codekg/policies/violations.md` |
+| Classes & methods in a module | `.codekg/modules/<name>.md` |
+| Session insights | `.codekg/insights/index.md` |
 
 ## Available files
 
 ### root/
-- `CLAUDE.md` — Snippet to paste into repo root CLAUDE.md
+- `CLAUDE.md` ⚠ stale — Snippet to paste into repo root CLAUDE.md
 - `INDEX.md` — Master navigation file — read first
 
 ### architecture/
