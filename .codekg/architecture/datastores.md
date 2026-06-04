@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-04 20:35 UTC_
+_Generated 2026-06-04 20:39 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -332,9 +332,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `name` | `services/api` |
 | `path` | `/host-home/Documents/projects/codeKG/services/api` |
 | `pkg_prefix` | `api` |
-| `prov_commit_sha` | `ba59a23d43e4a2e47c419c7d6cbf73f4d9fbdaa3` |
+| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
 | `prov_confidence` | `0.95` |
-| `prov_freshness_ts` | `2026-06-03T21:47:39Z` |
+| `prov_freshness_ts` | `2026-06-04T20:39:53Z` |
 | `prov_source_tool` | `build-extractor` |
 | `repo_id` | `codeKG` |
 
@@ -348,12 +348,12 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `hygiene_stats` | `{"repo_score":74.4,"repo_grade":"B","total_classes":153,"scored_classes":116,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `85a8c7b5a6b6e28bd95ad5f43e656dc64e61fcbc` |
+| `last_commit` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
-| `prov_commit_sha` | `ba59a23d43e4a2e47c419c7d6cbf73f4d9fbdaa3` |
+| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
 | `prov_confidence` | `0.75` |
-| `prov_freshness_ts` | `2026-06-03T21:47:38Z` |
+| `prov_freshness_ts` | `2026-06-04T20:39:52Z` |
 | `prov_source_tool` | `repo-structure` |
 | `repo_id` | `codeKG` |
 | `test_framework` | `junit5` |
