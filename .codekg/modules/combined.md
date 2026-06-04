@@ -1,11 +1,11 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-04 20:43 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-04 20:57 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
 
@@ -295,7 +295,7 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
 
@@ -655,7 +655,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -995,7 +995,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -1012,7 +1012,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

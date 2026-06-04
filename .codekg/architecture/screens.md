@@ -1,5 +1,5 @@
 # Screen & Page Catalog — codeKG
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 Complete map of every user-facing page and API endpoint.
 Covers URL patterns, templates, navigation links, downstream calls, and data access.
@@ -11,9 +11,9 @@ Read this before adding, renaming, or linking pages.
 |---------|--------|
 | **Framework** | FastAPI (Python) |
 | **Templating** | Jinja2 — server-side rendered HTML, no JS framework |
-| **Styling** | Inline <style> blocks per template — CSS custom properties from base.html :root |
+| **Styling** | Inline `<style>` blocks per template — CSS custom properties from base.html :root |
 | **Fonts** | Inter (UI), JetBrains Mono (code/numbers) via Google Fonts |
-| **Nav** | Sticky top nav defined in base.html; all pages extend base.html via {% extends %} |
+| **Nav** | Sticky top nav defined in base.html; all pages extend base.html via `{% extends %}` |
 | **Forms** | Standard HTML forms with method=GET/POST — no AJAX except where noted |
 | **Http Client** | httpx.Client (sync) for console → API calls; all calls to http://api:8000 |
 | **Hot Reload** | None — templates baked into Docker image at build time; changes require docker compose up --build console |
@@ -74,7 +74,7 @@ _26 page endpoint(s) detected._
 
 **Parameters:** `file_key: str`
 
-**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `file`, `file_key`
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `file`, `file_key`, `content_html`
 
 **Linked from:** `/agent-index`
 

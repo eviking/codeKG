@@ -1,9 +1,9 @@
 # All Insights — codeKG
-_Generated 2026-06-04 20:43 UTC_
+_Generated 2026-06-04 20:57 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
-**Total:** 50 insights
+**Total:** 51 insights
 
 ## `.claude.hooks.require_telemetry`
 
@@ -41,6 +41,9 @@ generate_screens_index requires repo_path (the on-disk repo root) just like gene
 
 **[module]** _100% confidence_
 The screens index parser splits route source by `@router.` decorator boundaries using regex, not AST — this means it works on any FastAPI route file without importing it, but it will miss routes defined programmatically (e.g. router.add_api_route()). All current console routes use decorator syntax so this is fine, but any future programmatic route registration will need a separate detection pass.
+
+**[module]** _100% confidence_
+The screens index parser extracts template context variables from the TemplateResponse dict literal using _CTX_KEY_RE (matches "key": patterns) and detects **_template_ctx / **ctx spreads to inject the standard trio (current_path, repos, effective_repo). It also parses the handler function signature for query/path params, skipping FastAPI internals (request, response, body). Both are regex-based — they work on the raw source block between @router. decorators without importing the module.
 
 ## `services.api.main`
 
@@ -89,11 +92,6 @@ Hook scripts use relative paths (python3 .claude/hooks/require_codekg.py) rather
 The registered repos registry lives at ${REPOS_PATH}/repos.json on the host (./repos/repos.json by default). The API /repos endpoint returns repo_id and path but the path field is null — the actual paths are only in the flat JSON file, not stored in Neo4j.
 
 **[system]** _98% confidence_
-All styling in this app is inline in each HTML template — there is no shared CSS file or static asset pipeline. Every template has its own <style> block. To make global design changes, you must either update base.html tokens or touch each template individually.
-
-**[system]** _95% confidence_
-The PreToolUse hook fires on every tool call including Read/Write/Edit, but skill invocations (via the Skill tool) run in a sub-context whose tool calls do NOT appear as assistant tool_use blocks in the main session JSONL. This means a codeKG call made through a skill is invisible to the require_codekg.py hook, causing false blocks on subsequent Read/Write calls even though codeKG was consulted.
-
-## `s
+All styling in this app is inline in each HTML template — there is no shared CSS file or static asset pipeline. Every template has its own <style> block. To make global desi
 
 > ⚠ truncated to stay within file size limit
