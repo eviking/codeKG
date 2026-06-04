@@ -1,9 +1,9 @@
 # All Insights — codeKG
-_Generated 2026-06-04 16:34 UTC_
+_Generated 2026-06-04 16:38 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
-**Total:** 40 insights
+**Total:** 44 insights
 
 ## `.claude.hooks.require_telemetry`
 
@@ -21,6 +21,12 @@ Module index files grew from ~40 lines (class table only) to 230-300 lines per m
 **[module]** _100% confidence_
 When total repo LOC (sum of max end_line per file) is below 2500, the generator produces a combined.md with all modules inlined and CLAUDE.md directs agents to read only that one file. Above the threshold, separate per-module files are used. codeKG itself is at 7236 LOC so uses per-module mode.
 
+**[module]** _100% confidence_
+The insight query in generate_insights_module used CONTAINS $module_id where module_id is 'services/console' (slash-separated) but TribalKnowledge.applies_to stores dot-separated FQNs like 'services.console.main'. The fix is to also match against module_id.replace('/', '.') as module_dot. Both forms must be passed as separate Cypher parameters.
+
+**[module]** _100% confidence_
+The cross-module dependency query required BOTH source and target classes to belong to a Module node. Since shared/logging/codekg_logger.py is outside all modules, all imports resolved to zero rows. Fix: use OPTIONAL MATCH for the target module and fall back to the filename for display.
+
 ## `services.api.main`
 
 **[module]** _100% confidence_
@@ -31,6 +37,12 @@ The KG stores start_line and end_line per Class node, not LOC per file. File LOC
 
 **[module]** _100% confidence_
 The agent index publish is a two-step process: POST /agent-index/regen writes to SQLite store, then POST /agent-index/publish writes from store to disk and commits to git. Calling only regen leaves disk files stale. The publish endpoint returns 'files_written' (not 'written'), and returns 0 if the store has no visible files for that repo_id.
+
+**[module]** _100% confidence_
+_content_is_empty scans the full body for sentinel phrases like 'not found'. This causes false positives when actual insight text contains those words (e.g. 'FastAPI route registration... path-parameter catch-all... not found'). Fix: only scan the first 200 chars of body, where empty-file sentinels always appear.
+
+**[module]** _100% confidence_
+The publish cleanup only deleted files that were hidden in the store — it missed files removed from the store entirely (e.g. deprecated per-module insight files). Fix: build the expected_paths set from visible store entries, then delete any .codekg/ file on disk not in that set using rglob.
 
 **[system]** _90% confidence_
 TribalKnowledge nodes use applies_to as a plain string FQN (not a required relationship) — the APPLIES_TO edge to the target node is optional and may not exist if the FQN wasn't found in the KG at write time. Always query by tk.applies_to string, not by traversing the edge.
@@ -92,19 +104,6 @@ summarise_classes.py is NOT copied into any Docker container — it lives only i
 summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes with exit status 1. Fix: strip the bootstrap block from the source string before exec()-ing it. All deps (neo4j, requests) must be pre-installed in the container image.
 
 **[module]** _100% confidence_
-FastAPI route registration order is critical when a path-parameter catch-all exists. GET /classes/{fqn:path} greedily matches everything under /classes/. More-specific routes like /classes/summarise/{job_id} MUST be registered before the catch-all or they are swallowed. Symptom: 404 with body: Class summarise/<id> not found.
-
-**[module]** _90% confidence_
-summarise_classes.py is a standalone CLI script in tools/ that is NOT copied into the console container (Dockerfile only copies services/console/ and shared/). To invoke it from the console it must be imported dynamically by path from the host-home mount (/host-home/Documents/projects/codeKG/tools/). It is self-bootstrapping and safe to re-exec via importlib.
-
-## `services.console.routes.classes.classes_list`
-
-**[method]** _100% confidence_
-summary_total in classes_list() is now correctly scoped to effective_repo (fixed 2026-06-02). It uses: MATCH (c:Class) WHERE c.repo_id = $repo_id AND NOT c.kind IN ["module"] AND c.summary IS NOT NULL. A separate class_total query provides the denominator (total non-module classes for the repo). Previously it counted across ALL repos with no filter, inflating the progress bar. The filtered `total` variable must never be used as the denominator — it reflects the current search filter, not the full repo size.
-
-## `services.console.routes.classes.start_summarise`
-
-**[system]** _100% confidence_
-Ollama runs on the Mac host, not inside Docker. From any container the correct URL is http://host.docker.internal:11434 — never localhost:11434 which resolves to the container loo
+FastAPI route registration order is critical when a path-parameter catch-all exists. GET /classes/{fqn:path} greedily matches everything under /classes/. More-specific routes like /classes/summarise/{job_id} MUS
 
 > ⚠ truncated to stay within file size limit

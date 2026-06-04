@@ -1,7 +1,13 @@
 # Module: services/api
-_Generated 2026-06-04 16:34 UTC_
+_Generated 2026-06-04 16:38 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
+
+## Depends on
+
+_External files/modules this module imports from:_
+
+- `shared/logging/codekg_logger.py` — 4 import(s)
 
 ## ⚡ Insights from previous sessions
 
@@ -12,6 +18,10 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 - **services.api.agent_index.generator** (100%): Module index files grew from ~40 lines (class table only) to 230-300 lines per module by pulling full method signatures, parameter types, return types, and LOC from object_model on each Class node. The object_model JSON blob contains a 'methods' array with name, return_type, parameters, and modifiers — this is richer than the separate Method nodes which lack a 'signature' property.
 - **services.api.main** (100%): The agent index publish is a two-step process: POST /agent-index/regen writes to SQLite store, then POST /agent-index/publish writes from store to disk and commits to git. Calling only regen leaves disk files stale. The publish endpoint returns 'files_written' (not 'written'), and returns 0 if the store has no visible files for that repo_id.
 - **services.api.agent_index.generator** (100%): When total repo LOC (sum of max end_line per file) is below 2500, the generator produces a combined.md with all modules inlined and CLAUDE.md directs agents to read only that one file. Above the threshold, separate per-module files are used. codeKG itself is at 7236 LOC so uses per-module mode.
+- **services.api.agent_index.generator** (100%): The insight query in generate_insights_module used CONTAINS $module_id where module_id is 'services/console' (slash-separated) but TribalKnowledge.applies_to stores dot-separated FQNs like 'services.console.main'. The fix is to also match against module_id.replace('/', '.') as module_dot. Both forms must be passed as separate Cypher parameters.
+- **services.api.main** (100%): _content_is_empty scans the full body for sentinel phrases like 'not found'. This causes false positives when actual insight text contains those words (e.g. 'FastAPI route registration... path-parameter catch-all... not found'). Fix: only scan the first 200 chars of body, where empty-file sentinels always appear.
+- **services.api.agent_index.generator** (100%): The cross-module dependency query required BOTH source and target classes to belong to a Module node. Since shared/logging/codekg_logger.py is outside all modules, all imports resolved to zero rows. Fix: use OPTIONAL MATCH for the target module and fall back to the filename for display.
+- **services.api.main** (100%): The publish cleanup only deleted files that were hidden in the store — it missed files removed from the store entirely (e.g. deprecated per-module insight files). Fix: build the expected_paths set from visible store entries, then delete any .codekg/ file on disk not in that set using rglob.
 - **services.api.main** (90%): TribalKnowledge nodes use applies_to as a plain string FQN (not a required relationship) — the APPLIES_TO edge to the target node is optional and may not exist if the FQN wasn't found in the KG at write time. Always query by tk.applies_to string, not by traversing the edge.
 
 ## Classes
@@ -249,8 +259,3 @@ _PublishRequest is a class that encapsulates the details required to publish con
 **FQN:** `services.api.main._RegenRequest`
 
 _The `_RegenRequest` class is designed to encapsulate the parameters necessary for regenerating a request. It includes a `requestId` field of type `string`, which uniquely identifies each regeneration process, ensuring that operations can be traced and managed effectively. The class also features a `timestamp` field of type `DateTime`, capturing the exact moment when the regeneration request was i
-
-## Dependency map
-
-**This module imports from:**
-- `shared/logging/codekg_logger.py` (4 imports)

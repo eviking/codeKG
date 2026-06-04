@@ -1,7 +1,13 @@
 # Module: services/ingestion
-_Generated 2026-06-04 16:34 UTC_
+_Generated 2026-06-04 16:38 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
+
+## Depends on
+
+_External files/modules this module imports from:_
+
+- `shared/logging/codekg_logger.py` — 3 import(s)
 
 ## ⚡ Insights from previous sessions
 
@@ -316,8 +322,3 @@ The class appears to be designed for handling user authentication processes. The
 **FQN:** `services.ingestion.parser.concurrency_extractor.ThreadPoolDeclaration`
 
 ThreadPoolDeclaration is a class that encapsulates the creation and management of a thread pool in a concurrent programming environment. It includes methods for submitting tasks to be executed by the threads in the pool and fields for configuring parameters such as the number of threads and task queue capacity, ensuring efficient execution of multiple tasks concurrently.
-
-## Dependency map
-
-**This module imports from:**
-- `shared/logging/codekg_logger.py` (3 imports)

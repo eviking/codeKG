@@ -1,7 +1,13 @@
 # Module: services/console
-_Generated 2026-06-04 16:34 UTC_
+_Generated 2026-06-04 16:38 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
+
+## Depends on
+
+_External files/modules this module imports from:_
+
+- `shared/logging/codekg_logger.py` — 1 import(s)
 
 ## ⚡ Insights from previous sessions
 
@@ -324,8 +330,3 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 |--------|-----------|---------|-------|
 | `public record` | `Any response`<br>`str error` | `None` |  |
 | `public record_error` | `Exception exc` | `None` |  |
-
-## Dependency map
-
-**This module imports from:**
-- `shared/logging/codekg_logger.py` (1 imports)
