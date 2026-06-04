@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 16:22 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 16:23 UTC · kept current by git commit triggers_
 
 ## How to use this index
 These files are **always current** — regenerated automatically on every git commit.
@@ -47,7 +47,6 @@ Read the files relevant to your task **before writing any code**.
 ### modules/
 - `combined.md` ⚠ stale — All modules inlined — used when total repo LOC < 2,500
 - `services--api.md` ⚠ stale — Classes and structure for module `services/api`
-- `services--console.md` ⚠ stale — Classes and structure for module `services/console`
 - `services--ingestion.md` ⚠ stale — Classes and structure for module `services/ingestion`
 - `services--watcher.md` ⚠ stale — Classes and structure for module `services/watcher`
 

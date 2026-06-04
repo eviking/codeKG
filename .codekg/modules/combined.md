@@ -1,13 +1,24 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-04 16:22 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-04 16:23 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-04 16:22 UTC_
+_Generated 2026-06-04 16:23 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
+
+## ⚡ Insights from previous sessions
+
+_Non-obvious facts from engineering sessions — treat as expert hints._
+
+- **services.api.main** (100%): The telemetry DB stores tool_calls with input_json (serialised tool input) and step_tokens (per-inference-step cost). Rows before the input_json column was added have NULL there — the question text for those CodeKG calls is permanently unrecoverable, which limits query plan reconstruction quality for old sessions.
+- **services.api.main** (100%): The KG stores start_line and end_line per Class node, not LOC per file. File LOC must be derived as max(end_line) across all Class nodes with that file_path. This only covers .py files with at least one indexed class — HTML templates and non-Python files are absent from the KG and need disk-size fallback.
+- **services.api.agent_index.generator** (100%): Module index files grew from ~40 lines (class table only) to 230-300 lines per module by pulling full method signatures, parameter types, return types, and LOC from object_model on each Class node. The object_model JSON blob contains a 'methods' array with name, return_type, parameters, and modifiers — this is richer than the separate Method nodes which lack a 'signature' property.
+- **services.api.main** (100%): The agent index publish is a two-step process: POST /agent-index/regen writes to SQLite store, then POST /agent-index/publish writes from store to disk and commits to git. Calling only regen leaves disk files stale. The publish endpoint returns 'files_written' (not 'written'), and returns 0 if the store has no visible files for that repo_id.
+- **services.api.agent_index.generator** (100%): When total repo LOC (sum of max end_line per file) is below 2500, the generator produces a combined.md with all modules inlined and CLAUDE.md directs agents to read only that one file. Above the threshold, separate per-module files are used. codeKG itself is at 7236 LOC so uses per-module mode.
+- **services.api.main** (90%): TribalKnowledge nodes use applies_to as a plain string FQN (not a required relationship) — the APPLIES_TO edge to the target node is optional and may not exist if the FQN wasn't found in the KG at write time. Always query by tk.applies_to string, not by traversing the edge.
 
 ## Classes
 
@@ -253,9 +264,24 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-04 16:22 UTC_
+_Generated 2026-06-04 16:23 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
+
+## ⚡ Insights from previous sessions
+
+_Non-obvious facts from engineering sessions — treat as expert hints._
+
+- **services.console** (100%): requests is not installed in the console container by default (FastAPI uses httpx). summarise_classes.py imports requests to call Ollama — it must be listed in services/console/requirements.txt or the job fails immediately with: No module named requests.
+- **services.console.routes.classes.start_summarise** (100%): summarise_classes.py skips TEST and GENERATED role classes by default (_SKIP_ROLES). For large repos like ElasticSearch this is ~16k classes. If resume=True and all remaining unsummarised classes are TEST/GENERATED, the job exits with 0 written — looks like failure but is correct. The console shows a Nothing to summarise warning. Use include_skip_roles=True or force=True to override.
+- **services.console.routes.classes** (100%): summarise_classes.py is NOT copied into any Docker container — it lives only in tools/ on the host. The console loads it at runtime via importlib from /host-home/Documents/projects/codeKG/tools/summarise_classes.py through the host-home mount. If that path is wrong or the mount is missing, the job errors immediately.
+- **services.console.routes.classes** (100%): FastAPI route registration order is critical when a path-parameter catch-all exists. GET /classes/{fqn:path} greedily matches everything under /classes/. More-specific routes like /classes/summarise/{job_id} MUST be registered before the catch-all or they are swallowed. Symptom: 404 with body: Class summarise/<id> not found.
+- **services.console.routes.classes** (100%): summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes with exit status 1. Fix: strip the bootstrap block from the source string before exec()-ing it. All deps (neo4j, requests) must be pre-installed in the container image.
+- **services.console.routes.classes.start_summarise** (100%): Ollama runs on the Mac host, not inside Docker. From any container the correct URL is http://host.docker.internal:11434 — never localhost:11434 which resolves to the container loopback. The console UI and summarise_classes.py default both use host.docker.internal.
+- **services.console.llm_audit.aggregate_stats** (100%): aggregate_stats accepted a `days` parameter and computed a `cutoff` timestamp but never passed it to the SQL query — stats were always all-time regardless of the argument. Fixed by passing cutoff as a bound parameter in the WHERE clause.
+- **services.console.routes.classes.classes_list** (100%): summary_total in classes_list() is now correctly scoped to effective_repo (fixed 2026-06-02). It uses: MATCH (c:Class) WHERE c.repo_id = $repo_id AND NOT c.kind IN ["module"] AND c.summary IS NOT NULL. A separate class_total query provides the denominator (total non-module classes for the repo). Previously it counted across ALL repos with no filter, inflating the progress bar. The filtered `total` variable must never be used as the denominator — it reflects the current search filter, not the full repo size.
+- **services.console** (100%): The console container does not hot-reload. All files (templates, routes, requirements.txt) are baked at build time via COPY in the Dockerfile. Any change to services/console/ requires: docker compose up -d --build console
+- **services.console** (100%): The console UI uses CSS custom properties defined in base.html :root (--bg, --surface, --primary, --success, --danger etc). All page templates must use these tokens — raw hex values in a template are a design bug. There is no external CSS file or build pipeline; all styles are inline in HTML templates.
 
 ## Classes
 
@@ -572,9 +598,16 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-04 16:22 UTC_
+_Generated 2026-06-04 16:23 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
+
+## ⚡ Insights from previous sessions
+
+_Non-obvious facts from engineering sessions — treat as expert hints._
+
+- **services.ingestion** (100%): The codeKG protocol text exists in three separate places that must be kept in sync: (1) services/ingestion/claude_md_writer.py — written to repos at ingestion time, (2) services/api/renderers/template_renderer.py — served by GET /template/{repo_id} which powers both sync_claude_md and get_codebase_template, (3) .claude/CLAUDE.md — the live file for this repo. Changing the protocol in one place does not update the others.
+- **services.ingestion.kg.writer.KGWriter** (90%): KGWriter wire_edges has a 90s timeout added to prevent large repos from pinning Neo4j indefinitely — do not remove without load testing.
 
 ## Classes
 
@@ -891,16 +924,24 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-04 16:22 UTC_
+_Generated 2026-06-04 16:23 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
+
+## ⚡ Insights from previous sessions
+
+_Non-obvious facts from engineering sessions — treat as expert hints._
+
+- **services.mcp** (100%): codekg_request_id in the MCP response footer was previously the JSON-RPC request_id — a different value for every single tool call. This is why using the 'first call's request_id' was so fragile: any mistake in tracking which call was first gave a wrong value. Fixed by making codekg_request_id equal to turn_id in the footer, so both values are always the same stable string and there is no ambiguity about which to use.
+- **services.mcp.main** (95%): sync_claude_md must return content to Claude Code rather than writing server-side — server-side writes break remote usage where the codeKG server and the engineer's filesystem are on different machines. The correct pattern is: tool returns content, Claude Code calls Write.
+- **services.mcp.main** (85%): The sync_claude_md tool includes a save_as comment header in the response so Claude Code knows what filename to use without needing to infer it from context.
 
 ## Classes
 
 ---
 
 # Module: services/watcher
-_Generated 2026-06-04 16:22 UTC_
+_Generated 2026-06-04 16:23 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

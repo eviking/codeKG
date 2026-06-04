@@ -1,7 +1,14 @@
 # Module: services/ingestion
-_Generated 2026-06-04 16:22 UTC_
+_Generated 2026-06-04 16:23 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
+
+## ⚡ Insights from previous sessions
+
+_Non-obvious facts from engineering sessions — treat as expert hints._
+
+- **services.ingestion** (100%): The codeKG protocol text exists in three separate places that must be kept in sync: (1) services/ingestion/claude_md_writer.py — written to repos at ingestion time, (2) services/api/renderers/template_renderer.py — served by GET /template/{repo_id} which powers both sync_claude_md and get_codebase_template, (3) .claude/CLAUDE.md — the live file for this repo. Changing the protocol in one place does not update the others.
+- **services.ingestion.kg.writer.KGWriter** (90%): KGWriter wire_edges has a 90s timeout added to prevent large repos from pinning Neo4j indefinitely — do not remove without load testing.
 
 ## Classes
 
