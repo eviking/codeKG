@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 17:24 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 20:32 UTC · kept current by git commit triggers_
 
 ## ⚠ STOP — read this before doing anything
 
@@ -24,6 +24,7 @@ blast radius, hygiene grades, architectural rules, and session insights.
 | Understand repo structure | `.codekg/architecture/modules.md` |
 | Cross-module dependencies | `.codekg/architecture/dependencies.md` |
 | Data stores & schemas | `.codekg/architecture/datastores.md` |
+| Pages/screens, routes, nav links | `.codekg/architecture/screens.md` |
 | Design patterns in use | `.codekg/architecture/patterns.md` |
 | Identify risky classes | `.codekg/architecture/hotspots.md` |
 | Architectural rules | `.codekg/policies/active.md` |
@@ -43,6 +44,7 @@ blast radius, hygiene grades, architectural rules, and session insights.
 - `hotspots.md` ⚠ stale — High blast-radius, low hygiene classes to approach carefully
 - `modules.md` ⚠ stale — Module map with class counts and summaries
 - `patterns.md` ⚠ stale — Detected design patterns and anti-patterns
+- `screens.md` — All pages/screens — URL, template, nav links, API calls, data access
 
 ### insights/
 - `index.md` ⚠ stale — Index of all captured insights by area
