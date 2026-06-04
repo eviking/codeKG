@@ -1,11 +1,18 @@
 # Key Dependencies — codeKG
-_Generated 2026-06-04 16:25 UTC_
+_Generated 2026-06-04 16:34 UTC_
 
-## Cross-module dependencies
-Sorted by number of import edges. High counts = tight coupling.
+## Import edges by module
+All outgoing imports from each module, including to shared/external code.
 
-| From | To | Import edges |
+| From module | To | Import edges |
 |---|---|---|
+| `services/api` | `logging/codekg_logger.py` | 4 |
+| `services/ingestion` | `logging/codekg_logger.py` | 3 |
+| `services/console` | `logging/codekg_logger.py` | 1 |
 
 ## Highest blast radius classes
-Changing these classes affects the most dependents.
+Changing these classes affects the most dependents — approach with care.
+
+### `codekg_logger` — blast 8 classes
+**FQN:** `shared.logging.codekg_logger`  **File:** `shared/logging/codekg_logger.py`
+> codekg_logger is a utility class designed to facilitate logging operations within an application. It includes methods such as `logInfo(String message)` for recording informational messages, `logError(

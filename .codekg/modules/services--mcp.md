@@ -1,5 +1,5 @@
 # Module: services/mcp
-_Generated 2026-06-04 16:25 UTC_
+_Generated 2026-06-04 16:34 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
