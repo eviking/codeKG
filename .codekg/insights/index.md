@@ -1,9 +1,9 @@
 # All Insights — codeKG
-_Generated 2026-06-04 17:09 UTC_
+_Generated 2026-06-04 17:12 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
-**Total:** 45 insights
+**Total:** 47 insights
 
 ## `.claude.hooks.require_telemetry`
 
@@ -29,6 +29,12 @@ The cross-module dependency query required BOTH source and target classes to bel
 
 **[module]** _100% confidence_
 Class-level "Used by" comes from blast_radius (array of dependent FQNs stored on each Class node). Module-level "Used by" comes from intra-repo IMPORTS edges. In this repo, blast_radius is only non-empty on codekg_logger (blast=8) in shared/ — all service module classes have blast=0 because the ingestion hasn't resolved deeper Python import chains beyond direct class imports.
+
+**[system]** _100% confidence_
+The repo registry stores paths as '/host-home/Documents/projects/codeKG' (uppercase K) but the container filesystem has it as '/host-home/Documents/projects/codekg' (lowercase). macOS is case-insensitive so host-side code works, but container-side code (Linux) gets FileNotFoundError. Always normalise the last path component to lowercase when checking isdir() in container code.
+
+**[module]** _100% confidence_
+Data store detection scans source files for known import/connection patterns (_DS_SIGNATURES). The .venv and site-packages directories must be explicitly excluded from the walk or the neo4j package files themselves trigger false positives for every service. Exclude dirs: __pycache__, .git, node_modules, .codekg, .venv, venv, .venv-test, site-packages.
 
 ## `services.api.main`
 
@@ -96,14 +102,6 @@ Jinja2 set inside an if block does not escape that block's scope within the same
 The base.html template defines the navigation, layout shell, and all shared component styles. Page templates extend it and add their own <style> blocks. CSS custom properties (--bg, --surface, --primary etc.) set in base.html :root are the right abstraction point for theming — all page styles should reference these vars, not raw hex values.
 
 **[system]** _80% confidence_
-The base.html CSS already uses green (#16a34a) as --primary. The blue appearance likely comes from hardcoded #2563eb values in individual templates (patterns.html, class_detail.html, pattern_catalog.html) and --info (#0284c7) token, not from the global theme.
-
-## `services.console.routes.classes`
-
-**[module]** _100% confidence_
-summarise_classes.py is NOT copied into any Docker container — it lives only in tools/ on the host. The console loads it at runtime via importlib from /host-home/Documents/projects/codeKG/tools/summarise_classes.py through the host-home mount. If that path is wrong or the mount is missing, the job errors immediately.
-
-**[module]** _100% confidence_
-summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes w
+The base.html CSS already uses green (#16a34a) as --primary. The blue appearance likely come
 
 > ⚠ truncated to stay within file size limit
