@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-04 17:12 UTC · kept current by git commit triggers_
+_Generated 2026-06-04 17:14 UTC · kept current by git commit triggers_
 
 ## How to use this index
 These files are **always current** — regenerated automatically on every git commit.
@@ -33,7 +33,7 @@ Read the files relevant to your task **before writing any code**.
 
 ### root/
 - `CLAUDE.md` — Snippet to paste into repo root CLAUDE.md
-- `INDEX.md` ⚠ stale — Master navigation file — read first
+- `INDEX.md` — Master navigation file — read first
 
 ### architecture/
 - `datastores.md` ⚠ stale — All data stores (Neo4j, SQLite DBs) — schemas and which modules use them
@@ -41,7 +41,6 @@ Read the files relevant to your task **before writing any code**.
 - `hotspots.md` ⚠ stale — High blast-radius, low hygiene classes to approach carefully
 - `modules.md` ⚠ stale — Module map with class counts and summaries
 - `patterns.md` ⚠ stale — Detected design patterns and anti-patterns
-- `schema.md` ⚠ stale — Neo4j graph schema — node labels, properties, relationships, query patterns
 
 ### insights/
 - `index.md` ⚠ stale — Index of all captured insights by area
