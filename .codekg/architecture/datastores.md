@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-05 20:15 UTC_
+_Generated 2026-06-05 20:16 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -348,7 +348,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":156,"scored_classes":119,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `50dee651df23c96a17d257277abc682cad12d763` |
+| `last_commit` | `5185bf17ddf5a2d4ad7f8e46fbd6508575393248` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
 | `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
@@ -376,15 +376,15 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | Property | Example value |
 |---|---|
 | `anti_pattern` | `False` |
-| `category` | `Testing` |
-| `intent` | `Classes inheriting from unittest.TestCase or Django's TestCase providing isolate` |
-| `match_count` | `34` |
-| `name` | `Test Case` |
-| `pattern_id` | `python-test-case-codeKG` |
+| `category` | `Web` |
+| `intent` | `Middleware classes that wrap the request/response cycle to add cross-cutting con` |
+| `match_count` | `2` |
+| `name` | `Django Middleware` |
+| `pattern_id` | `django-middleware-codeKG` |
 | `repo_id` | `codeKG` |
 | `severity` | `info` |
-| `source` | `Python` |
-| `top_packages` | `[{"package": "services.console.tests.test_console", "count": 13}, {"package": "s` |
+| `source` | `Django` |
+| `top_packages` | `[{"package": "services.api.main", "count": 1}, {"package": "services.console.mai` |
 
 ### `TribalKnowledge`
 | Property | Example value |

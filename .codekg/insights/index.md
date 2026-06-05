@@ -1,5 +1,5 @@
 # All Insights — codeKG
-_Generated 2026-06-05 20:15 UTC_
+_Generated 2026-06-05 20:16 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
