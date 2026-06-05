@@ -1,5 +1,5 @@
 # Recent Changes — codeKG
-_Generated 2026-06-05 20:14 UTC · commit `unpublished`_
+_Generated 2026-06-05 20:15 UTC · commit `e7991b1`_
 
 Use this file to understand what has changed recently in both the codebase and the agent index itself, so you can focus on areas that matter.
 
@@ -7,6 +7,7 @@ Use this file to understand what has changed recently in both the codebase and t
 
 | Commit | Date | Author | Message |
 |--------|------|--------|---------|
+| `50dee651` | 2026-06-05 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `0e944219` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `cef3b0bb` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `53839ca8` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
@@ -36,7 +37,6 @@ Use this file to understand what has changed recently in both the codebase and t
 | `fd569061` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `dbebe400` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `ba59a23d` | 2026-06-03 | CodeKG | chore: update CodeKG agent index [skip ci] |
-| `9d8fb8c0` | 2026-06-03 | CodeKG | chore: update CodeKG agent index [skip ci] |
 
 ## Files changed in last 5 commits
 
@@ -46,6 +46,7 @@ Use this file to understand what has changed recently in both the codebase and t
 - `.codekg/architecture/hotspots.md`
 - `.codekg/architecture/modules.md`
 - `.codekg/architecture/patterns.md`
+- `.codekg/architecture/recent_changes.md`
 - `.codekg/architecture/screens.md`
 - `.codekg/insights/index.md`
 - `.codekg/modules/combined.md`

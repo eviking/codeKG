@@ -1,5 +1,5 @@
 # Screen & Page Catalog — codeKG
-_Generated 2026-06-05 20:14 UTC_
+_Generated 2026-06-05 20:15 UTC_
 
 Complete map of every user-facing page and API endpoint.
 Covers URL patterns, templates, navigation links, downstream calls, and data access.
