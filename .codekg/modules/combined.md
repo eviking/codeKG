@@ -1,11 +1,11 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-04 21:06 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-05 20:14 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
 
@@ -295,7 +295,7 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
 
@@ -334,14 +334,14 @@ _Detected from source file imports and connection patterns:_
 
 _Non-obvious facts from engineering sessions — treat as expert hints._
 
-- **services.console** (100%): requests is not installed in the console container by default (FastAPI uses httpx). summarise_classes.py imports requests to call Ollama — it must be listed in services/console/requirements.txt or the job fails immediately with: No module named requests.
-- **services.console.routes.classes.start_summarise** (100%): summarise_classes.py skips TEST and GENERATED role classes by default (_SKIP_ROLES). For large repos like ElasticSearch this is ~16k classes. If resume=True and all remaining unsummarised classes are TEST/GENERATED, the job exits with 0 written — looks like failure but is correct. The console shows a Nothing to summarise warning. Use include_skip_roles=True or force=True to override.
-- **services.console.routes.classes** (100%): summarise_classes.py is NOT copied into any Docker container — it lives only in tools/ on the host. The console loads it at runtime via importlib from /host-home/Documents/projects/codeKG/tools/summarise_classes.py through the host-home mount. If that path is wrong or the mount is missing, the job errors immediately.
 - **services.console.routes.classes** (100%): FastAPI route registration order is critical when a path-parameter catch-all exists. GET /classes/{fqn:path} greedily matches everything under /classes/. More-specific routes like /classes/summarise/{job_id} MUST be registered before the catch-all or they are swallowed. Symptom: 404 with body: Class summarise/<id> not found.
-- **services.console.routes.classes** (100%): summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes with exit status 1. Fix: strip the bootstrap block from the source string before exec()-ing it. All deps (neo4j, requests) must be pre-installed in the container image.
+- **services.console.routes.classes.start_summarise** (100%): summarise_classes.py skips TEST and GENERATED role classes by default (_SKIP_ROLES). For large repos like ElasticSearch this is ~16k classes. If resume=True and all remaining unsummarised classes are TEST/GENERATED, the job exits with 0 written — looks like failure but is correct. The console shows a Nothing to summarise warning. Use include_skip_roles=True or force=True to override.
+- **services.console.routes.classes** (100%): When summarise_classes.py is loaded via importlib from inside the console container, the self-bootstrap block must be stripped from the source string before exec()-ing it, since it would run against the read-only host-home mount and crash. All deps (neo4j, requests) must be pre-installed in the container image.
+- **services.console.routes.classes** (100%): summarise_classes.py is NOT copied into any Docker container — it lives only in tools/ on the host. The console loads it at runtime via importlib from /host-home/Documents/projects/codeKG/tools/summarise_classes.py through the host-home mount. If that path is wrong or the mount is missing, the job errors immediately.
 - **services.console.routes.classes.start_summarise** (100%): Ollama runs on the Mac host, not inside Docker. From any container the correct URL is http://host.docker.internal:11434 — never localhost:11434 which resolves to the container loopback. The console UI and summarise_classes.py default both use host.docker.internal.
-- **services.console.llm_audit.aggregate_stats** (100%): aggregate_stats accepted a `days` parameter and computed a `cutoff` timestamp but never passed it to the SQL query — stats were always all-time regardless of the argument. Fixed by passing cutoff as a bound parameter in the WHERE clause.
-- **services.console.routes.classes.classes_list** (100%): summary_total in classes_list() is now correctly scoped to effective_repo (fixed 2026-06-02). It uses: MATCH (c:Class) WHERE c.repo_id = $repo_id AND NOT c.kind IN ["module"] AND c.summary IS NOT NULL. A separate class_total query provides the denominator (total non-module classes for the repo). Previously it counted across ALL repos with no filter, inflating the progress bar. The filtered `total` variable must never be used as the denominator — it reflects the current search filter, not the full repo size.
+- **services.console** (100%): requests is not installed in the console container by default (FastAPI uses httpx). summarise_classes.py imports requests to call Ollama — it must be listed in services/console/requirements.txt or the job fails immediately with: No module named requests.
+- **services.console.routes.classes.classes_list** (100%): summary_total in classes_list() is correctly scoped to effective_repo using: MATCH (c:Class) WHERE c.repo_id = $repo_id AND NOT c.kind IN ["module"] AND c.summary IS NOT NULL. A separate class_total query provides the denominator (total non-module classes for the repo). The filtered `total` variable must never be used as the denominator — it reflects the current search filter, not the full repo size.
+- **services.console.llm_audit.aggregate_stats** (100%): aggregate_stats correctly accepts a `days` parameter, computes a `cutoff` timestamp, and passes it to the SQL query via a bound parameter in the WHERE clause, ensuring stats are scoped to the requested timeframe rather than all-time.
 - **services.console** (100%): The console container does not hot-reload. All files (templates, routes, requirements.txt) are baked at build time via COPY in the Dockerfile. Any change to services/console/ requires: docker compose up -d --build console
 - **services.console** (100%): The console UI uses CSS custom properties defined in base.html :root (--bg, --surface, --primary, --success, --danger etc). All page templates must use these tokens — raw hex values in a template are a design bug. There is no external CSS file or build pipeline; all styles are inline in HTML templates.
 
@@ -655,7 +655,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -995,7 +995,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -1012,7 +1012,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

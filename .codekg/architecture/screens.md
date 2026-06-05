@@ -1,5 +1,5 @@
 # Screen & Page Catalog — codeKG
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 Complete map of every user-facing page and API endpoint.
 Covers URL patterns, templates, navigation links, downstream calls, and data access.
@@ -35,14 +35,14 @@ _Top-level nav links defined in `base.html` — all pages extend this template._
 | Ask | `/ask` | path starts with `/ask` |
 | LLM Audit | `/audit` | path starts with `/audit` |
 | MCP Audit | `/mcp-audit` | path starts with `/mcp-audit` |
-| Insights | `/tribal-knowledge` | path starts with `/tribal-knowledge` |
+| Insights | `/insights` | path starts with `/insights` |
 | Telemetry | `/telemetry` | path starts with `/telemetry` |
 | Agent Indexing | `/agent-index` | path starts with `/agent-index` |
 | Health | `/system-health` | path starts with `/system-health` |
 
 ## Pages (HTML responses)
 
-_26 page endpoint(s) detected._
+_27 page endpoint(s) detected._
 
 ### Service: `console`
 
@@ -52,7 +52,7 @@ _26 page endpoint(s) detected._
 
 **Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_stats`, `gc`, `recent_events`, `token_savings`, `tk_total`, `tk_by_repo`
 
-**Links to:** `/hygiene/{{ r.repo_id }}`, `/policies/{{ ev.policy_id }}`, `/repos`, `/repos/{{ ev.repo_id }}`, `/repos/{{ r.repo_id }}`, `/tribal-knowledge`
+**Links to:** `/hygiene/{{ r.repo_id }}`, `/insights`, `/policies/{{ ev.policy_id }}`, `/repos`, `/repos/{{ ev.repo_id }}`, `/repos/{{ r.repo_id }}`
 
 **Data access:** Neo4j (via `run_query`)
 
@@ -171,7 +171,7 @@ _26 page endpoint(s) detected._
 
 **Template context:** `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos`
 
-**Linked from:** `/`, `/hygiene/{repo_id:path}`
+**Linked from:** `/`, `/hygiene/{repo_id:path}`, `/hygiene/{repo_id}/refactor`
 
 **Links to:** `/hygiene/{{ r.repo_id }}`
 
@@ -185,11 +185,35 @@ _26 page endpoint(s) detected._
 
 **Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_score`, `classes`, `stats`
 
-**Linked from:** `/`, `/hygiene`
+**Linked from:** `/`, `/hygiene`, `/hygiene/{repo_id}/refactor`
 
-**Links to:** `/classes/{{ c.fqn }}`, `/hygiene`, `/modules/{{ c.module_id }}`
+**Links to:** `/classes/{{ c.fqn }}`, `/hygiene`, `/hygiene/{{ repo_id }}/refactor`, `/modules/{{ c.module_id }}`
 
 **Data access:** Neo4j (via `run_query`)
+
+#### `GET /hygiene/{repo_id}/refactor`
+**Template:** `hygiene_refactor.html`  **Route file:** `services/console/routes/hygiene.py`
+**Description:** Hygiene Refactor page
+
+**Parameters:** `repo_id: str`
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes`
+
+**Linked from:** `/`, `/hygiene`, `/hygiene/{repo_id:path}`
+
+**Links to:** `/hygiene/{{ repo_id }}`
+
+**Data access:** Neo4j (via `run_query`)
+
+#### `GET /insights`
+**Template:** `insights.html`  **Route file:** `services/console/routes/insights.py`
+**Description:** Insights — non-obvious facts captured from coding sessions
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`
+
+**Linked from:** `/`
+
+**Links to:** `/insights`
 
 #### `GET /mcp-audit`
 **Template:** `mcp_audit.html`  **Route file:** `services/console/routes/mcp_audit.py`
@@ -346,16 +370,6 @@ _26 page endpoint(s) detected._
 
 **Links to:** `/telemetry`
 
-#### `GET /tribal-knowledge`
-**Template:** `tribal_knowledge.html`  **Route file:** `services/console/routes/tribal_knowledge.py`
-**Description:** Insights (tribal knowledge) — non-obvious facts captured from coding sessions
-
-**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`
-
-**Linked from:** `/`
-
-**Links to:** `/tribal-knowledge`
-
 ## API endpoints (non-HTML)
 
 _29 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or CI._
@@ -368,16 +382,16 @@ _29 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or C
 | `POST` | `/api/agent-index/regen-all` | `services/console/routes/agent_index.py` | — |
 | `POST` | `/api/agent-index/toggle-hidden` | `services/console/routes/agent_index.py` | — |
 | `POST` | `/api/ask` | `services/console/routes/ask.py` | → api: /answer |
+| `POST` | `/api/insights/analyse` | `services/console/routes/insights.py` | — |
+| `POST` | `/api/insights/apply-finding` | `services/console/routes/insights.py` | — |
+| `PATCH` | `/api/insights/{tk_id}` | `services/console/routes/insights.py` | — |
+| `DELETE` | `/api/insights/{tk_id}` | `services/console/routes/insights.py` | — |
 | `GET` | `/api/mcp-audit` | `services/console/routes/mcp_audit.py` | — |
 | `GET` | `/api/mcp-audit/call/{call_id}` | `services/console/routes/mcp_audit.py` | SQLite |
 | `GET` | `/api/mcp-audit/sessions/analysed` | `services/console/routes/mcp_audit.py` | — |
 | `GET` | `/api/repos/{repo_id:path}/scan-status` | `services/console/routes/repos.py` | — |
 | `GET` | `/api/system-health` | `services/console/routes/system_health.py` | SQLite |
 | `POST` | `/api/system-health/cancel-scan` | `services/console/routes/system_health.py` | — |
-| `POST` | `/api/tribal-knowledge/analyse` | `services/console/routes/tribal_knowledge.py` | — |
-| `POST` | `/api/tribal-knowledge/apply-finding` | `services/console/routes/tribal_knowledge.py` | — |
-| `PATCH` | `/api/tribal-knowledge/{tk_id}` | `services/console/routes/tribal_knowledge.py` | — |
-| `DELETE` | `/api/tribal-knowledge/{tk_id}` | `services/console/routes/tribal_knowledge.py` | — |
 | `GET` | `/classes/summarise/{job_id}/stream` | `services/console/routes/classes.py` | — |
 | `POST` | `/modules` | `services/console/routes/modules.py` | — |
 | `PATCH` | `/pattern-catalog/{pattern_id}` | `services/console/routes/patterns.py` | — |

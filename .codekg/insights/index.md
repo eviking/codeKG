@@ -1,9 +1,9 @@
 # All Insights — codeKG
-_Generated 2026-06-04 21:06 UTC_
+_Generated 2026-06-05 20:14 UTC_
 
 Non-obvious facts captured from previous coding sessions.
 These are also inlined at the top of each module file.
-**Total:** 51 insights
+**Total:** 50 insights
 
 ## `.claude.hooks.require_telemetry`
 
@@ -44,6 +44,9 @@ The screens index parser splits route source by `@router.` decorator boundaries 
 
 **[module]** _100% confidence_
 The screens index parser extracts template context variables from the TemplateResponse dict literal using _CTX_KEY_RE (matches "key": patterns) and detects **_template_ctx / **ctx spreads to inject the standard trio (current_path, repos, effective_repo). It also parses the handler function signature for query/path params, skipping FastAPI internals (request, response, body). Both are regex-based — they work on the raw source block between @router. decorators without importing the module.
+
+**[module]** _100% confidence_
+generate_modules switches to index mode when a repo has >100 modules. Index mode groups non-empty modules by top-level path segment, one bullet per module with NL description (first sentence of summary) + hotspot flag + class count + link to the per-module detail file. 0-class modules are filtered from both modes — they're empty directory nodes with no useful content. The threshold is _LARGE_REPO_THRESHOLD = 100, defined inside generate_modules.
 
 ## `services.api.main`
 
@@ -100,7 +103,7 @@ The PreToolUse hook fires on every tool call including Read/Write/Edit, but skil
 ## `services.console.llm_audit.aggregate_stats`
 
 **[method]** _100% confidence_
-aggregate_stats accepted a `days` parameter and computed a `cutoff` timestamp but never passed it to the SQL query — stats were always all-time regardless of the argument. Fixed by passing cutoff as a bound parameter in the WHERE clause.
+aggregate_stats correctly accepts a `days` parameter, computes a `cutoff` timestamp, and passes it to the SQL query via a bound parameter in the WHERE clause, ensuring stats are scoped to the requested timeframe rather than all-time.
 
 ## `services.console.main`
 
@@ -122,7 +125,7 @@ The base.html CSS already uses green (#16a34a) as --primary. The blue appearance
 summarise_classes.py is NOT copied into any Docker container — it lives only in tools/ on the host. The console loads it at runtime via importlib from /host-home/Documents/projects/codeKG/tools/summarise_classes.py through the host-home mount. If that path is wrong or the mount is missing, the job errors immediately.
 
 **[module]** _100% confidence_
-summarise_classes.py has a self-bootstrap block that creates a .venv and re-execs itself. When loaded via importlib from inside the console container it runs against the read-only host-home mount and crashes with exit status 1. Fix: strip the bootstrap block from the source string before exec()-ing it. All deps (neo4j, requests) must be pre-installed in the container image.
+When summarise_classes.py is loaded via importlib from inside the console container, the self-bootstrap block must be stripped from the source string before exec()-ing it, since it would run against the read-only host-home mount and crash. All deps (neo4j, requests) must be pre-installed in the container image.
 
 **[module]** _100% confidence_
 FastAPI route registration order is critical when a path-parameter catch-all exists. GET /classes/{fqn:path} greedily matches everything under /classes/. More-specific routes like /classes/summarise/{job_id} MUST be registered before the catch-all or they are swallowed. Symptom: 404 with body: Class summarise/<id> not found.
@@ -133,7 +136,7 @@ summarise_classes.py is a standalone CLI script in tools/ that is NOT copied int
 ## `services.console.routes.classes.classes_list`
 
 **[method]** _100% confidence_
-summary_total in classes_list() is now correctly scoped to effective_repo (fixed 2026-06-02). It uses: MATCH (c:Class) WHERE c.repo_id = $repo_id AND NOT c.kind IN ["module"] AND c.summary IS NOT NULL. A separate class_total query provides the denominator (total non-module classes for the repo). Previously it counted across ALL repos with no filter, inflating the progress bar. The filtered `total` variable must never be used as the denominator — it reflects the current search filter, not the full repo size.
+summary_total in classes_list() is correctly scoped to effective_repo using: MATCH (c:Class) WHERE c.repo_id = $repo_id AND NOT c.kind IN ["module"] AND c.summary IS NOT NULL. A separate class_total query provides the denominator (total non-module classes for the repo). The filtered `total` variable must never be used as the denominator — it reflects the current search filter, not the full repo size.
 
 ## `services.console.routes.classes.start_summarise`
 
@@ -155,9 +158,6 @@ The MCP audit page had two setInterval calls (10s for calls, 30s for session ana
 
 **[module]** _95% confidence_
 renderCalls and loadSessionAnalysis run concurrently — analysis data (_analysedSessions) is not available when calls first render, so a second renderCalls call after analysis loads is needed to fill in turn prompts.
-
-**[module]** _90% confidence_
-The MCP audit template already had '(24h)' on the Calls label but not on the other 6 stat boxes — a reader scanning the page would not realise all stats are 24h-scoped, making the error count appear to be all-time.
 
 ## `services.console.routes.mcp_audit._query`
 
@@ -186,8 +186,3 @@ sync_claude_md must return content to Claude Code rather than writing server-sid
 
 **[method]** _85% confidence_
 The sync_claude_md tool includes a save_as comment header in the response so Claude Code knows what filename to use without needing to infer it from context.
-
-## `test.fqn`
-
-**[class]** _80% confidence_
-Test from MCP container
