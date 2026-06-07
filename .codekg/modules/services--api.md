@@ -1,7 +1,7 @@
 # Module: services/api
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
+**Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
 
 ## Depends on
 
@@ -262,6 +262,14 @@ TestViolations is a class designed to validate and verify violations within code
 **FQN:** `services.api.main._AnswerRequest`
 
 _AnswerRequest is a class that handles user requests by parsing them into structured data using the `parse_request` method. It stores parsed data in the `request_data` field, which is a dictionary. The `process_request` method then uses this data to execute the appropriate action based on the request type, demonstrating its role in processing and responding to user inputs efficiently._
+
+### `_DefaultZero` — class
+**File:** `services/api/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**FQN:** `services.api.agent_index.generator._DefaultZero`
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `dunder protected __missing__` | `key` | — |  |
 
 ### `_Entry` — class
 **File:** `services/api/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0

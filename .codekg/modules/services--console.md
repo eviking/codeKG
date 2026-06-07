@@ -1,7 +1,7 @@
 # Module: services/console
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
+**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
 
 ## Depends on
 
@@ -22,7 +22,6 @@ _Detected from source file imports and connection patterns:_
   - `routes/system_health.py`
 - **mcp_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `main.py`
-  - `routes/dashboard.py`
   - `routes/mcp_audit.py`
 - **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
   - `deps.py`
@@ -46,14 +45,16 @@ _FastAPI route handlers in this module — what each renders, its template, and 
 | `GET` | `/ask` | `ask.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `result` |
 | `POST` | `/ask` | `ask.html` | `question: str` = `Form(...` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `question`, `repo_id`, `result` |
 | `GET` | `/audit` | `audit.html` | `source: str` = `""`, `limit: int` = `200`, `hours: int` = `24` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `calls`, `stats`, `source_filter`, `limit`, `hours` |
+| `GET` | `/auth/callback` | `—` | `code: str` = `""`, `state: str` = `""`, `error: str` = `""` | — |
 | `GET` | `/classes` | `classes.html` | `q: str` = `""`, `role: str` = `""`, `repo_id: str` = `""`, `sort: str` = `"coupling"`, `has_summary: str` = `"false"`, `page: int` = `1` | `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `classes`, `total`, `page`, `pages`, `page_size`, `q`, `role`, `repo_id`, `sort`, `has_summary`, `summary_total`, `class_total`, `roles`, `repos` |
 | `POST` | `/classes/summarise` | `—` | `repo_id: str` = `Form(...` | — |
 | `GET` | `/classes/summarise/{job_id}` | `summarise_progress.html` | `job_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `job_id`, `status`, `done`, `total`, `log` |
 | `GET` | `/classes/{fqn:path}` | `class_detail.html` | `fqn: str` | — |
+| `GET` | `/config` | `config.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `env_file_exists`, `env_file_path` |
 | `GET` | `/hygiene` | `hygiene_overview.html` | — | `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos` |
 | `GET` | `/hygiene/{repo_id:path}` | `hygiene_detail.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_score`, `classes`, `stats` |
-| `GET` | `/hygiene/{repo_id}/refactor` | `hygiene_refactor.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes` |
-| `GET` | `/insights` | `insights.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden` |
+| `GET` | `/hygiene/{repo_id}/refactor` | `hygiene_refactor.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes`, `module_index_path` |
+| `GET` | `/insights` | `insights.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`, `q`, `sort`, `pending_count` |
 | `GET` | `/mcp-audit` | `mcp_audit.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)` |
 | `GET` | `/modules` | `modules.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `modules`, `module_tree`, `edges` |
 | `GET` | `/modules/{module_id:path}` | `module_detail.html` | `module_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `mod`, `module_id`, `stat` |
@@ -61,7 +62,7 @@ _FastAPI route handlers in this module — what each renders, its template, and 
 | `GET` | `/patterns` | `patterns.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `results` |
 | `POST` | `/patterns` | `patterns.html` | `repo_id: str` = `Form(""` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `results` |
 | `GET` | `/policies` | `policies.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policies`, `modules` |
-| `GET` | `/policies/{policy_id}` | `policy_detail.html` | `policy_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run` |
+| `GET` | `/policies/{policy_id}` | `policy_detail.html` | `policy_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run`, `run_error`, `run_error_msg`, `recompiled`, `has_valid_cypher`, `saved` |
 | `GET` | `/repos` | `repos.html` | — | `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos`, `repos_path` |
 | `GET` | `/repos/{repo_id:path}` | `repo_detail.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_path`, `git`, `kg`, `provenance`, `stats`, `in_registry`, `scanning`, `api_url` |
 | `GET` | `/system-health` | `system_health.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)` |
@@ -378,6 +379,14 @@ TestValidateRepoPath is a class designed to validate Git repository paths. The m
 | `public test_not_a_directory` | — | — |  |
 | `public test_valid_git_repo` | — | — |  |
 | `public test_directory_without_git` | — | — |  |
+
+### `_DefaultZero` — class
+**File:** `services/console/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**FQN:** `services.console.agent_index.generator._DefaultZero`
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `dunder protected __missing__` | `key` | — |  |
 
 ### `_Entry` — class
 **File:** `services/console/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0

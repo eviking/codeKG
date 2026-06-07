@@ -1,5 +1,5 @@
 # Module: services/ingestion
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -186,6 +186,9 @@ KGWriter is a class designed to manage various aspects of software repositories.
 
 | Method | Parameters | Returns | Notes |
 |--------|-----------|---------|-------|
+| `public upsert_insights` | `list[dict] entries`<br>`str session_id`<br>`str commit_sha` | — |  |
+| `public ensure_insight_schema` | — | — |  |
+| `public update_insight_staleness` | `list[str] changed_files`<br>`str commit_sha` | — |  |
 | `public ensure_tribal_schema` | — | — |  |
 | `public upsert_tribal_knowledge` | `list[dict] entries`<br>`str session_id`<br>`str commit_sha` | — |  |
 | `public update_tribal_staleness` | `list[str] changed_files`<br>`str commit_sha` | — |  |
@@ -203,9 +206,6 @@ KGWriter is a class designed to manage various aspects of software repositories.
 | `public update_last_commit` | `str repo_id`<br>`str commit_sha` | — |  |
 | `public upsert_repository` | `str repo_id`<br>`str name`<br>`str path`<br>`str language`<br>`str java_version`<br>`str build_tool`<br>`str description`<br>`str test_framework`<br>`dict build_commands`<br>`list key_dependencies` | — |  |
 | `public wire_edges` | `str repo_id` | — |  |
-| `static protected _write_parsed_file` | `tx`<br>`ParsedFile parsed`<br>`dict prov` | — |  |
-| `dunder protected __init__` | `str uri`<br>`str user`<br>`str password` | — |  |
-| `static protected _write_scip_document` | `tx`<br>`doc`<br>`dict prov` | — |  |
 
 ### `ModuleInfo` — class
 **File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 5  **Grade:** B  **Blast:** 0

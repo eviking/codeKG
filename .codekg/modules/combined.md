@@ -1,13 +1,13 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-05 20:34 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-07 16:52 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 22
+**Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
 
 ## Depends on
 
@@ -269,6 +269,14 @@ TestViolations is a class designed to validate and verify violations within code
 
 _AnswerRequest is a class that handles user requests by parsing them into structured data using the `parse_request` method. It stores parsed data in the `request_data` field, which is a dictionary. The `process_request` method then uses this data to execute the appropriate action based on the request type, demonstrating its role in processing and responding to user inputs efficiently._
 
+### `_DefaultZero` — class
+**File:** `services/api/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**FQN:** `services.api.agent_index.generator._DefaultZero`
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `dunder protected __missing__` | `key` | — |  |
+
 ### `_Entry` — class
 **File:** `services/api/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0
 **FQN:** `services.api.llm_audit._Entry`
@@ -295,9 +303,9 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 23
+**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
 
 ## Depends on
 
@@ -318,7 +326,6 @@ _Detected from source file imports and connection patterns:_
   - `routes/system_health.py`
 - **mcp_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `main.py`
-  - `routes/dashboard.py`
   - `routes/mcp_audit.py`
 - **Neo4j** (graph) — see `.codekg/architecture/datastores.md` for schema
   - `deps.py`
@@ -342,14 +349,16 @@ _FastAPI route handlers in this module — what each renders, its template, and 
 | `GET` | `/ask` | `ask.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `result` |
 | `POST` | `/ask` | `ask.html` | `question: str` = `Form(...` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `question`, `repo_id`, `result` |
 | `GET` | `/audit` | `audit.html` | `source: str` = `""`, `limit: int` = `200`, `hours: int` = `24` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `calls`, `stats`, `source_filter`, `limit`, `hours` |
+| `GET` | `/auth/callback` | `—` | `code: str` = `""`, `state: str` = `""`, `error: str` = `""` | — |
 | `GET` | `/classes` | `classes.html` | `q: str` = `""`, `role: str` = `""`, `repo_id: str` = `""`, `sort: str` = `"coupling"`, `has_summary: str` = `"false"`, `page: int` = `1` | `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `classes`, `total`, `page`, `pages`, `page_size`, `q`, `role`, `repo_id`, `sort`, `has_summary`, `summary_total`, `class_total`, `roles`, `repos` |
 | `POST` | `/classes/summarise` | `—` | `repo_id: str` = `Form(...` | — |
 | `GET` | `/classes/summarise/{job_id}` | `summarise_progress.html` | `job_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `job_id`, `status`, `done`, `total`, `log` |
 | `GET` | `/classes/{fqn:path}` | `class_detail.html` | `fqn: str` | — |
+| `GET` | `/config` | `config.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `env_file_exists`, `env_file_path` |
 | `GET` | `/hygiene` | `hygiene_overview.html` | — | `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos` |
 | `GET` | `/hygiene/{repo_id:path}` | `hygiene_detail.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_score`, `classes`, `stats` |
-| `GET` | `/hygiene/{repo_id}/refactor` | `hygiene_refactor.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes` |
-| `GET` | `/insights` | `insights.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden` |
+| `GET` | `/hygiene/{repo_id}/refactor` | `hygiene_refactor.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes`, `module_index_path` |
+| `GET` | `/insights` | `insights.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`, `q`, `sort`, `pending_count` |
 | `GET` | `/mcp-audit` | `mcp_audit.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)` |
 | `GET` | `/modules` | `modules.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `modules`, `module_tree`, `edges` |
 | `GET` | `/modules/{module_id:path}` | `module_detail.html` | `module_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `mod`, `module_id`, `stat` |
@@ -357,7 +366,7 @@ _FastAPI route handlers in this module — what each renders, its template, and 
 | `GET` | `/patterns` | `patterns.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `results` |
 | `POST` | `/patterns` | `patterns.html` | `repo_id: str` = `Form(""` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `results` |
 | `GET` | `/policies` | `policies.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policies`, `modules` |
-| `GET` | `/policies/{policy_id}` | `policy_detail.html` | `policy_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run` |
+| `GET` | `/policies/{policy_id}` | `policy_detail.html` | `policy_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run`, `run_error`, `run_error_msg`, `recompiled`, `has_valid_cypher`, `saved` |
 | `GET` | `/repos` | `repos.html` | — | `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `repos`, `repos_path` |
 | `GET` | `/repos/{repo_id:path}` | `repo_detail.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_path`, `git`, `kg`, `provenance`, `stats`, `in_registry`, `scanning`, `api_url` |
 | `GET` | `/system-health` | `system_health.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)` |
@@ -675,6 +684,14 @@ TestValidateRepoPath is a class designed to validate Git repository paths. The m
 | `public test_valid_git_repo` | — | — |  |
 | `public test_directory_without_git` | — | — |  |
 
+### `_DefaultZero` — class
+**File:** `services/console/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**FQN:** `services.console.agent_index.generator._DefaultZero`
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `dunder protected __missing__` | `key` | — |  |
+
 ### `_Entry` — class
 **File:** `services/console/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0
 **FQN:** `services.console.llm_audit._Entry`
@@ -689,7 +706,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -876,6 +893,9 @@ KGWriter is a class designed to manage various aspects of software repositories.
 
 | Method | Parameters | Returns | Notes |
 |--------|-----------|---------|-------|
+| `public upsert_insights` | `list[dict] entries`<br>`str session_id`<br>`str commit_sha` | — |  |
+| `public ensure_insight_schema` | — | — |  |
+| `public update_insight_staleness` | `list[str] changed_files`<br>`str commit_sha` | — |  |
 | `public ensure_tribal_schema` | — | — |  |
 | `public upsert_tribal_knowledge` | `list[dict] entries`<br>`str session_id`<br>`str commit_sha` | — |  |
 | `public update_tribal_staleness` | `list[str] changed_files`<br>`str commit_sha` | — |  |
@@ -893,9 +913,6 @@ KGWriter is a class designed to manage various aspects of software repositories.
 | `public update_last_commit` | `str repo_id`<br>`str commit_sha` | — |  |
 | `public upsert_repository` | `str repo_id`<br>`str name`<br>`str path`<br>`str language`<br>`str java_version`<br>`str build_tool`<br>`str description`<br>`str test_framework`<br>`dict build_commands`<br>`list key_dependencies` | — |  |
 | `public wire_edges` | `str repo_id` | — |  |
-| `static protected _write_parsed_file` | `tx`<br>`ParsedFile parsed`<br>`dict prov` | — |  |
-| `dunder protected __init__` | `str uri`<br>`str user`<br>`str password` | — |  |
-| `static protected _write_scip_document` | `tx`<br>`doc`<br>`dict prov` | — |  |
 
 ### `ModuleInfo` — class
 **File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 5  **Grade:** B  **Blast:** 0
@@ -1029,7 +1046,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -1046,7 +1063,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-05 20:34 UTC · commit `5185bf1`_
+_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

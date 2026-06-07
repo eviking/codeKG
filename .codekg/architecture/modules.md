@@ -1,5 +1,5 @@
 # Module Map — codeKG
-_Generated 2026-06-05 20:34 UTC_
+_Generated 2026-06-07 16:52 UTC_
 
 This repository contains **5 logical modules**.
 Read individual `modules/<name>.md` files for full class detail.
@@ -9,5 +9,5 @@ Read individual `modules/<name>.md` files for full class detail.
 | Module | Classes | Max blast | Hotspots | Index file |
 |--------|---------|-----------|----------|------------|
 | `services/ingestion` | 30 | 0 | ⚠ 4 | `.codekg/modules/services--ingestion.md` |
-| `services/console` | 23 | 0 | ⚠ 1 | `.codekg/modules/services--console.md` |
-| `services/api` | 22 | 0 | ⚠ 4 | `.codekg/modules/services--api.md` |
+| `services/console` | 24 | 0 | ⚠ 1 | `.codekg/modules/services--console.md` |
+| `services/api` | 23 | 0 | ⚠ 4 | `.codekg/modules/services--api.md` |

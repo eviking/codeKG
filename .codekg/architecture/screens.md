@@ -1,5 +1,5 @@
 # Screen & Page Catalog — codeKG
-_Generated 2026-06-05 20:34 UTC_
+_Generated 2026-06-07 16:52 UTC_
 
 Complete map of every user-facing page and API endpoint.
 Covers URL patterns, templates, navigation links, downstream calls, and data access.
@@ -42,7 +42,7 @@ _Top-level nav links defined in `base.html` — all pages extend this template._
 
 ## Pages (HTML responses)
 
-_27 page endpoint(s) detected._
+_28 page endpoint(s) detected._
 
 ### Service: `console`
 
@@ -125,7 +125,7 @@ _27 page endpoint(s) detected._
 
 **Template context:** `effective_repo (via _template_ctx)`, `current_path (via _template_ctx)`, `classes`, `total`, `page`, `pages`, `page_size`, `q`, `role`, `repo_id`, `sort`, `has_summary`, `summary_total`, `class_total`, `roles`, `repos`
 
-**Linked from:** `/classes/summarise/{job_id}`, `/classes/{fqn:path}`, `/hygiene/{repo_id:path}`, `/modules/{module_id:path}`
+**Linked from:** `/classes/summarise/{job_id}`, `/classes/{fqn:path}`, `/hygiene/{repo_id:path}`, `/hygiene/{repo_id}/refactor`, `/modules/{module_id:path}`, `/policies/{policy_id}`
 
 **Links to:** `/classes`, `/modules/{{ cls.module_id }}`
 
@@ -159,11 +159,17 @@ _27 page endpoint(s) detected._
 
 **Parameters:** `fqn: str`
 
-**Linked from:** `/classes`, `/classes/summarise/{job_id}`, `/hygiene/{repo_id:path}`, `/modules/{module_id:path}`
+**Linked from:** `/classes`, `/classes/summarise/{job_id}`, `/hygiene/{repo_id:path}`, `/hygiene/{repo_id}/refactor`, `/modules/{module_id:path}`, `/policies/{policy_id}`
 
 **Links to:** `/classes`, `/classes/{{ d.fqn }}`, `/classes/{{ dep.fqn }}`, `/classes/{{ e.fqn }}`, `/classes/{{ step.fqn }}`, `/modules/{{ om.module_id }}`
 
 **Data access:** Neo4j (via `run_query`)
+
+#### `GET /config`
+**Template:** `config.html`  **Route file:** `services/console/routes/config.py`
+**Description:** Config page
+
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `env_file_exists`, `env_file_path`
 
 #### `GET /hygiene`
 **Template:** `hygiene_overview.html`  **Route file:** `services/console/routes/hygiene.py`
@@ -197,11 +203,11 @@ _27 page endpoint(s) detected._
 
 **Parameters:** `repo_id: str`
 
-**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes`
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `classes`, `module_index_path`
 
 **Linked from:** `/`, `/hygiene`, `/hygiene/{repo_id:path}`
 
-**Links to:** `/hygiene/{{ repo_id }}`
+**Links to:** `/classes/{{ caller.fqn }}`, `/hygiene/{{ repo_id }}`
 
 **Data access:** Neo4j (via `run_query`)
 
@@ -209,7 +215,7 @@ _27 page endpoint(s) detected._
 **Template:** `insights.html`  **Route file:** `services/console/routes/insights.py`
 **Description:** Insights — non-obvious facts captured from coding sessions
 
-**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sections`, `total`, `include_hidden`, `q`, `sort`, `pending_count`
 
 **Linked from:** `/`
 
@@ -303,11 +309,13 @@ _27 page endpoint(s) detected._
 
 **Parameters:** `policy_id: str`
 
-**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run`
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `policy`, `violations`, `violations_run`, `run_error`, `run_error_msg`, `recompiled`, `has_valid_cypher`, `saved`
 
 **Linked from:** `/`, `/policies`, `/repos/{repo_id:path}`
 
-**Form actions (POST):** `/policies/{{ policy.policy_id }}/activate`, `/policies/{{ policy.policy_id }}/run`
+**Links to:** `/classes/{{ v.fqn }}`
+
+**Form actions (POST):** `/policies/{{ policy.policy_id }}/activate`, `/policies/{{ policy.policy_id }}/deactivate`, `/policies/{{ policy.policy_id }}/delete`, `/policies/{{ policy.policy_id }}/edit`, `/policies/{{ policy.policy_id }}/recompile`, `/policies/{{ policy.policy_id }}/run`
 
 **Data access:** Neo4j (via `run_query`)
 
@@ -372,7 +380,7 @@ _27 page endpoint(s) detected._
 
 ## API endpoints (non-HTML)
 
-_29 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or CI._
+_37 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or CI._
 
 | Method | URL | Route file | Notes |
 |--------|-----|------------|-------|
@@ -382,10 +390,14 @@ _29 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or C
 | `POST` | `/api/agent-index/regen-all` | `services/console/routes/agent_index.py` | — |
 | `POST` | `/api/agent-index/toggle-hidden` | `services/console/routes/agent_index.py` | — |
 | `POST` | `/api/ask` | `services/console/routes/ask.py` | → api: /answer |
+| `GET` | `/api/config/current` | `services/console/routes/config.py` | — |
+| `POST` | `/api/config/reset` | `services/console/routes/config.py` | — |
+| `POST` | `/api/config/save` | `services/console/routes/config.py` | — |
 | `POST` | `/api/insights/analyse` | `services/console/routes/insights.py` | — |
 | `POST` | `/api/insights/apply-finding` | `services/console/routes/insights.py` | — |
 | `PATCH` | `/api/insights/{tk_id}` | `services/console/routes/insights.py` | — |
 | `DELETE` | `/api/insights/{tk_id}` | `services/console/routes/insights.py` | — |
+| `GET` | `/api/llm/models/{provider}` | `services/console/routes/config.py` | — |
 | `GET` | `/api/mcp-audit` | `services/console/routes/mcp_audit.py` | — |
 | `GET` | `/api/mcp-audit/call/{call_id}` | `services/console/routes/mcp_audit.py` | SQLite |
 | `GET` | `/api/mcp-audit/sessions/analysed` | `services/console/routes/mcp_audit.py` | — |
@@ -398,6 +410,10 @@ _29 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or C
 | `POST` | `/pattern-catalog/{pattern_id}/toggle` | `services/console/routes/patterns.py` | — |
 | `POST` | `/policies` | `services/console/routes/policies.py` | — |
 | `POST` | `/policies/{policy_id}/activate` | `services/console/routes/policies.py` | Neo4j |
+| `POST` | `/policies/{policy_id}/deactivate` | `services/console/routes/policies.py` | Neo4j |
+| `POST` | `/policies/{policy_id}/delete` | `services/console/routes/policies.py` | Neo4j |
+| `POST` | `/policies/{policy_id}/edit` | `services/console/routes/policies.py` | Neo4j |
+| `POST` | `/policies/{policy_id}/recompile` | `services/console/routes/policies.py` | Neo4j |
 | `POST` | `/policies/{policy_id}/run` | `services/console/routes/policies.py` | Neo4j |
 | `POST` | `/repos` | `services/console/routes/repos.py` | — |
 | `POST` | `/repos/clone` | `services/console/routes/repos.py` | — |

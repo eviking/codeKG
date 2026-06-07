@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-05 20:34 UTC_
+_Generated 2026-06-07 16:52 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -52,6 +52,7 @@ _Generated 2026-06-05 20:34 UTC_
 - `services/api/agent_index/generator.py`
 - `services/api/agent_index/store.py`
 - `services/console/agent_index/store.py`
+- `shared/config.py`
 
 **Schema:**
 
@@ -107,6 +108,7 @@ _Generated 2026-06-05 20:34 UTC_
 - `services/console/nl_query.py`
 - `services/console/routes/audit_log.py`
 - `services/console/routes/system_health.py`
+- `shared/config.py`
 
 **Schema:**
 
@@ -138,8 +140,8 @@ _Generated 2026-06-05 20:34 UTC_
 - `scripts/healthcheck.py`
 - `services/api/agent_index/generator.py`
 - `services/console/main.py`
-- `services/console/routes/dashboard.py`
 - `services/console/routes/mcp_audit.py`
+- `shared/config.py`
 
 **Schema:**
 
@@ -200,6 +202,7 @@ _Generated 2026-06-05 20:34 UTC_
 - `services/api/agent_index/generator.py`
 - `services/console/routes/system_health.py`
 - `services/console/scan_launcher.py`
+- `shared/config.py`
 
 **Schema:**
 
@@ -224,6 +227,7 @@ _Generated 2026-06-05 20:34 UTC_
 **Source files:**
 - `services/api/agent_index/generator.py`
 - `services/api/main.py`
+- `shared/config.py`
 
 **Schema:**
 
@@ -293,9 +297,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `name` | `backfill_javadoc` |
 | `object_model` | `{"fqn":"tools.backfill_javadoc","name":"backfill_javadoc","kind":"module","modul` |
 | `package_fqn` | `tools` |
-| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
+| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
 | `prov_confidence` | `0.85` |
-| `prov_freshness_ts` | `2026-06-04T20:39:53Z` |
+| `prov_freshness_ts` | `2026-06-05T20:43:14Z` |
 | `prov_source_tool` | `tree-sitter-java` |
 | `repo_id` | `codeKG` |
 | `role` | `CLASS` |
@@ -308,7 +312,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | Property | Example value |
 |---|---|
 | `annotations` | `[]` |
-| `calls_unresolved` | `['run', 'session']` |
+| `calls_unresolved` | `['session', 'run']` |
 | `class_fqn` | `tools.backfill_javadoc` |
 | `docstring` | `Write javadoc for a batch of {fqn, javadoc} dicts.` |
 | `end_line` | `131` |
@@ -316,9 +320,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `modifiers` | `['public']` |
 | `name` | `write_batch` |
 | `parameters` | `['driver', 'list[dict] rows']` |
-| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
+| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
 | `prov_confidence` | `0.85` |
-| `prov_freshness_ts` | `2026-06-04T20:39:53Z` |
+| `prov_freshness_ts` | `2026-06-05T20:43:14Z` |
 | `prov_source_tool` | `tree-sitter-java` |
 | `repo_id` | `codeKG` |
 | `start_line` | `124` |
@@ -332,9 +336,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `name` | `services/api` |
 | `path` | `/host-home/Documents/projects/codeKG/services/api` |
 | `pkg_prefix` | `api` |
-| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
+| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
 | `prov_confidence` | `0.95` |
-| `prov_freshness_ts` | `2026-06-04T20:39:53Z` |
+| `prov_freshness_ts` | `2026-06-05T20:43:13Z` |
 | `prov_source_tool` | `build-extractor` |
 | `repo_id` | `codeKG` |
 
@@ -342,18 +346,18 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | Property | Example value |
 |---|---|
 | `build_tool` | `unknown` |
-| `hygiene_computed_at` | `2026-06-04T20:41:25.161000000+00:00` |
+| `hygiene_computed_at` | `2026-06-05T20:44:48.842000000+00:00` |
 | `hygiene_grade` | `B` |
 | `hygiene_score` | `74.1` |
-| `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":156,"scored_classes":119,"go` |
+| `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":159,"scored_classes":122,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `fe6d6519c8e4929b00612a0e4dc30ef390f02111` |
+| `last_commit` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
-| `prov_commit_sha` | `d5ec98d8f654ab42da187520c4122c4c6908c096` |
+| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
 | `prov_confidence` | `0.75` |
-| `prov_freshness_ts` | `2026-06-04T20:39:52Z` |
+| `prov_freshness_ts` | `2026-06-05T20:43:13Z` |
 | `prov_source_tool` | `repo-structure` |
 | `repo_id` | `codeKG` |
 | `test_framework` | `junit5` |
@@ -404,10 +408,12 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 
 | From | Relationship | To |
 |---|---|---|
+| `ArchPolicy` | `:TARGETS` | `Module` |
 | `Class` | `:BELONGS_TO` | `Package` |
 | `Class` | `:EXHIBITS` | `ArchPattern` |
 | `Class` | `:HAS_METHOD` | `Method` |
 | `Class` | `:IMPORTS` | `Class` |
+| `Class` | `:VIOLATES` | `ArchPolicy` |
 | `Enum` | `:BELONGS_TO` | `Package` |
 | `Enum` | `:IMPORTS` | `Class` |
 | `Method` | `:CALLS` | `Method` |
