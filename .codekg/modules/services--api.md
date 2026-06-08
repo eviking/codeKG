@@ -1,5 +1,5 @@
 # Module: services/api
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
 
@@ -16,6 +16,8 @@ _Detected from source file imports and connection patterns:_
 - **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `agent_index/generator.py`
   - `agent_index/store.py`
+  - `tests/test_agent_index_generator.py`
+  - `tests/test_agent_index_store.py`
 - **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `agent_index/generator.py`
   - `llm_audit.py`

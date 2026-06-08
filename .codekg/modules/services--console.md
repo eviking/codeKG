@@ -1,5 +1,5 @@
 # Module: services/console
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
 
@@ -15,6 +15,7 @@ _Detected from source file imports and connection patterns:_
 
 - **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `agent_index/store.py`
+  - `tests/test_config_routes.py`
 - **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `llm_audit.py`
   - `nl_query.py`
@@ -28,10 +29,12 @@ _Detected from source file imports and connection patterns:_
   - `nl_query.py`
   - `pattern_detector.py`
   - `routes/system_health.py`
+  - `tests/test_config_routes.py`
   - `tests/test_console.py`
 - **scan_log.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `routes/system_health.py`
   - `scan_launcher.py`
+  - `tests/test_scan_launcher.py`
 
 ## Routes
 
@@ -67,7 +70,7 @@ _FastAPI route handlers in this module — what each renders, its template, and 
 | `GET` | `/repos/{repo_id:path}` | `repo_detail.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_path`, `git`, `kg`, `provenance`, `stats`, `in_registry`, `scanning`, `api_url` |
 | `GET` | `/system-health` | `system_health.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)` |
 | `GET` | `/telemetry` | `telemetry.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sessions` |
-| `GET` | `/telemetry/{session_id}` | `telemetry_detail.html` | `session_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail`, `query_plan` |
+| `GET` | `/telemetry/{session_id}` | `telemetry_detail.html` | `session_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail` |
 
 ## ⚡ Insights from previous sessions
 

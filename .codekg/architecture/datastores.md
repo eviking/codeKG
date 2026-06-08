@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-07 16:52 UTC_
+_Generated 2026-06-08 13:57 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -19,6 +19,7 @@ _Generated 2026-06-07 16:52 UTC_
 **Used by:** `services/api`, `services/console`, `services/ingestion`
 
 **Source files:**
+- `scripts/repo_backup.py`
 - `services/api/agent_index/generator.py`
 - `services/api/impact/engine.py`
 - `services/api/main.py`
@@ -29,6 +30,7 @@ _Generated 2026-06-07 16:52 UTC_
 - `services/console/nl_query.py`
 - `services/console/pattern_detector.py`
 - `services/console/routes/system_health.py`
+- `services/console/tests/test_config_routes.py`
 - `services/console/tests/test_console.py`
 - `services/ingestion/kg/call_chain.py`
 - `services/ingestion/kg/enrichment.py`
@@ -49,9 +51,14 @@ _Generated 2026-06-07 16:52 UTC_
 **Used by:** `services/api`, `services/console`
 
 **Source files:**
+- `scripts/repo_backup.py`
 - `services/api/agent_index/generator.py`
 - `services/api/agent_index/store.py`
+- `services/api/tests/test_agent_index_generator.py`
+- `services/api/tests/test_agent_index_store.py`
 - `services/console/agent_index/store.py`
+- `services/console/tests/test_config_routes.py`
+- `shared/agent_index/store.py`
 - `shared/config.py`
 
 **Schema:**
@@ -101,6 +108,7 @@ _Generated 2026-06-07 16:52 UTC_
 
 **Source files:**
 - `scripts/healthcheck.py`
+- `scripts/repo_backup.py`
 - `services/api/agent_index/generator.py`
 - `services/api/llm_audit.py`
 - `services/api/nl_query.py`
@@ -138,6 +146,7 @@ _Generated 2026-06-07 16:52 UTC_
 
 **Source files:**
 - `scripts/healthcheck.py`
+- `scripts/repo_backup.py`
 - `services/api/agent_index/generator.py`
 - `services/console/main.py`
 - `services/console/routes/mcp_audit.py`
@@ -199,9 +208,11 @@ _Generated 2026-06-07 16:52 UTC_
 **Used by:** `services/api`, `services/console`
 
 **Source files:**
+- `scripts/repo_backup.py`
 - `services/api/agent_index/generator.py`
 - `services/console/routes/system_health.py`
 - `services/console/scan_launcher.py`
+- `services/console/tests/test_scan_launcher.py`
 - `shared/config.py`
 
 **Schema:**
@@ -225,6 +236,7 @@ _Generated 2026-06-07 16:52 UTC_
 **Used by:** `services/api`
 
 **Source files:**
+- `scripts/repo_backup.py`
 - `services/api/agent_index/generator.py`
 - `services/api/main.py`
 - `shared/config.py`
@@ -352,7 +364,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":159,"scored_classes":122,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
+| `last_commit` | `47004d461a8f0cb1dc00100ebe748436df4deceb` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
 | `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
@@ -393,16 +405,19 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 ### `TribalKnowledge`
 | Property | Example value |
 |---|---|
-| `applies_to` | `services.console.main` |
-| `confidence` | `0.8` |
-| `insight` | `The base.html CSS already uses green (#16a34a) as --primary. The blue appearance` |
+| `applies_to` | `open-source-release-checklist` |
+| `approved` | `False` |
+| `confidence` | `0.97` |
+| `importance` | `88` |
+| `insight` | `Open-source release checklist audit (2026-06-08): 8 of 22 items are done, 3 are ` |
 | `last_touched_commit` | `unknown` |
 | `repo_id` | `codeKG` |
-| `saved_at` | `2026-06-03T13:43:50.687680+00:00` |
+| `saved_at` | `2026-06-08T13:15:51.176555+00:00` |
 | `scope` | `system` |
-| `session_id` | `8e5d8a1e` |
+| `session_id` | `6ca36900` |
 | `staleness` | `0.0` |
-| `tk_id` | `tk_f9fd11a79a1d` |
+| `technical_debt` | `- `services/api/agent_index/store.py` + `services/console/agent_index/store.py`:` |
+| `tk_id` | `tk_97b502e4e3d1` |
 
 ## Relationships
 

@@ -1,5 +1,5 @@
 # Module Map — codeKG
-_Generated 2026-06-07 16:52 UTC_
+_Generated 2026-06-08 13:57 UTC_
 
 This repository contains **5 logical modules**.
 Read individual `modules/<name>.md` files for full class detail.

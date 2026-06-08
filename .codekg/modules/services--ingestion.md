@@ -1,5 +1,5 @@
 # Module: services/ingestion
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 

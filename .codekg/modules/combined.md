@@ -1,11 +1,11 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-07 16:52 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-08 13:57 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
 
@@ -22,6 +22,8 @@ _Detected from source file imports and connection patterns:_
 - **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `agent_index/generator.py`
   - `agent_index/store.py`
+  - `tests/test_agent_index_generator.py`
+  - `tests/test_agent_index_store.py`
 - **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `agent_index/generator.py`
   - `llm_audit.py`
@@ -303,7 +305,7 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
 
@@ -319,6 +321,7 @@ _Detected from source file imports and connection patterns:_
 
 - **agent_index.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `agent_index/store.py`
+  - `tests/test_config_routes.py`
 - **llm_audit.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `llm_audit.py`
   - `nl_query.py`
@@ -332,10 +335,12 @@ _Detected from source file imports and connection patterns:_
   - `nl_query.py`
   - `pattern_detector.py`
   - `routes/system_health.py`
+  - `tests/test_config_routes.py`
   - `tests/test_console.py`
 - **scan_log.db** (sqlite) — see `.codekg/architecture/datastores.md` for schema
   - `routes/system_health.py`
   - `scan_launcher.py`
+  - `tests/test_scan_launcher.py`
 
 ## Routes
 
@@ -371,7 +376,7 @@ _FastAPI route handlers in this module — what each renders, its template, and 
 | `GET` | `/repos/{repo_id:path}` | `repo_detail.html` | `repo_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `repo_id`, `repo_path`, `git`, `kg`, `provenance`, `stats`, `in_registry`, `scanning`, `api_url` |
 | `GET` | `/system-health` | `system_health.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)` |
 | `GET` | `/telemetry` | `telemetry.html` | — | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `sessions` |
-| `GET` | `/telemetry/{session_id}` | `telemetry_detail.html` | `session_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail`, `query_plan` |
+| `GET` | `/telemetry/{session_id}` | `telemetry_detail.html` | `session_id: str` | `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail` |
 
 ## ⚡ Insights from previous sessions
 
@@ -706,7 +711,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -1046,7 +1051,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -1063,7 +1068,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-07 16:52 UTC · commit `unpublished`_
+_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

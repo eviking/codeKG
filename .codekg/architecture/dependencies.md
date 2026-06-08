@@ -1,5 +1,5 @@
 # Key Dependencies — codeKG
-_Generated 2026-06-07 16:52 UTC_
+_Generated 2026-06-08 13:57 UTC_
 
 ## Import edges by module
 All outgoing imports from each module, including to shared/external code.
@@ -14,5 +14,5 @@ All outgoing imports from each module, including to shared/external code.
 Changing these classes affects the most dependents — approach with care.
 
 ### `codekg_logger` — blast 8 classes
-**FQN:** `shared.logging.codekg_logger`  **File:** `shared/logging/codekg_logger.py`
+**FQN:** `shared.logging.codekg_logger`  **File:** `codeKG/shared/logging/codekg_logger.py`
 > codekg_logger is a utility class designed to facilitate logging operations within an application. It includes methods such as `logInfo(String message)` for recording informational messages, `logError(

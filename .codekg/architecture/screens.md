@@ -1,5 +1,5 @@
 # Screen & Page Catalog — codeKG
-_Generated 2026-06-07 16:52 UTC_
+_Generated 2026-06-08 13:57 UTC_
 
 Complete map of every user-facing page and API endpoint.
 Covers URL patterns, templates, navigation links, downstream calls, and data access.
@@ -372,7 +372,7 @@ _28 page endpoint(s) detected._
 
 **Parameters:** `session_id: str`
 
-**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail`, `query_plan`
+**Template context:** `effective_repo (via _template_ctx)`, `repos (via _template_ctx)`, `current_path (via _template_ctx)`, `detail`
 
 **Linked from:** `/telemetry`
 
@@ -380,7 +380,7 @@ _28 page endpoint(s) detected._
 
 ## API endpoints (non-HTML)
 
-_37 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or CI._
+_38 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or CI._
 
 | Method | URL | Route file | Notes |
 |--------|-----|------------|-------|
@@ -404,6 +404,7 @@ _37 JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or C
 | `GET` | `/api/repos/{repo_id:path}/scan-status` | `services/console/routes/repos.py` | — |
 | `GET` | `/api/system-health` | `services/console/routes/system_health.py` | SQLite |
 | `POST` | `/api/system-health/cancel-scan` | `services/console/routes/system_health.py` | — |
+| `GET` | `/api/system-health/scan-progress/{repo_id:path}` | `services/console/routes/system_health.py` | — |
 | `GET` | `/classes/summarise/{job_id}/stream` | `services/console/routes/classes.py` | — |
 | `POST` | `/modules` | `services/console/routes/modules.py` | — |
 | `PATCH` | `/pattern-catalog/{pattern_id}` | `services/console/routes/patterns.py` | — |
