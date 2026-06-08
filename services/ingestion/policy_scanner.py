@@ -29,7 +29,7 @@ from typing import Any
 from neo4j import Driver
 
 try:
-    from shared.logging.codekg_logger import get_logger
+    from shared.codekg_logging.codekg_logger import get_logger
 except ImportError:
     import logging
     class _FB:

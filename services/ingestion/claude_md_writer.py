@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 try:
     from shared.config import cfg as _cfg
-    from shared.logging.codekg_logger import get_logger
+    from shared.codekg_logging.codekg_logger import get_logger
 except ImportError:
     import logging
     class _FL:

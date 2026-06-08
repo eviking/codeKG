@@ -2,7 +2,7 @@
 CodeKG centralized structured logging.
 
 Usage in any service:
-    from shared.logging.codekg_logger import get_logger
+    from shared.codekg_logging.codekg_logger import get_logger
     log = get_logger(__name__, service="ingestion")
 
     log.info("Scan started", repo_id="org/my-svc", files=1200)

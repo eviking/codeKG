@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from shared.config import cfg
-from shared.logging.codekg_logger import get_logger
+from shared.codekg_logging.codekg_logger import get_logger
 from kg.writer import KGWriter
 
 log = get_logger(__name__, service="ingestion")

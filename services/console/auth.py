@@ -27,7 +27,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from shared.config import cfg
-from shared.logging.codekg_logger import get_logger
+from shared.codekg_logging.codekg_logger import get_logger
 
 log = get_logger(__name__, service="console")
 

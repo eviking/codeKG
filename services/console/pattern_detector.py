@@ -21,7 +21,7 @@ from typing import Any
 
 from neo4j import Driver
 
-from shared.logging.codekg_logger import get_logger
+from shared.codekg_logging.codekg_logger import get_logger
 
 _CATALOG_PATH = Path(__file__).parent / "pattern_catalog.json"
 log = get_logger(__name__, service="console")

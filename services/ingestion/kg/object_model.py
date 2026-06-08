@@ -52,7 +52,7 @@ from typing import Any
 from neo4j import Driver
 
 try:
-    from shared.logging.codekg_logger import get_logger
+    from shared.codekg_logging.codekg_logger import get_logger
 except ImportError:
     class _FB:
         """Fallback logger for object-model extraction helpers. Watch out for debugging depth here, because this shim intentionally keeps logging lightweight."""

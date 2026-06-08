@@ -41,7 +41,7 @@ from neo4j import Driver
 from llm_audit import log_call
 from shared.config import cfg
 from shared.llm import llm as _llm
-from shared.logging.codekg_logger import get_logger
+from shared.codekg_logging.codekg_logger import get_logger
 
 log = get_logger(__name__, service="api")
 

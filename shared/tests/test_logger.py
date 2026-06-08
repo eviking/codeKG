@@ -31,7 +31,7 @@ def _capture_log(fn, *, service: str = "test") -> list[dict]:
     Run fn(log) with a fresh CodeKGLogger that writes to a StringIO buffer.
     Bypasses the root-logger handler setup so pytest capture doesn't interfere.
     """
-    import shared.logging.codekg_logger as ckg
+    import shared.codekg_logging.codekg_logger as ckg
 
     buf = io.StringIO()
     handler = logging.StreamHandler(buf)
@@ -61,7 +61,7 @@ class TestGetLogger:
         get_logger() must return a CodeKGLogger instance (not a raw logging.Logger).
         Callers rely on the structured .info(), .warning(), etc. interface.
         """
-        import shared.logging.codekg_logger as ckg
+        import shared.codekg_logging.codekg_logger as ckg
         ckg._bootstrapped = False
         log = ckg.get_logger("test", service="test")
         assert isinstance(log, ckg.CodeKGLogger)

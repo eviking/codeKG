@@ -19,7 +19,7 @@ import os
 import sys
 
 from shared.config import cfg
-from shared.logging.codekg_logger import get_logger
+from shared.codekg_logging.codekg_logger import get_logger
 from kg.writer import KGWriter
 from ingestion_engine import IngestionEngine
 

@@ -17,7 +17,7 @@ from markupsafe import Markup, escape
 from neo4j import GraphDatabase
 
 from shared.config import cfg
-from shared.logging.codekg_logger import get_logger
+from shared.codekg_logging.codekg_logger import get_logger
 
 # Imported lazily to avoid circular imports (auth imports deps indirectly via logger)
 def _get_current_user(request):
