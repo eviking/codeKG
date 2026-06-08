@@ -19,6 +19,43 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
+def _extract_javadoc(node: Node, src: bytes) -> Optional[str]:
+    """
+    Find the /** ... */ block comment immediately preceding this type declaration
+    in its parent's children list. Returns cleaned text or None.
+    """
+    parent = node.parent
+    if parent is None:
+        return None
+    siblings = list(parent.children)
+    try:
+        idx = siblings.index(node)
+    except ValueError:
+        return None
+    # scan backwards skipping whitespace nodes and modifiers
+    for i in range(idx - 1, -1, -1):
+        sib = siblings[i]
+        if sib.type == "block_comment":
+            text = _text(sib, src)
+            if text.startswith("/**"):
+                # strip /** and */ then clean leading * on each line
+                inner = text[3:]
+                if inner.endswith("*/"):
+                    inner = inner[:-2]
+                lines = inner.splitlines()
+                cleaned = []
+                for line in lines:
+                    line = line.strip().lstrip("*").strip()
+                    if line:
+                        cleaned.append(line)
+                return " ".join(cleaned) if cleaned else None
+        elif sib.type in ("modifiers", "line_comment"):
+            continue  # keep looking past modifiers / single-line comments
+        elif sib.is_named and sib.type not in ("block_comment", "line_comment"):
+            break  # hit a real node — no Javadoc found
+    return None
+
+
 def _child_text(node: Node, field: str, src: bytes) -> Optional[str]:
     child = node.child_by_field_name(field)
     return _text(child, src) if child else None
@@ -136,6 +173,7 @@ class JavaParser:
         if "abstract" in modifiers:
             kind = "abstract"
         annotations = _collect_annotations(node, src)
+        javadoc = _extract_javadoc(node, src)
 
         type_node = {
             "fqn": fqn,
@@ -146,8 +184,10 @@ class JavaParser:
             "file_path": result.file_path,
             "start_line": node.start_point[0] + 1,
             "end_line": node.end_point[0] + 1,
+            "source_chars": node.end_byte - node.start_byte,
             "annotations": annotations,
             "modifiers": modifiers,
+            "javadoc": javadoc,
         }
         result.classes.append(type_node)
 

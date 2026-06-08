@@ -8,6 +8,8 @@ from typing import Optional
 
 
 class NodeLabel(str, Enum):
+    """Enumerates the Neo4j node labels used by CodeKG. Watch out for renames here, because stored Cypher queries depend on these exact label values."""
+
     REPOSITORY = "Repository"
     PACKAGE = "Package"
     CLASS = "Class"
@@ -20,6 +22,8 @@ class NodeLabel(str, Enum):
 
 
 class EdgeType(str, Enum):
+    """Enumerates the relationship types used in the knowledge graph. Watch out for value changes here, because ingestion writes and query code both treat them as wire-format constants."""
+
     # structural
     CONTAINS = "CONTAINS"           # Package→Class, Class→Method/Field
     BELONGS_TO = "BELONGS_TO"       # Class→Package
@@ -50,6 +54,8 @@ class ConfidenceTier(str, Enum):
 
 
 class SourceTool(str, Enum):
+    """Enumerates the tools that can produce graph facts. Watch out for expansion here, because provenance-based confidence logic assumes this set stays interpretable."""
+
     TREE_SITTER_JAVA = "tree-sitter-java"
     JDT_LS = "jdt-ls"
     MAVEN = "maven"
@@ -93,6 +99,8 @@ class Provenance:
 
 @dataclass
 class RepositoryNode:
+    """Represents a repository node in the knowledge graph. Watch out for `repo_id` stability here, because many APIs use it as their primary lookup key."""
+
     repo_id: str        # slug, e.g. "org/my-service"
     name: str
     path: str           # local filesystem path
@@ -102,6 +110,8 @@ class RepositoryNode:
 
 @dataclass
 class PackageNode:
+    """Represents a package or namespace in the graph. Watch out for module attribution here, because some languages map package structure to service boundaries only heuristically."""
+
     fqn: str            # fully-qualified name, e.g. "com.example.payment"
     name: str
     repo_id: str
@@ -110,6 +120,8 @@ class PackageNode:
 
 @dataclass
 class ClassNode:
+    """Represents a class-like type discovered during ingestion. Watch out for line-range and annotation fields here, because UI drill-down pages expose them directly."""
+
     fqn: str            # e.g. "com.example.payment.PaymentService"
     name: str
     package_fqn: str
@@ -124,6 +136,8 @@ class ClassNode:
 
 @dataclass
 class MethodNode:
+    """Represents a method discovered during ingestion. Watch out for parameter normalization here, because call-chain and summary features compare these signatures textually."""
+
     fqn: str            # e.g. "com.example.payment.PaymentService#processPayment"
     name: str
     class_fqn: str
@@ -137,6 +151,8 @@ class MethodNode:
 
 @dataclass
 class FieldNode:
+    """Represents a field attached to a class in the graph. Watch out for naming collisions here, because fields share the same enclosing namespace as methods in some views."""
+
     fqn: str            # e.g. "com.example.payment.PaymentService#amount"
     name: str
     class_fqn: str
@@ -146,12 +162,16 @@ class FieldNode:
 
 @dataclass
 class ModuleNode:
+    """Represents a logical module or bounded context in the graph. Watch out for how modules are inferred here, because not every repo has an explicit module system."""
+
     module_id: str      # logical name, e.g. "payment", "user", "notification"
     description: Optional[str] = None
 
 
 @dataclass
 class ArchPolicyNode:
+    """Represents an architectural policy stored in the graph. Watch out for policy identifiers here, because edits and violations are joined through them."""
+
     policy_id: str
     title: str
     natural_language: str       # original NL statement from architect
@@ -163,6 +183,8 @@ class ArchPolicyNode:
 
 @dataclass
 class Edge:
+    """Represents a relationship between two graph nodes. Watch out for `properties`, because callers often assume they can attach provenance or explanation metadata there."""
+
     source_fqn: str
     target_fqn: str
     edge_type: EdgeType

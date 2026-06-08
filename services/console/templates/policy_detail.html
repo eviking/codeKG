@@ -1,41 +1,120 @@
 {% extends "base.html" %}
 {% block title %}Policy: {{ policy.title }}{% endblock %}
 {% block content %}
-<h1>{{ policy.title }}</h1>
+<style>
+  .flash { background:var(--success-lt); color:var(--success); border:1px solid #86efac; border-radius:var(--radius); padding:0.5rem 1rem; font-size:0.85rem; margin-bottom:1.25rem; font-weight:500; }
+  .cypher-footnote { margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border); }
+  .meta-row { display:flex; gap:1.5rem; flex-wrap:wrap; font-size:0.8rem; color:var(--text-3); margin-bottom:1rem; }
+  .meta-row span { display:flex; align-items:center; gap:0.3rem; }
 
-<div class="section grid grid-2">
-  <div class="card">
-    <h2>Details</h2>
-    <table>
-      <tr><th>ID</th><td><code>{{ policy.policy_id }}</code></td></tr>
-      <tr><th>Status</th><td><span class="badge badge-{{ policy.status }}">{{ policy.status }}</span></td></tr>
-      <tr><th>Severity</th><td><span class="badge badge-{{ policy.severity }}">{{ policy.severity }}</span></td></tr>
-      <tr><th>Natural Language</th><td style="color:#94a3b8">{{ policy.natural_language }}</td></tr>
-    </table>
-    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
-      {% if policy.status == 'draft' %}
-      <form method="post" action="/policies/{{ policy.policy_id }}/activate">
-        <button class="btn-success">Activate Policy</button>
-      </form>
-      {% endif %}
-      <form method="post" action="/policies/{{ policy.policy_id }}/run">
-        <button class="btn-ghost">Run Constraint Now</button>
-      </form>
+  .edit-form { display:none; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem; margin-bottom:1.5rem; }
+  .edit-form.open { display:block; }
+
+  .danger-zone { margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--danger-lt); }
+  .danger-zone h3 { font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:var(--danger); font-weight:600; margin-bottom:.75rem; }
+</style>
+
+<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem">
+  <div>
+    <h1 style="margin-bottom:.25rem">{{ policy.title }}</h1>
+    <div class="meta-row" style="margin:0">
+      <span>Status <span class="badge badge-{{ policy.status }}">{{ policy.status }}</span></span>
+      <span>Severity <span class="badge badge-{{ policy.severity }}">{{ policy.severity }}</span></span>
+      <span>ID <code style="font-size:0.72rem">{{ policy.policy_id }}</code></span>
     </div>
   </div>
-
-  <div class="card">
-    <h2>Compiled Cypher Constraint</h2>
-    <pre>{{ policy.cypher_constraint }}</pre>
-    <p style="font-size:0.75rem;color:#4a5568;margin-top:0.75rem">
-      This query is executed against the knowledge graph to find violations.
-      Edit directly in Neo4j if the auto-compiled version needs adjustment.
-    </p>
+  <div style="display:flex;gap:.5rem;flex-shrink:0">
+    <button class="btn btn-ghost btn-sm" onclick="toggleEdit()">✎ Edit</button>
+    <form method="post" action="/policies/{{ policy.policy_id }}/delete" style="margin:0">
+      <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger)"
+        onclick="appConfirm('This policy and all its violation edges will be permanently deleted.', 'Delete policy?').then(ok => ok && this.closest('form').submit())">
+        Delete
+      </button>
+    </form>
   </div>
 </div>
 
+{# ── Edit form ── #}
+<div class="edit-form" id="edit-form">
+  <form method="post" action="/policies/{{ policy.policy_id }}/edit">
+    <label style="margin-bottom:.75rem;display:flex;flex-direction:column;gap:.3rem">
+      <span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">Title</span>
+      <input name="title" value="{{ policy.title }}" required>
+    </label>
+    <label style="margin-bottom:.75rem;display:flex;flex-direction:column;gap:.3rem">
+      <span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">Rule</span>
+      <textarea name="natural_language" rows="3" required>{{ policy.natural_language or '' }}</textarea>
+    </label>
+    <label style="margin-bottom:1rem;display:flex;flex-direction:column;gap:.3rem">
+      <span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">Severity</span>
+      <select name="severity" style="width:auto">
+        {% for s in ['warning','error','info'] %}
+        <option value="{{ s }}" {{ 'selected' if s == policy.severity else '' }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button type="submit" class="btn btn-sm">Save changes</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit()">Cancel</button>
+      <span style="font-size:.75rem;color:var(--text-3)">Saving will require recompiling the constraint.</span>
+    </div>
+  </form>
+</div>
+
+<p style="font-size:.88rem;color:var(--text-2);line-height:1.65;margin-bottom:1.5rem">{{ policy.natural_language or 'No rule description.' }}</p>
+
+{# ── Actions ── #}
+<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem">
+  {% if policy.status in ('draft', 'auto-draft') and has_valid_cypher %}
+  <form method="post" action="/policies/{{ policy.policy_id }}/activate" style="margin:0">
+    <button class="btn btn-success btn-sm">Activate</button>
+  </form>
+  {% elif policy.status == 'active' %}
+  <form method="post" action="/policies/{{ policy.policy_id }}/deactivate" style="margin:0">
+    <button class="btn btn-ghost btn-sm">Deactivate</button>
+  </form>
+  {% endif %}
+  {% if has_valid_cypher %}
+  <form method="post" action="/policies/{{ policy.policy_id }}/run" style="margin:0">
+    <button class="btn btn-ghost btn-sm">▶ Run constraint</button>
+  </form>
+  {% else %}
+  <form method="post" action="/policies/{{ policy.policy_id }}/recompile" style="margin:0">
+    <button class="btn btn-sm">✦ Compile with AI</button>
+  </form>
+  {% endif %}
+  <form method="post" action="/policies/{{ policy.policy_id }}/recompile" style="margin:0">
+    <button class="btn btn-ghost btn-sm">↺ Recompile with AI</button>
+  </form>
+</div>
+
+{# ── Flash messages ── #}
+{% if saved %}
+<div class="flash">✓ Saved.</div>
+{% endif %}
+{% if violations_run is not none %}
+<div class="flash">Constraint ran — {{ violations_run }} violation{{ 's' if violations_run != 1 else '' }} written.</div>
+{% endif %}
+{% if run_error == 'no_cypher' %}
+<div class="flash" style="background:var(--warning-lt);color:var(--warning);border-color:#fcd34d">
+  ⚠ No runnable constraint — click <strong>Compile with AI</strong>.
+</div>
+{% elif run_error == 'cypher_error' %}
+<div class="flash" style="background:var(--danger-lt);color:var(--danger);border-color:#fca5a5">
+  ✗ Constraint failed: {{ run_error_msg or 'Cypher error' }} — click <strong>↺ Recompile with AI</strong>.
+</div>
+{% endif %}
+{% if recompiled == 'ok' %}
+<div class="flash">✓ Compiled successfully — ready to run.</div>
+{% elif recompiled == 'fail' %}
+<div class="flash" style="background:var(--warning-lt);color:var(--warning);border-color:#fcd34d">
+  ⚠ AI compilation failed — try rephrasing the rule more concretely (describe the structural symptom, not the intent).
+</div>
+{% endif %}
+
+{# ── Violations ── #}
 <div class="section">
-  <h2>Violations ({{ violations | length }})</h2>
+  <h2>Violations ({{ violations | length }}{% if policy.violator_count and policy.violator_count > violations | length %} of {{ policy.violator_count }} detected{% endif %})</h2>
   <div class="card">
     {% if violations %}
     <table>
@@ -43,15 +122,41 @@
       <tbody>
         {% for v in violations %}
         <tr>
-          <td><code>{{ v.fqn }}</code></td>
-          <td><code style="color:#64748b">{{ v.file_path or '—' }}</code></td>
+          <td><a href="/classes/{{ v.fqn }}" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">{{ v.fqn }}</a></td>
+          <td><code style="color:var(--text-3);font-size:.74rem">{{ v.file_path or '—' }}</code></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    {% elif policy.sample_violators %}
+    <p style="color:var(--text-3);font-size:0.85rem;margin-bottom:0.75rem">
+      No violation edges yet — run the constraint to detect them. Sample violators from last scan:
+    </p>
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:0.4rem">
+      {% for s in policy.sample_violators %}
+      <li style="font-size:0.75rem;font-family:'JetBrains Mono',monospace;background:var(--primary-lt);color:var(--primary);padding:0.15rem 0.5rem;border-radius:20px;border:1px solid #c7d2fe">{{ s }}</li>
+      {% endfor %}
+    </ul>
     {% else %}
-    <div class="empty">No violations found for this policy.</div>
+    <div class="empty">No violations detected. Run the constraint to check.</div>
     {% endif %}
+
+    <div class="cypher-footnote">
+      <h3 style="font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:600;margin-bottom:.5rem">Compiled Cypher</h3>
+      {% if has_valid_cypher %}
+      <pre>{{ policy.cypher_constraint }}</pre>
+      {% else %}
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .9rem;font-size:.8rem;color:var(--text-3)">
+        Not compiled — click <strong>Compile with AI</strong> above.
+      </div>
+      {% endif %}
+    </div>
   </div>
 </div>
+
+<script>
+function toggleEdit() {
+  document.getElementById('edit-form').classList.toggle('open');
+}
+</script>
 {% endblock %}

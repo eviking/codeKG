@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Session {{ detail.session_id[:12] }}{% endblock %}
+{% block content %}
+<style>
+  .page-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.75rem; }
+  .page-header h1 { margin:0; }
+
+  .turn-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-lg); padding:1.1rem 1.25rem;
+    box-shadow:var(--shadow); margin-bottom:1rem;
+  }
+  .turn-header { display:flex; align-items:baseline; gap:1rem; margin-bottom:.75rem; }
+  .turn-ts { font-size:.75rem; color:var(--text-3); white-space:nowrap; }
+  .turn-prompt { font-size:.85rem; font-weight:600; flex:1; }
+
+  .token-row { display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:.75rem; }
+  .token-stat { text-align:center; }
+  .token-stat .val { font-size:1.1rem; font-weight:700; color:var(--primary); font-family:'JetBrains Mono',monospace; }
+  .token-stat .lbl { font-size:.68rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; margin-top:.1rem; }
+
+  .insights-box {
+    background:var(--primary-lt); border:1px solid #86efac;
+    border-radius:var(--radius); padding:.75rem 1rem;
+    font-size:.82rem; color:var(--text); margin-bottom:.75rem;
+    white-space:pre-wrap;
+  }
+  .insights-label { font-weight:700; color:var(--success); margin-bottom:.35rem; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
+
+  /* Steps */
+  .steps-toggle { font-size:.75rem; color:var(--primary); cursor:pointer; border:none; background:none; padding:0; margin-bottom:.5rem; }
+  .steps-toggle:hover { text-decoration:underline; }
+
+  .steps-table { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:.5rem; }
+  .steps-table th { padding:.3rem .6rem; color:var(--text-3); font-weight:500; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+  .steps-table td { padding:.35rem .6rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .steps-table tr.summary-row { cursor:pointer; }
+  .steps-table tr.summary-row:hover td { background:var(--bg); }
+  .steps-table tr.detail-row td { padding:0; border-bottom:1px solid var(--border); }
+  .steps-table tr.detail-row { display:none; }
+  .steps-table tr.detail-row.open { display:table-row; }
+
+  .detail-inner {
+    padding:.75rem 1rem; background:var(--bg);
+    display:grid; grid-template-columns:1fr 1fr; gap:1rem;
+  }
+  .detail-inner.single { grid-template-columns:1fr; }
+  .detail-section h4 { font-size:.68rem; color:var(--text-3); text-transform:uppercase;
+    letter-spacing:.05em; margin:0 0 .35rem; font-weight:600; }
+  .detail-section pre {
+    background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    padding:.6rem .75rem; font-size:.72rem; white-space:pre-wrap; word-break:break-word;
+    max-height:320px; overflow-y:auto; color:var(--text); margin:0;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  .step-num { color:var(--text-3); font-family:monospace; font-size:.7rem; width:2rem; }
+  .expand-icon { color:var(--text-3); font-size:.7rem; width:1.2rem; text-align:center; }
+
+  .tool-name { font-family:'JetBrains Mono',monospace; font-size:.72rem; }
+  .tool-name.is-read    { color:var(--text-2); }
+  .tool-name.is-codekg  { color:var(--success); font-weight:600; }
+  .tool-name.is-write   { color:var(--warning); }
+  .tool-name.is-bash    { color:#a78bfa; }
+  .tool-name.is-ops     { color:var(--warning); }
+  .ops-badge { display:inline-block; background:#fef3c7; border:1px solid #fcd34d; border-radius:10px;
+    padding:.05rem .4rem; font-size:.65rem; color:#92400e; margin-left:.35rem; vertical-align:middle; }
+  .tool-name.is-other   { color:var(--text-3); }
+
+  .agent-file {
+    display:inline-block; background:var(--primary-lt); border:1px solid #86efac;
+    border-radius:4px; padding:.1rem .45rem; font-family:'JetBrains Mono',monospace;
+    font-size:.7rem; color:var(--success); white-space:nowrap;
+  }
+  .plain-target { font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--text-2);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:420px; display:block; }
+
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-3); }
+
+  .savings-banner {
+    display:flex; gap:2rem; align-items:center; flex-wrap:wrap;
+    background:var(--primary-lt); border:1px solid #86efac;
+    border-radius:var(--radius-lg); padding:1rem 1.5rem; margin-bottom:1.5rem;
+  }
+  .savings-stat .val { font-size:1.4rem; font-weight:700; font-family:'JetBrains Mono',monospace; }
+  .savings-stat .lbl { font-size:.68rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; margin-top:.15rem; }
+  .savings-stat.green .val { color:var(--success); }
+  .savings-stat.dim .val   { color:var(--text-2); }
+  .savings-note { font-size:.72rem; color:var(--text-3); margin-left:auto; max-width:260px; line-height:1.4; }
+
+  .saved-badge {
+    display:inline-block; background:var(--primary-lt); border:1px solid #86efac;
+    border-radius:10px; padding:.05rem .4rem; font-size:.65rem; color:var(--success);
+    font-family:'JetBrains Mono',monospace; white-space:nowrap; margin-left:.4rem;
+    vertical-align:middle;
+  }
+</style>
+
+<div class="page-header">
+  <a href="/telemetry" class="btn btn-ghost btn-sm">← Back</a>
+  <h1>Session <code>{{ detail.session_id[:12] }}</code></h1>
+</div>
+
+{% if detail.tokens_saved %}
+<div class="savings-banner">
+  <div class="savings-stat dim">
+    <div class="val">{{ '{:,}'.format(detail.total_input_context or 0) }}</div>
+    <div class="lbl">Input context</div>
+  </div>
+  <div style="font-size:1.2rem;color:var(--text-3)">+</div>
+  <div class="savings-stat green">
+    <div class="val">{{ '{:,}'.format(detail.tokens_saved) }}</div>
+    <div class="lbl">Saved by CodeKG</div>
+  </div>
+  <div style="font-size:1.2rem;color:var(--text-3)">=</div>
+  <div class="savings-stat dim">
+    <div class="val">{{ '{:,}'.format(detail.estimated_input_without_codekg or 0) }}</div>
+    <div class="lbl">Input without CodeKG</div>
+  </div>
+  <div class="savings-note">
+    Output tokens excluded — those depend on task complexity, not CodeKG.
+    Input context (for savings estimate) = cache_read + uncached + cache_creation.
+    Each CodeKG MCP call ≈ 2 greps + 2 file reads avoided (~5,200 tok).
+    Each agent index read ≈ 3 raw source files avoided (~5,000 tok net).
+    Median source file in this repo: 2,400 tok.
+  </div>
+</div>
+{% endif %}
+
+{% if not detail.turns %}
+<div class="empty-state card">
+  <p>No turns recorded for this session.</p>
+</div>
+{% else %}
+{% for turn in detail.turns %}
+{% set turn_idx = loop.index %}
+<div class="turn-card">
+  <div class="turn-header">
+    <div class="turn-prompt">{{ turn.user_prompt or '(no prompt recorded)' }}</div>
+    <div class="turn-ts">{{ turn.ts[:16].replace('T',' ') if turn.ts else '' }}</div>
+  </div>
+
+  <div class="token-row">
+    <div class="token-stat" title="Uncached input tokens — what you're billed for at full rate">
+      <div class="val">{{ '{:,}'.format(turn.input_tokens or 0) }}</div>
+      <div class="lbl">Input (billed)</div>
+    </div>
+    <div class="token-stat" title="cache_read / (cache_read + input) — higher means cheaper">
+      {% set pct = ((turn.cache_read_tokens or 0) / turn.input_context * 100)|round(1) if turn.input_context else 0 %}
+      <div class="val" style="font-size:.85rem;color:{{ 'var(--success)' if pct >= 80 else 'var(--warning)' if pct >= 50 else 'var(--danger)' }}">{{ pct }}%</div>
+      <div class="lbl">↳ cache hit</div>
+    </div>
+    {% if turn.tokens_saved %}
+    <div class="token-stat" title="Estimated input tokens avoided by using CodeKG">
+      <div class="val" style="color:var(--success)">{{ '{:,}'.format(turn.tokens_saved) }}</div>
+      <div class="lbl">↳ CodeKG saved</div>
+    </div>
+    {% endif %}
+    {% if turn.ops_tokens %}
+    <div class="token-stat" title="Tokens spent on ops/infra commands (docker, kubectl, etc.) — not code work">
+      <div class="val" style="color:var(--warning)">{{ '{:,}'.format(turn.ops_tokens) }}</div>
+      <div class="lbl">Ops tokens</div>
+    </div>
+    {% endif %}
+    <div class="token-stat" style="margin-left:1rem;padding-left:1rem;border-left:1px solid var(--border)" title="Output tokens — not affected by CodeKG">
+      <div class="val" style="color:var(--text-3)">{{ '{:,}'.format(turn.output_tokens or 0) }}</div>
+      <div class="lbl">Output</div>
+    </div>
+    <div class="token-stat">
+      <div class="val">{{ turn.tool_call_count or 0 }}</div>
+      <div class="lbl">Tool calls</div>
+    </div>
+  </div>
+
+  {% if turn.insights_raw and turn.insights_raw.lower() != 'none this turn' %}
+  <div class="insights-label">💡 Insights</div>
+  <div class="insights-box">{{ turn.insights_raw }}</div>
+  {% endif %}
+
+  {% if turn.tool_calls %}
+  <button class="steps-toggle" onclick="toggleSteps('steps-{{ turn_idx }}', this)">
+    Show {{ turn.tool_calls|length }} steps ▸
+  </button>
+  <div id="steps-{{ turn_idx }}" style="display:none">
+    <table class="steps-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>#</th>
+          <th>Tool</th>
+          <th>Target / Question</th>
+          <th style="text-align:right">Tokens</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for tc in turn.tool_calls %}
+      {% set sid = turn_idx ~ '_' ~ loop.index %}
+      {% set name = tc.tool_name %}
+      {% set inp  = tc.input or {} %}
+
+      {% if 'codekg' in name %}
+        {% set cls = 'is-codekg' %}
+      {% elif name in ('Read',) or 'read' in name.lower() %}
+        {% set cls = 'is-read' %}
+      {% elif name in ('Write', 'Edit', 'str_replace_based_edit_tool') or 'write' in name.lower() or 'edit' in name.lower() %}
+        {% set cls = 'is-write' %}
+      {% elif name == 'Bash' and tc.is_ops %}
+        {% set cls = 'is-ops' %}
+      {% elif name == 'Bash' %}
+        {% set cls = 'is-bash' %}
+      {% else %}
+        {% set cls = 'is-other' %}
+      {% endif %}
+
+      {# Primary display target — pick the most meaningful field #}
+      {% set raw_path = inp.get('file_path') or inp.get('path') or '' %}
+      {% set question = inp.get('question') or inp.get('query') or inp.get('fqn') or inp.get('module_id') or inp.get('repo_id') or '' %}
+      {% set command  = inp.get('command') or inp.get('description') or '' %}
+      {# codekg MCP tools — extract the most meaningful input field #}
+      {% set codekg_target = '' %}
+      {% if 'codekg' in name %}
+        {% set codekg_target = inp.get('applies_to') or inp.get('fqn') or inp.get('class_name') or inp.get('module_id') or inp.get('repo_id') or inp.get('question') or inp.get('query') or inp.get('insight', '')[:80] or '' %}
+      {% endif %}
+      {# Shorten absolute paths — strip /host-home/... mount prefix then last 3 segments #}
+      {% set file_path = raw_path %}
+      {% if '/host-home/' in file_path %}
+        {% set file_path = file_path.split('/host-home/')[-1] %}
+      {% endif %}
+      {% if file_path.startswith('/') or '/' in file_path %}
+        {% set parts = file_path.split('/') %}
+        {% set file_path = parts[-3:] | join('/') if parts|length > 3 else file_path %}
+      {% endif %}
+      {% set is_agent_file = '.codekg/' in file_path or file_path.startswith('.codekg/') %}
+
+      <tr class="summary-row" onclick="toggleDetail('detail-{{ sid }}', this)">
+        <td class="expand-icon">▸</td>
+        <td class="step-num">{{ loop.index }}</td>
+        <td>
+          <span class="tool-name {{ cls }}">{{ name.replace('mcp__codekg__','⚡ ').replace('str_replace_based_edit_tool','Edit') }}</span>
+          {% if tc.is_ops %}<span class="ops-badge">ops</span>{% endif %}
+          {% if tc.tokens_saved %}<span class="saved-badge">{{ '{:,}'.format(tc.tokens_saved) }} tok saved</span>{% endif %}
+        </td>
+        <td>
+          {% if codekg_target %}
+            <span style="font-size:.78rem;color:var(--success);font-family:'JetBrains Mono',monospace">{{ codekg_target[:160] }}</span>
+          {% elif cls == 'is-bash' and command %}
+            <span class="plain-target">{{ command[:160] }}</span>
+          {% elif file_path %}
+            {% if is_agent_file %}
+              <span class="agent-file">⚡ {{ file_path }}</span>
+            {% else %}
+              <span class="plain-target">{{ file_path }}</span>
+            {% endif %}
+          {% elif question %}
+            <span style="font-size:.78rem;color:var(--text)">{{ question[:160] }}</span>
+          {% elif command %}
+            <span class="plain-target">{{ command[:160] }}</span>
+          {% else %}
+            <span style="color:var(--text-3);font-size:.7rem">—</span>
+          {% endif %}
+        </td>
+        <td style="text-align:right;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-3)">
+          {% if tc.step_tokens %}{{ '{:,}'.format(tc.step_tokens) }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      <tr class="detail-row" id="detail-{{ sid }}">
+        <td colspan="5" style="padding:0">
+          <div class="detail-inner {{ 'single' if not tc.result_preview else '' }}">
+            {% if tc.input %}
+            <div class="detail-section">
+              <h4>Input</h4>
+              <pre>{% for k, v in tc.input.items() %}{{ k }}: {{ v }}
+{% endfor %}</pre>
+            </div>
+            {% endif %}
+            {% if tc.result_preview %}
+            <div class="detail-section">
+              <h4>Result</h4>
+              <pre>{{ tc.result_preview }}</pre>
+            </div>
+            {% endif %}
+            {% if not tc.input and not tc.result_preview %}
+            <div class="detail-section single">
+              <h4>No detail recorded</h4>
+            </div>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</div>
+{% endfor %}
+{% endif %}
+
+<script>
+function toggleSteps(id, btn) {
+  const el = document.getElementById(id);
+  const open = el.style.display === 'none';
+  el.style.display = open ? '' : 'none';
+  const count = btn.textContent.match(/\d+/)[0];
+  btn.textContent = open ? `Hide ${count} steps ▾` : `Show ${count} steps ▸`;
+}
+
+function toggleDetail(id, row) {
+  const detail = document.getElementById(id);
+  const icon = row.querySelector('.expand-icon');
+  const open = detail.classList.toggle('open');
+  icon.textContent = open ? '▾' : '▸';
+}
+</script>
+
+{% endblock %}

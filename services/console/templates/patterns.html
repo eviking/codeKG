@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Architectural Patterns{% endblock %}
+
+{% block content %}
+<style>
+  .controls    { display: flex; gap: 0.75rem; align-items: flex-end; max-width: 600px; }
+  .controls select { flex: 1; }
+
+  .summary-bar { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+  .sum-card    { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+                 padding: 0.75rem 1.25rem; display: flex; align-items: baseline; gap: 0.5rem; }
+  .sum-val     { font-size: 1.75rem; font-weight: 700; color: var(--primary); line-height: 1; }
+  .sum-val.bad { color: var(--danger); }
+  .sum-val.warn{ color: var(--warning); }
+  .sum-label   { font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .section-header { font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;
+                    letter-spacing: 0.06em; font-weight: 600; margin: 1.5rem 0 0.5rem;
+                    padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+
+  .pattern-card   { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+                    margin-bottom: 0.75rem; overflow: hidden; }
+  .pattern-card.anti-error   { border-color: #fca5a5; background: var(--danger-lt); }
+  .pattern-card.anti-warning { border-color: #fcd34d; background: var(--warning-lt); }
+
+  .pattern-head  { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1.25rem;
+                   cursor: pointer; user-select: none; transition: background 0.1s; }
+  .pattern-head:hover { background: var(--bg); }
+
+  .p-badge    { font-size: 0.68rem; padding: 0.2rem 0.6rem; border-radius: 20px;
+                font-weight: 600; letter-spacing: 0.03em; flex-shrink: 0; }
+  .b-gof      { background: var(--info-lt);    color: var(--info);    border: 1px solid #bae6fd; }
+  .b-eip      { background: var(--purple-lt);  color: var(--purple);  border: 1px solid #ddd6fe; }
+  .b-custom   { background: var(--success-lt); color: var(--success); border: 1px solid #bbf7d0; }
+  .b-pmd      { background: #fff7ed;           color: #c2410c;        border: 1px solid #fed7aa; }
+
+  .p-cat      { font-size: 0.7rem; color: var(--text-3); flex-shrink: 0; }
+  .p-name     { font-size: 0.95rem; font-weight: 600; color: var(--text); flex: 1; }
+  .p-count    { font-size: 0.85rem; color: var(--text-3); flex-shrink: 0; }
+  .p-chevron  { color: var(--text-3); flex-shrink: 0; transition: transform 0.2s; }
+  .p-chevron.open { transform: rotate(90deg); }
+
+  .sev-error   { display: inline-block; background: var(--danger-lt); color: var(--danger);
+                 font-size: 0.68rem; padding: 0.15rem 0.55rem; border-radius: 20px; flex-shrink: 0; border: 1px solid #fca5a5; }
+  .sev-warning { display: inline-block; background: var(--warning-lt); color: var(--warning);
+                 font-size: 0.68rem; padding: 0.15rem 0.55rem; border-radius: 20px; flex-shrink: 0; border: 1px solid #fcd34d; }
+
+  .pattern-body  { display: none; padding: 0 1.25rem 1.25rem; border-top: 1px solid var(--border); }
+  .pattern-body.open { display: block; }
+
+  .p-intent   { font-size: 0.85rem; color: var(--text-3); margin: 0.75rem 0 1rem; line-height: 1.6; }
+
+  .two-col    { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  .mini-header { font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;
+                 letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+  .pkg-bar-wrap { display: flex; flex-direction: column; gap: 0.3rem; }
+  .pkg-row    { display: flex; align-items: center; gap: 0.5rem; }
+  .pkg-name   { font-size: 0.75rem; font-family: monospace; color: var(--text-3);
+                width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .pkg-bar-bg { flex: 1; background: var(--bg); border-radius: 3px; height: 14px; overflow: hidden; }
+  .pkg-bar-fill { height: 100%; background: #2563eb; border-radius: 3px; }
+  .pkg-bar-fill.anti { background: var(--danger); }
+  .pkg-count  { font-size: 0.75rem; color: var(--text-3); width: 30px; text-align: right; flex-shrink: 0; }
+
+  .class-list  { display: flex; flex-direction: column; gap: 0.2rem;
+                 max-height: 320px; overflow-y: auto; }
+  .class-item  { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem;
+                 font-family: monospace; background: var(--bg); padding: 0.2rem 0.5rem;
+                 border-radius: 3px; min-width: 0; }
+  .class-name  { color: #7dd3fc; white-space: nowrap; overflow: hidden;
+                 text-overflow: ellipsis; flex: 1; }
+  .class-name.anti { color: var(--danger); }
+  .class-link  { flex-shrink: 0; font-size: 0.65rem; padding: 0.1rem 0.35rem;
+                 background: #1e3a5f; color: var(--primary); border-radius: 3px;
+                 text-decoration: none; white-space: nowrap; }
+  .class-link:hover { background: #2563eb; color: #fff; text-decoration: none; }
+  .class-count { font-size: 0.7rem; color: var(--text-3); margin-top: 0.3rem; }
+
+  .missing-tag { background: #3f1717; color: var(--danger); font-size: 0.7rem;
+                 padding: 0.1rem 0.4rem; border-radius: 3px; flex-shrink: 0; }
+  .empty { color: var(--text-3); font-size: 0.875rem; padding: 2rem; text-align: center; }
+</style>
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem">
+  <h1 style="margin:0">Architectural Patterns</h1>
+  <a href="/pattern-catalog"
+     style="font-size:0.82rem;font-weight:500;color:var(--primary);background:var(--primary-lt);
+            border:1px solid #c7d2fe;border-radius:20px;padding:0.3rem 0.875rem;text-decoration:none;
+            transition:all .15s"
+     onmouseover="this.style.background='var(--primary)';this.style.color='#fff'"
+     onmouseout="this.style.background='var(--primary-lt)';this.style.color='var(--primary)'">
+    Pattern Catalog →
+  </a>
+</div>
+<p style="color:var(--text-3); font-size:0.875rem; margin-bottom:1.5rem;">
+  Auto-detected from the knowledge graph using GoF, EIP, and custom signals.
+  Results are saved to the KG as <code>ArchPattern</code> nodes.
+</p>
+
+<div class="card">
+  <form method="post" action="/patterns">
+    <div class="controls">
+      <input type="hidden" name="repo_id" value="{{ repo_id }}">
+      <button type="submit">Detect Patterns{% if repo_id %} for {{ repo_id }}{% endif %}</button>
+    </div>
+  </form>
+</div>
+
+{% if results is not none %}
+
+{% if results %}
+
+{# Summary bar #}
+{% set patterns_found = results | selectattr('pattern.anti_pattern', 'equalto', false) | list %}
+{% set antipatterns_found = results | selectattr('pattern.anti_pattern', 'equalto', true) | list %}
+{% set errors = antipatterns_found | selectattr('pattern.severity', 'equalto', 'error') | list %}
+{% set warnings = antipatterns_found | selectattr('pattern.severity', 'equalto', 'warning') | list %}
+{% set total_classes = results | sum(attribute='match_count') %}
+
+<div class="summary-bar">
+  <div class="sum-card">
+    <span class="sum-val">{{ patterns_found | length }}</span>
+    <span class="sum-label">Patterns detected</span>
+  </div>
+  <div class="sum-card">
+    <span class="sum-val bad">{{ errors | length }}</span>
+    <span class="sum-label">Error anti-patterns</span>
+  </div>
+  <div class="sum-card">
+    <span class="sum-val warn">{{ warnings | length }}</span>
+    <span class="sum-label">Warning anti-patterns</span>
+  </div>
+  <div class="sum-card">
+    <span class="sum-val">{{ "{:,}".format(total_classes) }}</span>
+    <span class="sum-label">Classes matched</span>
+  </div>
+</div>
+
+{# Anti-patterns first #}
+{% if antipatterns_found %}
+<div class="section-header">⚠ Anti-patterns</div>
+{% for result in antipatterns_found %}
+{% set p = result.pattern %}
+{% set is_error = p.severity == 'error' %}
+<div class="pattern-card anti-{{ p.severity }}">
+  <div class="pattern-head" onclick="toggle(this)">
+    <span class="p-badge b-{{ p.source | lower }}">{{ p.source }}</span>
+    <span class="p-cat">{{ p.category }}</span>
+    <span class="p-name">{{ p.name }}</span>
+    <span class="{{ 'sev-error' if is_error else 'sev-warning' }}">{{ p.severity }}</span>
+    <span class="p-count">{{ result.match_count }} class{{ 'es' if result.match_count != 1 else '' }}</span>
+    <span class="p-chevron">▶</span>
+  </div>
+  <div class="pattern-body">
+    <p class="p-intent">{{ p.intent }}</p>
+    <div class="two-col">
+      <div>
+        <div class="mini-header">Top packages</div>
+        {% if result.top_packages %}
+        {% set max_count = result.top_packages | map(attribute='count') | max %}
+        <div class="pkg-bar-wrap">
+          {% for pkg in result.top_packages %}
+          {% set pct = (pkg.count / max_count * 100) | int %}
+          <div class="pkg-row">
+            <span class="pkg-name" title="{{ pkg.package }}">{{ pkg.package }}</span>
+            <div class="pkg-bar-bg">
+              <div class="pkg-bar-fill anti" style="width:{{ pct }}%"></div>
+            </div>
+            <span class="pkg-count">{{ pkg.count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div>
+        <div class="mini-header">All matched classes ({{ result.matches | length }})</div>
+        <div class="class-list">
+          {% for m in result.matches %}
+          <div class="class-item" title="{{ m.fqn }}">
+            <span class="class-name anti">{{ m.fqn.rsplit('.', 1)[-1] }}</span>
+            {% if m.missing_variant is defined %}
+            <span class="missing-tag">missing: {{ m.missing_variant }}</span>
+            {% endif %}
+            {% if m.github_url %}
+            <a class="class-link" href="{{ m.github_url }}" target="_blank" rel="noopener">GitHub ↗</a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if result.match_count > result.matches | length %}
+        <div class="class-count">Showing {{ result.matches | length }} of {{ result.match_count }} — run Detect Patterns to refresh</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{# Patterns #}
+{% if patterns_found %}
+<div class="section-header">✓ Patterns</div>
+{% for result in patterns_found %}
+{% set p = result.pattern %}
+{% set badge_class = 'b-' + p.source | lower %}
+<div class="pattern-card">
+  <div class="pattern-head" onclick="toggle(this)">
+    <span class="p-badge {{ badge_class }}">{{ p.source }}</span>
+    <span class="p-cat">{{ p.category }}</span>
+    <span class="p-name">{{ p.name }}</span>
+    <span class="p-count">{{ result.match_count }} class{{ 'es' if result.match_count != 1 else '' }}</span>
+    <span class="p-chevron">▶</span>
+  </div>
+  <div class="pattern-body">
+    <p class="p-intent">{{ p.intent }}</p>
+    <div class="two-col">
+      <div>
+        <div class="mini-header">Top packages</div>
+        {% if result.top_packages %}
+        {% set max_count = result.top_packages | map(attribute='count') | max %}
+        <div class="pkg-bar-wrap">
+          {% for pkg in result.top_packages %}
+          {% set pct = (pkg.count / max_count * 100) | int %}
+          <div class="pkg-row">
+            <span class="pkg-name" title="{{ pkg.package }}">{{ pkg.package }}</span>
+            <div class="pkg-bar-bg">
+              <div class="pkg-bar-fill" style="width:{{ pct }}%"></div>
+            </div>
+            <span class="pkg-count">{{ pkg.count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div>
+        <div class="mini-header">All matched classes ({{ result.matches | length }})</div>
+        <div class="class-list">
+          {% for m in result.matches %}
+          <div class="class-item" title="{{ m.fqn }}">
+            <span class="class-name">{{ m.fqn.rsplit('.', 1)[-1] }}</span>
+            {% if m.github_url %}
+            <a class="class-link" href="{{ m.github_url }}" target="_blank" rel="noopener">GitHub ↗</a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if result.match_count > result.matches | length %}
+        <div class="class-count">Showing {{ result.matches | length }} of {{ result.match_count }} — run Detect Patterns to refresh</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% else %}
+<div class="empty">No patterns detected. Make sure at least one repo has been scanned.</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+function toggle(head) {
+  const body = head.nextElementSibling;
+  const chevron = head.querySelector('.p-chevron');
+  const open = body.classList.toggle('open');
+  chevron.classList.toggle('open', open);
+}
+</script>
+{% endblock %}

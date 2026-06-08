@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Module: {{ module_id }}{% endblock %}
+{% block content %}
+<style>
+  .mod-hero { margin-bottom:1.5rem; }
+  .mod-hero h1 { font-size:1.3rem; font-family:monospace; margin-bottom:0.25rem; }
+  .mod-hero .meta { font-size:0.8rem; color:var(--text-3); }
+  .stat-row { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:2rem; }
+  .stat-chip { background:var(--surface); border:1px solid var(--border); border-radius:7px;
+               padding:0.6rem 1.1rem; min-width:100px; }
+  .stat-chip .sv { font-size:1.4rem; font-weight:700; color:var(--text); }
+  .stat-chip .sl { font-size:0.65rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-3); margin-top:0.15rem; }
+
+  #sankey-wrap { background:var(--bg); border:1px solid var(--border); border-radius:10px;
+                 height:400px; overflow:hidden; margin-bottom:2rem; position:relative; }
+  #sankey-wrap svg { width:100%; height:100%; }
+  .sankey-empty { display:flex; align-items:center; justify-content:center;
+                  height:100%; color:var(--text-3); font-size:0.875rem; }
+
+  .dep-table td, .dep-table th { padding:0.4rem 0.6rem; font-size:0.8rem; }
+  .weight-bar { display:inline-block; height:6px; border-radius:3px; vertical-align:middle; margin-left:0.4rem; }
+  .class-row { font-size:0.78rem; }
+  .class-row code { font-size:0.72rem; }
+  .annotation-list { display:flex; flex-wrap:wrap; gap:0.2rem; }
+  .ann { font-size:0.6rem; background:var(--bg); color:var(--text-3); border:1px solid var(--border);
+         border-radius:3px; padding:0.05rem 0.3rem; }
+  .pattern-anti { color:var(--danger); }
+  .pattern-good { color:var(--success); }
+</style>
+
+<div class="mod-hero">
+  <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.25rem">
+    <a href="/modules">Modules</a> /
+  </div>
+  <h1>{{ module_id }}</h1>
+  <div class="meta">
+    {{ mod.build_tool or '' }}
+    {% if mod.repo_id %} · repo <a href="/repos/{{ mod.repo_id }}">{{ mod.repo_id }}</a>{% endif %}
+    {% if mod.auto %} · <span style="color:var(--success);font-size:0.7rem">auto-discovered</span>{% endif %}
+  </div>
+</div>
+
+{# ── Stats ── #}
+<div class="stat-row">
+  <div class="stat-chip">
+    <div class="sv">{{ stat.total or 0 }}</div>
+    <div class="sl">Classes</div>
+  </div>
+  <div class="stat-chip">
+    <div class="sv">{{ stat.tests or 0 }}</div>
+    <div class="sl">Test classes</div>
+  </div>
+  <div class="stat-chip">
+    <div class="sv">{{ stat.packages or 0 }}</div>
+    <div class="sl">Packages</div>
+  </div>
+  <div class="stat-chip">
+    <div class="sv">{{ deps_out | length }}</div>
+    <div class="sl">Imports from</div>
+  </div>
+  <div class="stat-chip">
+    <div class="sv">{{ deps_in | length }}</div>
+    <div class="sl">Used by</div>
+  </div>
+</div>
+
+{# ── Sankey — outbound flow ── #}
+<div class="section">
+  <h2>Import flow out of this module</h2>
+  <p style="color:var(--text-3);font-size:0.8rem;margin-bottom:0.75rem">
+    Shows which packages inside other modules this module depends on, and how heavily.
+  </p>
+  <div id="sankey-wrap">
+    {% if sankey_flows %}
+    <svg id="sankey-svg"></svg>
+    {% else %}
+    <div class="sankey-empty">No cross-module import flows detected for this module.</div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Dependencies ── #}
+<div class="section grid grid-2">
+  <div>
+    <h2>Imports from (outbound)</h2>
+    <div class="card" style="padding:0">
+      {% if deps_out %}
+      {% set max_out = deps_out[0].weight %}
+      <table class="dep-table">
+        <thead><tr><th>Module</th><th>Imports</th></tr></thead>
+        <tbody>
+          {% for d in deps_out %}
+          <tr>
+            <td><a href="/modules/{{ d.dep_module }}">{{ d.dep_module.split('/')[-1] }}</a>
+              <span style="font-size:0.65rem;color:var(--text-3)"> {{ d.dep_module }}</span></td>
+            <td>{{ d.weight }}
+              <span class="weight-bar" style="width:{{ (d.weight / max_out * 60)|int }}px;background:#1d4ed8"></span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No outbound cross-module imports.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <h2>Used by (inbound)</h2>
+    <div class="card" style="padding:0">
+      {% if deps_in %}
+      {% set max_in = deps_in[0].weight %}
+      <table class="dep-table">
+        <thead><tr><th>Module</th><th>Imports</th></tr></thead>
+        <tbody>
+          {% for d in deps_in %}
+          <tr>
+            <td><a href="/modules/{{ d.dep_module }}">{{ d.dep_module.split('/')[-1] }}</a>
+              <span style="font-size:0.65rem;color:var(--text-3)"> {{ d.dep_module }}</span></td>
+            <td>{{ d.weight }}
+              <span class="weight-bar" style="width:{{ (d.weight / max_in * 60)|int }}px;background:var(--success)"></span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No other modules import from this one.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Patterns ── #}
+{% if patterns %}
+<div class="section">
+  <h2>Architectural patterns in this module</h2>
+  <div class="card" style="padding:0">
+    <table>
+      <thead><tr><th>Pattern</th><th>Type</th><th>Hits</th></tr></thead>
+      <tbody>
+        {% for p in patterns %}
+        <tr>
+          <td class="{% if p.anti %}pattern-anti{% else %}pattern-good{% endif %}">
+            {% if p.anti %}⚠ {% else %}✓ {% endif %}{{ p.name }}
+          </td>
+          <td style="font-size:0.75rem;color:var(--text-3)">{{ 'Anti-pattern' if p.anti else 'Pattern' }}</td>
+          <td>{{ p.hits }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Top classes ── #}
+<div class="section">
+  <h2>Top classes by method count</h2>
+  <div class="card" style="padding:0">
+    {% if top_classes %}
+    <table>
+      <thead><tr><th>Class</th><th>Methods</th><th>Annotations</th></tr></thead>
+      <tbody>
+        {% for c in top_classes %}
+        <tr class="class-row" onclick="window.location='/classes/{{ c.fqn }}'" style="cursor:pointer">
+          <td>
+            <a href="/classes/{{ c.fqn }}" style="color:var(--primary);font-family:monospace;font-size:0.85rem;text-decoration:none">{{ c.name }}</a>
+            <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.1rem">{{ c.fqn }}</div>
+          </td>
+          <td>{{ c.method_count }}</td>
+          <td>
+            {% if c.annotations %}
+            <div class="annotation-list">
+              {% for a in (c.annotations or [])[:4] %}
+              <span class="ann">{{ a }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No classes found in this module's path.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if sankey_flows %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+<script>
+(function() {
+  const flows = {{ sankey_flows | tojson }};
+  const thisModule = {{ module_id | tojson }};
+
+  // Build sankey data: left = this module (one node), right = target modules
+  // middle layer = package within target module
+  const nodeMap = {};
+  let ni = 0;
+  function getNode(id, label, side) {
+    if (!(id in nodeMap)) nodeMap[id] = { id: ni++, name: label, side };
+    return nodeMap[id];
+  }
+
+  getNode('__this__', thisModule.split('/').pop(), 'left');
+
+  const links = [];
+  flows.forEach(f => {
+    const pkgLabel = f.pkg ? f.pkg.split('.').slice(-2).join('.') : f.target_mod;
+    const pkgId = 'pkg:' + f.pkg;
+    const modId = 'mod:' + f.target_mod;
+    const modLabel = f.target_mod.split('/').pop();
+
+    getNode(pkgId, pkgLabel, 'mid');
+    getNode(modId, modLabel, 'right');
+
+    // this → pkg
+    links.push({ source: nodeMap['__this__'].id, target: nodeMap[pkgId].id, value: f.weight });
+    // pkg → mod (aggregated later by d3-sankey)
+    links.push({ source: nodeMap[pkgId].id, target: nodeMap[modId].id, value: f.weight });
+  });
+
+  const nodes = Object.values(nodeMap).sort((a,b) => a.id - b.id);
+
+  const wrap = document.getElementById('sankey-wrap');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  const margin = { top:16, right:140, bottom:16, left:120 };
+
+  const svg = d3.select('#sankey-svg');
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const sankey = d3.sankey()
+    .nodeId(d => d.id)
+    .nodeWidth(14)
+    .nodePadding(8)
+    .extent([[0,0],[W - margin.left - margin.right, H - margin.top - margin.bottom]]);
+
+  let graph;
+  try {
+    graph = sankey({ nodes: nodes.map(d => ({...d})), links: links.map(d => ({...d})) });
+  } catch(e) { return; }
+
+  const color = d3.scaleOrdinal(d3.schemeTableau10);
+
+  g.append('g').selectAll('path')
+    .data(graph.links).join('path')
+    .attr('d', d3.sankeyLinkHorizontal())
+    .attr('stroke', d => color(d.source.name))
+    .attr('stroke-width', d => Math.max(1, d.width))
+    .attr('fill', 'none')
+    .attr('opacity', 0.35)
+    .on('mouseover', function() { d3.select(this).attr('opacity', 0.65); })
+    .on('mouseout',  function() { d3.select(this).attr('opacity', 0.35); });
+
+  const nodeG = g.append('g').selectAll('g')
+    .data(graph.nodes).join('g');
+
+  nodeG.append('rect')
+    .attr('x', d => d.x0).attr('y', d => d.y0)
+    .attr('width', d => d.x1 - d.x0)
+    .attr('height', d => Math.max(1, d.y1 - d.y0))
+    .attr('fill', d => color(d.name))
+    .attr('rx', 2);
+
+  nodeG.append('text')
+    .attr('x', d => d.side === 'right' ? d.x1 + 6 : d.x0 - 6)
+    .attr('y', d => (d.y0 + d.y1) / 2)
+    .attr('dy', '0.35em')
+    .attr('text-anchor', d => d.side === 'right' ? 'start' : 'end')
+    .attr('font-size', 10)
+    .attr('fill', 'var(--text-3)')
+    .text(d => d.name.length > 22 ? d.name.slice(-22) : d.name);
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,425 +1,270 @@
 """
-Architecture Console — web UI for the architecture team to:
-  - Register and manage repositories
-  - View the current state of the knowledge graph
-  - Author and manage architectural policies
-  - Review violations across repositories
+Architecture Console — web UI for the architecture team.
+Route modules live under routes/; shared state lives in deps.py.
 """
-import json
-import os
-import uuid
-from pathlib import Path
-from typing import Optional
+# ── Load persistent config overrides before anything else ─────────────────────
+# The file /repos/codekg.env is written by the Configuration page and persists
+# across container rebuilds (it lives on the host-mounted /repos volume).
+# We load it before importing shared.config so its values override defaults.
+import os as _os
+from pathlib import Path as _Path
 
-import git
-import httpx
-from fastapi import FastAPI, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from neo4j import GraphDatabase
+_env_file = _Path(_os.environ.get("REPOS_PATH", "/repos")) / "codekg.env"
+if _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#"):
+            continue
+        if "=" in _line:
+            _k, _, _v = _line.partition("=")
+            _k = _k.strip()
+            _v = _v.strip().strip('"').strip("'")
+            # Only set if not already present in the process environment
+            # (environment always wins over the file)
+            if _k not in _os.environ:
+                _os.environ[_k] = _v
+# ─────────────────────────────────────────────────────────────────────────────
+
+import time
+import uuid as _uuid
+
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
+import deps as _deps_module
+from deps import (
+    log,
+    run_query as _deps_run_query,
+    _load_registry as _deps_load_registry,
+    _save_registry as _deps_save_registry,
+    _to_container_path as _deps_to_container_path,
+    _validate_repo_path as _deps_validate_repo_path,
+    _repo_git_info as _deps_repo_git_info,
+    HOST_HOME as _deps_host_home,
+    driver as _deps_driver,
+)
+from auth import (
+    AUTH_ENABLED, BYPASS_PATHS,
+    current_user, _login_page_html,
+    router as auth_router,
+)
+from routes import (
+    repos, dashboard, policies, modules, classes,
+    patterns, ask, mcp_audit, system_health, audit_log,
+    insights, hygiene, agent_index, telemetry, config,
+)
 
 app = FastAPI(title="CodeKG Architecture Console")
-templates = Jinja2Templates(directory="templates")
-
-API_URL = os.environ.get("API_URL", "http://api:8000")
-INGESTION_URL = os.environ.get("INGESTION_URL", "http://ingestion:8001")
-NEO4J_URI = os.environ["NEO4J_URI"]
-NEO4J_USER = os.environ["NEO4J_USER"]
-NEO4J_PASSWORD = os.environ["NEO4J_PASSWORD"]
-REPOS_PATH = os.environ.get("REPOS_PATH", "/repos")
-REPOS_REGISTRY = os.environ.get("REPOS_REGISTRY", "/repos/repos.json")
-
-driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-api_client = httpx.Client(base_url=API_URL, timeout=30.0)
-ingestion_client = httpx.Client(base_url=INGESTION_URL, timeout=10.0)
 
 
-# ------------------------------------------------------------------
-# Registry helpers
-# ------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Backwards-compatible test patch points
+# ---------------------------------------------------------------------------
 
-def _load_registry() -> dict[str, str]:
-    p = Path(REPOS_REGISTRY)
-    if p.exists():
-        try:
-            return json.loads(p.read_text())
-        except Exception:
-            return {}
-    return {}
+HOST_HOME = _deps_host_home
+driver = _deps_driver
+uuid = _uuid
 
-
-def _save_registry(registry: dict[str, str]):
-    p = Path(REPOS_REGISTRY)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(registry, indent=2))
+_patterns_read_catalog = patterns._read_catalog
+_patterns_write_catalog = patterns._write_catalog
+_patterns_load_from_kg = patterns._load_patterns_from_kg
+_mcp_audit_query_impl = mcp_audit._query
 
 
-def _validate_repo_path(path: str) -> tuple[bool, str]:
-    """Return (ok, error_message). Checks path exists and is a git repo."""
-    p = Path(path)
-    if not p.exists():
-        return False, f"Path does not exist: {path}"
-    if not p.is_dir():
-        return False, f"Path is not a directory: {path}"
-    if not (p / ".git").exists():
-        return False, f"No .git directory found at: {path} — is this a git repository?"
-    return True, ""
+def run_query(*args, **kwargs):
+    return _deps_run_query(*args, **kwargs)
 
 
-def _repo_git_info(path: str) -> dict:
-    """Return basic git metadata for display."""
-    try:
-        repo = git.Repo(path)
-        return {
-            "branch": repo.active_branch.name if not repo.head.is_detached else "detached",
-            "last_commit": repo.head.commit.hexsha[:12],
-            "last_message": repo.head.commit.message.strip().split("\n")[0][:80],
-            "last_author": repo.head.commit.author.name,
-        }
-    except Exception as e:
-        return {"error": str(e)}
+def _load_registry(*args, **kwargs):
+    return _deps_load_registry(*args, **kwargs)
 
 
-def run_query(cypher: str, **params) -> list[dict]:
-    with driver.session() as s:
-        return [dict(r) for r in s.run(cypher, **params)]
+def _save_registry(*args, **kwargs):
+    return _deps_save_registry(*args, **kwargs)
 
 
-# ------------------------------------------------------------------
-# Repository management
-# ------------------------------------------------------------------
-
-@app.get("/repos", response_class=HTMLResponse)
-async def repos_list(request: Request):
-    registry = _load_registry()
-    # Enrich with KG data (last indexed commit, class count)
-    kg_repos = {}
-    try:
-        for r in api_client.get("/repos").json():
-            kg_repos[r["repo_id"]] = r
-    except Exception:
-        pass
-
-    repos = []
-    for repo_id, repo_path in registry.items():
-        entry = {
-            "repo_id": repo_id,
-            "path": repo_path,
-            "git": _repo_git_info(repo_path),
-            "kg": kg_repos.get(repo_id, {}),
-        }
-        repos.append(entry)
-
-    # Also show repos in KG that are no longer in registry
-    for repo_id, kg in kg_repos.items():
-        if repo_id not in registry:
-            repos.append({
-                "repo_id": repo_id,
-                "path": kg.get("path", ""),
-                "git": {},
-                "kg": kg,
-                "orphaned": True,
-            })
-
-    return templates.TemplateResponse("repos.html", {
-        "request": request,
-        "repos": repos,
-        "repos_path": REPOS_PATH,
-    })
+def _to_container_path(*args, **kwargs):
+    if args:
+        user_path = args[0]
+        if HOST_HOME and user_path.startswith(HOST_HOME):
+            return "/host-home" + user_path[len(HOST_HOME):]
+        return user_path
+    return _deps_to_container_path(*args, **kwargs)
 
 
-@app.post("/repos")
-async def register_repo(
-    repo_id: str = Form(...),
-    repo_path: str = Form(...),
-    trigger_scan: str = Form("yes"),
-):
-    ok, err = _validate_repo_path(repo_path)
-    if not ok:
-        raise HTTPException(400, err)
-
-    registry = _load_registry()
-    registry[repo_id] = repo_path
-    _save_registry(registry)
-
-    if trigger_scan == "yes":
-        try:
-            ingestion_client.post("/scan/full", json={
-                "repo_id": repo_id,
-                "repo_path": repo_path,
-            })
-        except Exception:
-            pass  # scan is async; watcher will pick it up on next poll
-
-    return RedirectResponse(f"/repos/{repo_id}", status_code=303)
+def _validate_repo_path(*args, **kwargs):
+    return _deps_validate_repo_path(*args, **kwargs)
 
 
-@app.get("/repos/{repo_id:path}", response_class=HTMLResponse)
-async def repo_detail(request: Request, repo_id: str):
-    registry = _load_registry()
-    repo_path = registry.get(repo_id)
-
-    kg_data: dict = {}
-    provenance: dict = {}
-    stats: dict = {}
-
-    try:
-        r = api_client.get(f"/repos/{repo_id}")
-        if r.status_code == 200:
-            kg_data = r.json()
-    except Exception:
-        pass
-
-    try:
-        p = api_client.get(f"/provenance/{repo_id}")
-        if p.status_code == 200:
-            provenance = p.json()
-    except Exception:
-        pass
-
-    if repo_path or kg_data.get("path"):
-        path = repo_path or kg_data.get("path", "")
-        stats_rows = run_query(
-            """
-            MATCH (c:Class {repo_id: $rid}) WITH count(c) AS classes
-            MATCH (m:Method {repo_id: $rid}) WITH classes, count(m) AS methods
-            MATCH (p:Package {repo_id: $rid}) WITH classes, methods, count(p) AS packages
-            RETURN classes, methods, packages
-            """,
-            rid=repo_id,
-        )
-        stats = stats_rows[0] if stats_rows else {}
-
-    git_info = _repo_git_info(repo_path) if repo_path else {}
-
-    return templates.TemplateResponse("repo_detail.html", {
-        "request": request,
-        "repo_id": repo_id,
-        "repo_path": repo_path,
-        "git": git_info,
-        "kg": kg_data,
-        "provenance": provenance,
-        "stats": stats,
-        "in_registry": repo_id in registry,
-        "api_url": API_URL.replace("http://api:8000", "http://localhost:8000"),
-    })
+def _repo_git_info(*args, **kwargs):
+    return _deps_repo_git_info(*args, **kwargs)
 
 
-@app.post("/repos/{repo_id:path}/scan")
-async def trigger_scan(repo_id: str):
-    registry = _load_registry()
-    repo_path = registry.get(repo_id)
-    if not repo_path:
-        raise HTTPException(404, f"{repo_id} not in registry")
-    try:
-        resp = ingestion_client.post("/scan/full", json={
-            "repo_id": repo_id,
-            "repo_path": repo_path,
-        }, timeout=10.0)
-        return RedirectResponse(f"/repos/{repo_id}?scan=started", status_code=303)
-    except Exception as e:
-        raise HTTPException(502, f"Could not reach ingestion service: {e}")
+def _read_catalog(*args, **kwargs):
+    return _patterns_read_catalog(*args, **kwargs)
 
 
-@app.post("/repos/{repo_id:path}/remove")
-async def remove_repo(repo_id: str):
-    registry = _load_registry()
-    registry.pop(repo_id, None)
-    _save_registry(registry)
-    return RedirectResponse("/repos", status_code=303)
+def _write_catalog(*args, **kwargs):
+    return _patterns_write_catalog(*args, **kwargs)
 
 
-@app.get("/api/repos/{repo_id:path}/scan-status")
-async def scan_status(repo_id: str):
-    """Polled by the UI to check whether a scan has completed."""
-    try:
-        r = api_client.get(f"/repos/{repo_id}")
-        if r.status_code == 200:
-            return JSONResponse(r.json())
-    except Exception:
-        pass
-    return JSONResponse({"last_commit": None})
+def _load_patterns_from_kg(*args, **kwargs):
+    return _patterns_load_from_kg(*args, **kwargs)
 
 
-# ------------------------------------------------------------------
-# Dashboard
-# ------------------------------------------------------------------
-
-@app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    repos = api_client.get("/repos").json()
-    violations = api_client.get("/violations", params={"severity": "error"}).json()
-    policies = api_client.get("/policies").json()
-    stats = run_query("""
-        MATCH (c:Class) WITH count(c) AS classes
-        MATCH (m:Method) WITH classes, count(m) AS methods
-        MATCH (p:Package) WITH classes, methods, count(p) AS packages
-        RETURN classes, methods, packages
-    """)
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "repos": repos,
-        "violations": violations[:20],
-        "policies": policies,
-        "stats": stats[0] if stats else {},
-    })
+def _mcp_audit_query(*args, **kwargs):
+    return _mcp_audit_query_impl(*args, **kwargs)
 
 
-# ------------------------------------------------------------------
-# Policy management
-# ------------------------------------------------------------------
-
-@app.get("/policies", response_class=HTMLResponse)
-async def policies_list(request: Request):
-    policies = api_client.get("/policies", params={"status": None}).json()
-    modules = run_query("MATCH (m:Module) RETURN m.module_id AS module_id ORDER BY module_id")
-    return templates.TemplateResponse("policies.html", {
-        "request": request,
-        "policies": policies,
-        "modules": [r["module_id"] for r in modules],
-    })
+def _run_query_proxy(*args, **kwargs):
+    return run_query(*args, **kwargs)
 
 
-@app.post("/policies")
-async def create_policy(
-    title: str = Form(...),
-    natural_language: str = Form(...),
-    severity: str = Form("warning"),
-    module_targets: str = Form(""),
-):
+def _load_registry_proxy(*args, **kwargs):
+    return _load_registry(*args, **kwargs)
+
+
+def _save_registry_proxy(*args, **kwargs):
+    return _save_registry(*args, **kwargs)
+
+
+def _to_container_path_proxy(*args, **kwargs):
+    return _to_container_path(*args, **kwargs)
+
+
+def _validate_repo_path_proxy(*args, **kwargs):
+    return _validate_repo_path(*args, **kwargs)
+
+
+def _repo_git_info_proxy(*args, **kwargs):
+    return _repo_git_info(*args, **kwargs)
+
+
+def _read_catalog_proxy(*args, **kwargs):
+    return _read_catalog(*args, **kwargs)
+
+
+def _write_catalog_proxy(*args, **kwargs):
+    return _write_catalog(*args, **kwargs)
+
+
+def _load_patterns_from_kg_proxy(*args, **kwargs):
+    return _load_patterns_from_kg(*args, **kwargs)
+
+
+def _mcp_audit_query_proxy(*args, **kwargs):
+    return _mcp_audit_query(*args, **kwargs)
+
+
+class _AttrProxy:
+    def __init__(self, attr_name: str):
+        self._attr_name = attr_name
+
+    def __getattr__(self, name: str):
+        return getattr(globals()[self._attr_name], name)
+
+
+_deps_module.run_query = _run_query_proxy
+_deps_module._load_registry = _load_registry_proxy
+_deps_module._save_registry = _save_registry_proxy
+_deps_module._to_container_path = _to_container_path_proxy
+_deps_module._validate_repo_path = _validate_repo_path_proxy
+_deps_module._repo_git_info = _repo_git_info_proxy
+_deps_module.HOST_HOME = HOST_HOME
+_deps_module.driver = _AttrProxy("driver")
+
+for _mod in (dashboard, policies, modules, classes, hygiene, agent_index, patterns):
+    if hasattr(_mod, "run_query"):
+        _mod.run_query = _run_query_proxy
+
+repos._load_registry = _load_registry_proxy
+repos._save_registry = _save_registry_proxy
+repos._to_container_path = _to_container_path_proxy
+repos._validate_repo_path = _validate_repo_path_proxy
+repos._repo_git_info = _repo_git_info_proxy
+policies.driver = _AttrProxy("driver")
+policies.uuid = _AttrProxy("uuid")
+modules.driver = _AttrProxy("driver")
+patterns.driver = _AttrProxy("driver")
+patterns._read_catalog = _read_catalog_proxy
+patterns._write_catalog = _write_catalog_proxy
+patterns._load_patterns_from_kg = _load_patterns_from_kg_proxy
+patterns.HOST_HOME = HOST_HOME
+repos.uuid = _AttrProxy("uuid")
+mcp_audit._query = _mcp_audit_query_proxy
+
+
+class RequestLogMiddleware(BaseHTTPMiddleware):
+    """Logs console requests along with response timing. Watch out for static-asset noise here, because the middleware intentionally skips those paths."""
+
+    async def dispatch(self, request: Request, call_next):
+        start    = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = round((time.perf_counter() - start) * 1000, 1)
+        if not request.url.path.startswith("/static"):
+            log.info("HTTP request",
+                     method=request.method,
+                     path=request.url.path,
+                     status=response.status_code,
+                     elapsed_ms=elapsed_ms)
+        return response
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
     """
-    Create a new architectural policy from natural language.
-    The cypher_constraint is compiled from the NL using the policy compiler.
+    Gate all console pages behind GitHub OAuth when AUTH_ENABLED.
+    Bypassed for the auth routes themselves and /health.
+    When auth is disabled (GITHUB_CLIENT_ID not set) every request passes through.
     """
-    from policy_compiler import compile_policy
+    async def dispatch(self, request: Request, call_next):
+        if not AUTH_ENABLED:
+            return await call_next(request)
+        if request.url.path in BYPASS_PATHS:
+            return await call_next(request)
 
-    policy_id = f"policy-{uuid.uuid4().hex[:8]}"
-    cypher = compile_policy(natural_language)
-    targets = [t.strip() for t in module_targets.split(",") if t.strip()]
+        user = current_user(request)
+        if user is None:
+            # Redirect to login, preserving the intended destination
+            next_url = request.url.path
+            if request.url.query:
+                next_url += f"?{request.url.query}"
+            resp = RedirectResponse(f"/auth/login?next={next_url}")
+            return resp
 
-    with driver.session() as s:
-        s.run(
-            """
-            MERGE (ap:ArchPolicy {policy_id: $policy_id})
-            SET ap.title = $title,
-                ap.natural_language = $nl,
-                ap.cypher_constraint = $cypher,
-                ap.severity = $severity,
-                ap.status = 'draft'
-            """,
-            policy_id=policy_id, title=title, nl=natural_language,
-            cypher=cypher, severity=severity,
-        )
-        for mod_id in targets:
-            s.run(
-                """
-                MATCH (ap:ArchPolicy {policy_id: $policy_id})
-                MERGE (mod:Module {module_id: $mod_id})
-                MERGE (ap)-[:TARGETS]->(mod)
-                """,
-                policy_id=policy_id, mod_id=mod_id,
-            )
-
-    return RedirectResponse(f"/policies/{policy_id}", status_code=303)
+        return await call_next(request)
 
 
-@app.get("/policies/{policy_id}", response_class=HTMLResponse)
-async def policy_detail(request: Request, policy_id: str):
-    rows = run_query("MATCH (ap:ArchPolicy {policy_id: $pid}) RETURN ap", pid=policy_id)
-    if not rows:
-        raise HTTPException(404)
-    violations = run_query(
-        """
-        MATCH (c)-[:VIOLATES]->(ap:ArchPolicy {policy_id: $pid})
-        RETURN c.fqn AS fqn, c.file_path AS file_path
-        LIMIT 100
-        """,
-        pid=policy_id,
-    )
-    return templates.TemplateResponse("policy_detail.html", {
-        "request": request,
-        "policy": rows[0]["ap"],
-        "violations": violations,
-    })
+app.add_middleware(AuthMiddleware)
+app.add_middleware(RequestLogMiddleware)
 
-
-@app.post("/policies/{policy_id}/activate")
-async def activate_policy(policy_id: str):
-    run_query("MATCH (ap:ArchPolicy {policy_id: $pid}) SET ap.status = 'active'", pid=policy_id)
-    return RedirectResponse(f"/policies/{policy_id}", status_code=303)
-
-
-@app.post("/policies/{policy_id}/run")
-async def run_policy(policy_id: str):
-    """Evaluate the policy's Cypher constraint and write VIOLATES edges."""
-    rows = run_query("MATCH (ap:ArchPolicy {policy_id: $pid}) RETURN ap.cypher_constraint AS cypher", pid=policy_id)
-    if not rows:
-        raise HTTPException(404)
-
-    cypher = rows[0]["cypher"]
-    # The constraint query is expected to return (violator) nodes
-    violators = run_query(cypher)
-    count = 0
-    with driver.session() as s:
-        for row in violators:
-            violator_fqn = row.get("fqn") or row.get("violator")
-            if violator_fqn:
-                s.run(
-                    """
-                    MATCH (c {fqn: $fqn})
-                    MATCH (ap:ArchPolicy {policy_id: $pid})
-                    MERGE (c)-[:VIOLATES]->(ap)
-                    """,
-                    fqn=violator_fqn, pid=policy_id,
-                )
-                count += 1
-
-    return {"policy_id": policy_id, "violations_found": count}
-
-
-# ------------------------------------------------------------------
-# Module management
-# ------------------------------------------------------------------
-
-@app.get("/modules", response_class=HTMLResponse)
-async def modules_list(request: Request):
-    modules = run_query(
-        """
-        MATCH (mod:Module)
-        OPTIONAL MATCH (p:Package)-[:OWNS]->(mod)
-        RETURN mod.module_id AS module_id, mod.description AS description,
-               collect(p.fqn) AS packages
-        ORDER BY mod.module_id
-        """
-    )
-    return templates.TemplateResponse("modules.html", {"request": request, "modules": modules})
-
-
-@app.post("/modules")
-async def create_module(
-    module_id: str = Form(...),
-    description: str = Form(""),
-    packages: str = Form(""),
-):
-    pkg_list = [p.strip() for p in packages.split(",") if p.strip()]
-    with driver.session() as s:
-        s.run(
-            "MERGE (mod:Module {module_id: $mid}) SET mod.description = $desc",
-            mid=module_id, desc=description,
-        )
-        for pkg_fqn in pkg_list:
-            s.run(
-                """
-                MATCH (mod:Module {module_id: $mid})
-                MERGE (p:Package {fqn: $pkg})
-                MERGE (mod)-[:OWNS]->(p)
-                MERGE (p)-[:BELONGS_TO_MODULE]->(mod)
-                """,
-                mid=module_id, pkg=pkg_fqn,
-            )
-    return RedirectResponse("/modules", status_code=303)
+app.include_router(auth_router)
+app.include_router(dashboard.router)
+app.include_router(repos.router)
+app.include_router(policies.router)
+app.include_router(modules.router)
+app.include_router(classes.router)
+app.include_router(patterns.router)
+app.include_router(ask.router)
+app.include_router(mcp_audit.router)
+app.include_router(system_health.router)
+app.include_router(audit_log.router)
+app.include_router(insights.router)
+app.include_router(hygiene.router)
+app.include_router(agent_index.router)
+app.include_router(telemetry.router)
+app.include_router(config.router)
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# Run DB migrations once at startup
+mcp_audit.migrate(mcp_audit.MCP_AUDIT_DB)
+from agent_index.store import init_db as _init_agent_index_db
+try:
+    _init_agent_index_db()
+except OSError as exc:
+    log.warning("Failed to init agent-index DB", exc=exc)

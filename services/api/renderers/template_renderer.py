@@ -1,510 +1,1138 @@
 """
-Renders a filled-out Codebase Intelligence Template (Markdown) for a repository
-by querying the knowledge graph for auto-extractable sections and leaving
-clearly marked placeholders for the human-authored sections.
+Codebase Intelligence Template renderer.
 
-Output is designed to be:
-  1. Loaded directly into a Claude/Cursor/Codex session as system context
-  2. Stored as a living document alongside the repo
-  3. Reviewed and completed by the architecture team in the console
+Design goals:
+  1. Maximum signal per token — every line must help an LLM make better decisions.
+     No padding, no "fill this in later" where real data exists.
+  2. Front-load the most decision-relevant facts: CodeKG protocol first, then
+     danger zones, key extension points, invariants, anti-patterns.
+  3. Replace "go read the source" with pre-computed answers:
+     which classes own a concern, which patterns are used where, what breaks what.
+  4. Language-agnostic by default — Java/Elasticsearch-specific content is only
+     emitted when the repo language / structure actually matches.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from collections import defaultdict
 from typing import Optional
 
 from neo4j import Driver
 
+from shared.logging.codekg_logger import get_logger
+
+log = get_logger(__name__, service="api")
+
 
 def render_template(driver: Driver, repo_id: str) -> str:
-    sections: list[str] = []
-    sections.append(_header(repo_id))
-    sections.append(_section_1_identity(driver, repo_id))
-    sections.append(_section_2_repo_map(driver, repo_id))
-    sections.append(_section_3_adrs(driver, repo_id))
-    sections.append(_section_4_glossary(driver, repo_id))
-    sections.append(_section_5_invariants(driver, repo_id))
-    sections.append(_section_6_data_models(driver, repo_id))
-    sections.append(_section_7_api_surface(driver, repo_id))
-    sections.append(_section_8_concurrency(driver, repo_id))
-    sections.append(_section_9_build(driver, repo_id))
-    sections.append(_section_9b_freshness(driver, repo_id))
-    sections.append(_section_10_working_style())
-    sections.append(_section_11_known_issues(driver, repo_id))
-    sections.append(_section_12_pitfalls())
-    sections.append(_footer())
-    return "\n\n".join(s for s in sections if s)
+    sections = [
+        _header(driver, repo_id),
+        _section_agent_protocol(repo_id),
+        _section_identity(driver, repo_id),
+        _section_scale(driver, repo_id),
+        _section_role_distribution(driver, repo_id),
+        _section_subsystems(driver, repo_id),
+        _section_danger_zones(driver, repo_id),
+        _section_call_chains(driver, repo_id),
+        _section_extension_points(driver, repo_id),
+        _section_transport_layer(driver, repo_id),
+        _section_patterns(driver, repo_id),
+        _section_generated_code(driver, repo_id),
+        _section_test_architecture(driver, repo_id),
+        _section_build(driver, repo_id),
+        _section_policies(driver, repo_id),
+        _section_working_rules(driver, repo_id),
+        _footer(driver, repo_id),
+    ]
+    return "\n\n".join(s for s in sections if s.strip())
 
 
 def _q(driver: Driver, cypher: str, **params) -> list[dict]:
-    with driver.session() as s:
-        return [dict(r) for r in s.run(cypher, **params)]
+    try:
+        with driver.session() as s:
+            return [dict(r) for r in s.run(cypher, **params)]
+    except Exception as e:
+        log.warning("KG query failed in template renderer", exc=e)
+        return []
+
+
+def _repo(driver: Driver, repo_id: str) -> dict:
+    rows = _q(driver, "MATCH (r:Repository {repo_id: $rid}) RETURN r", rid=repo_id)
+    return dict(rows[0]["r"]) if rows else {}
+
+
+def _detect_language(driver: Driver, repo_id: str) -> str:
+    """Detect primary language from indexed classes / repository node."""
+    r = _repo(driver, repo_id)
+    lang = r.get("language") or r.get("primary_language") or ""
+    if lang:
+        return lang
+
+    # Infer from package naming patterns
+    rows = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        RETURN c.fqn AS fqn LIMIT 10
+    """, rid=repo_id)
+    if not rows:
+        return "unknown"
+
+    fqns = [r["fqn"] or "" for r in rows]
+    java_like = sum(1 for f in fqns if f.startswith("org.") or f.startswith("com.") or f.startswith("net."))
+    py_like   = sum(1 for f in fqns if "." not in f or f.startswith("services.") or f.startswith("src."))
+
+    if java_like > py_like:
+        return "Java"
+    if py_like > 0:
+        return "Python"
+    return "unknown"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Header
+# ──────────────────────────────────────────────────────────────────────────────
 
-def _header(repo_id: str) -> str:
+def _header(driver: Driver, repo_id: str) -> str:
+    r = _repo(driver, repo_id)
+    commit = r.get("last_commit", "unknown")[:12]
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     return f"""# Codebase Intelligence: `{repo_id}`
-> Auto-generated by CodeKG on {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}.
-> Sections marked **[HUMAN REQUIRED]** need architecture team input.
-> Sections marked **[AUTO]** are derived from static analysis and updated on every commit."""
+
+> **Generated by CodeKG** — {ts} — commit `{commit}`
+> This document is the primary context source for AI coding tools working in this repo.
+> It replaces ad-hoc source scanning and is updated automatically on every commit.
+> Read it top-to-bottom before making any change. The danger zones section is especially important."""
 
 
-def _section_1_identity(driver: Driver, repo_id: str) -> str:
-    rows = _q(driver,
-        "MATCH (r:Repository {repo_id: $rid}) RETURN r",
-        rid=repo_id)
+# ──────────────────────────────────────────────────────────────────────────────
+# CodeKG Agent Protocol — always first, always present
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_agent_protocol(repo_id: str) -> str:
+    return f"""## CodeKG Agent Protocol
+
+This repository is indexed in CodeKG. **You MUST follow this protocol for every request — including tasks like "write tests", "fix a bug", "add a feature", or "refactor". Do not skip straight to reading files or writing code.**
+
+### Step 1 — Query the knowledge graph FIRST (mandatory)
+
+Before reading any source file or writing any code, call one of:
+
+- **`answer_question`** — for any question, task, or feature request. Use this to find which classes are relevant, where to make the change, and what the blast radius is.
+- **`get_module_context`** — if the task is scoped to a known module.
+- **`get_class_context`** — if you already know the exact class FQN.
+
+The only exceptions are: trivial one-line edits where the file and line are already known, or pure documentation changes.
+
+### Step 2 — Save the IDs
+
+Every codeKG tool response contains two comments at the end:
+```
+<!-- codekg_request_id: abc123 -->
+<!-- codekg_turn_id: abc123 -->
+```
+**Both values are always identical** — they are the same stable turn ID for all calls in this human turn.
+Save them from your **first** codeKG call. They will not change for the rest of this turn.
+
+### Step 3 — Submit telemetry when done
+
+Call `submit_session_telemetry` as your **final step** before returning to the user. Submit:
+- `codekg_request_id` and `turn_id`: both set to the same value saved in step 2
+- `user_prompt`: the user's request (first 300 chars)
+- `turns`: every tool call you made — `{{tool_name, summary, input_tokens, output_tokens, cache_read_tokens}}`
+- `total_input_tokens`, `total_output_tokens`, `total_cache_read_tokens`: your best estimate
+
+**After `submit_session_telemetry` succeeds: discard the turn_id. A fresh one will be issued with the next opener call.**
+
+A `Stop` hook enforces this step — if you finish a turn without submitting telemetry after a codeKG call, the hook will block and remind you with the correct IDs to use.
+
+This is how codeKG measures its token savings. It only works if you submit even when the session was short.
+
+**repo_id for tool calls:** `{repo_id}`
+
+### If codeKG is unreachable
+
+If a codeKG tool returns an error (MCP container restarting, connectivity issue):
+- **Say so explicitly** before proceeding: "I cannot reach codeKG right now because [reason]. Proceeding from file reads."
+- Do NOT silently skip the protocol and read files without explanation.
+
+### Hook enforcement
+
+Two Claude Code hooks enforce this protocol automatically, installed in `.claude/hooks/`:
+- **`require_codekg.py`** (PreToolUse) — blocks `Read`, `Edit`, `Write`, and write-bearing `Bash` if no codeKG tool has been called this turn.
+- **`require_telemetry.py`** (Stop) — blocks turn completion if codeKG was used without a following `submit_session_telemetry`. Injects the correct IDs so you can't use wrong values."""
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 1. Identity
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_identity(driver: Driver, repo_id: str) -> str:
+    r = _repo(driver, repo_id)
+    lang = _detect_language(driver, repo_id)
+    lines = ["## 1. Project Identity", ""]
+
+    name   = r.get("name", repo_id)
+    desc   = r.get("description", "")
+    jv     = r.get("java_version", "")
+    bt     = r.get("build_tool", "unknown")
+    tf     = r.get("test_framework", "unknown")
+    path   = r.get("path", "")
+    commit = r.get("last_commit", "unknown")
+
+    lines += [
+        "| Field | Value |",
+        "|-------|-------|",
+        f"| **Name** | `{name}` |",
+        f"| **Language** | {lang}{' ' + jv if jv else ''} |",
+        f"| **Build tool** | {bt} |",
+        f"| **Test framework** | {tf} |",
+        f"| **Repo root** | `{path}` |",
+        f"| **Indexed commit** | `{commit[:40]}` |",
+    ]
+    if desc:
+        lines += ["", f"**Purpose:** {desc}"]
+
+    deps = r.get("key_dependencies") or []
+    if deps:
+        lines += ["", f"**Key dependencies:** {', '.join(deps)}"]
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 2. Scale
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_scale(driver: Driver, repo_id: str) -> str:
+    counts = {}
+    for row in _q(driver, """
+        CALL {
+            MATCH (c:Class {repo_id:$rid}) RETURN 'classes' AS k, count(c) AS v
+            UNION ALL
+            MATCH (m:Method {repo_id:$rid}) RETURN 'methods' AS k, count(m) AS v
+            UNION ALL
+            MATCH (p:Package {repo_id:$rid}) RETURN 'packages' AS k, count(p) AS v
+            UNION ALL
+            MATCH (c:Class {repo_id:$rid}) WHERE c.file_path CONTAINS '/generated/'
+              RETURN 'generated' AS k, count(c) AS v
+            UNION ALL
+            MATCH (c:Class {repo_id:$rid}) WHERE c.fqn CONTAINS 'Test' OR c.name ENDS WITH 'Tests'
+              RETURN 'test_classes' AS k, count(c) AS v
+        } RETURN k, v
+    """, rid=repo_id):
+        counts[row["k"]] = row["v"]
+
+    prod = counts.get("classes", 0) - counts.get("test_classes", 0) - counts.get("generated", 0)
+
+    lines = ["## 2. Codebase Scale  [AUTO]", ""]
+    lines += [
+        "| Metric | Count |",
+        "|--------|-------|",
+        f"| Total classes | {counts.get('classes', 0):,} |",
+        f"| Production classes | {prod:,} |",
+        f"| Test classes | {counts.get('test_classes', 0):,} |",
+        f"| Generated classes | {counts.get('generated', 0):,} |",
+        f"| Methods | {counts.get('methods', 0):,} |",
+        f"| Packages | {counts.get('packages', 0):,} |",
+        "",
+        f"> Test ratio: **{counts.get('test_classes',0) / max(prod,1):.0%}** test classes per production class.",
+        f"> Generated code: **{counts.get('generated',0) / max(counts.get('classes',1),1):.0%}** of all classes — do not edit directly.",
+    ]
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 3. Role distribution
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_role_distribution(driver: Driver, repo_id: str) -> str:
+    rows = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE c.role IS NOT NULL AND c.role <> 'TEST' AND c.role <> 'GENERATED'
+        RETURN c.role AS role, count(c) AS n
+        ORDER BY n DESC
+    """, rid=repo_id)
     if not rows:
         return ""
-    r = rows[0]["r"]
 
-    build_info = _q(driver,
-        "MATCH (r:Repository {repo_id: $rid}) RETURN r.build_tool AS build_tool, r.java_version AS java_version, r.description AS description",
-        rid=repo_id)
-    bi = build_info[0] if build_info else {}
+    lines = ["## 3. Architectural Role Distribution  [AUTO]", "",
+             "Pre-computed role classification for every production class.",
+             ""]
 
-    lines = [
-        "## 1. Project Identity  [AUTO]",
+    role_desc = {
+        "TRANSPORT":    "outermost request handlers — entry points for external requests",
+        "COMMAND":      "action/command/handler classes — orchestrate single operations",
+        "SERVICE":      "domain services — core business logic layer",
+        "REPOSITORY":   "data-access layer — databases, caches, external APIs",
+        "FACTORY":      "object creation — factories, builders, creators",
+        "CONFIGURATION":"configuration holders — config classes, settings objects",
+        "ABSTRACT_BASE":"abstract base classes — extended by concrete implementations",
+        "VALUE_OBJECT": "data containers — DTOs, enums, interfaces, records, dataclasses",
+        "UTILITY":      "stateless utilities — helpers, constants, validators",
+        "CLASS":        "general classes — no specific pattern detected",
+    }
+
+    lines += ["| Role | Count | Description |", "|------|-------|-------------|"]
+    for r in rows:
+        desc = role_desc.get(r["role"], "")
+        lines.append(f"| `{r['role']}` | {r['n']:,} | {desc} |")
+    lines.append("")
+
+    top = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE c.coupling IS NOT NULL AND c.role NOT IN ['TEST','GENERATED']
+        RETURN c.name AS name, c.role AS role, c.coupling AS coupling,
+               c.blast_size AS blast, c.fqn AS fqn
+        ORDER BY c.coupling DESC LIMIT 8
+    """, rid=repo_id)
+
+    if top:
+        lines += ["### Highest-Coupling Classes (most dangerous to change)", "",
+                  "| Class | Role | Coupling | Blast Radius |",
+                  "|-------|------|----------|--------------|"]
+        for t in top:
+            lines.append(
+                f"| `{t['name']}` | {t['role']} | {t['coupling']:.3f} | {t['blast'] or 0} classes |"
+            )
+        lines += ["",
+                  "> **Coupling** = (fan-in × 0.5) + (fan-out × 0.25) + (method count × 0.25), normalised to repo max.",
+                  "> **Blast radius** = number of classes transitively affected by a signature change.",
+                  ""]
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Subsystem map
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_subsystems(driver: Driver, repo_id: str) -> str:
+    rows = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE NOT c.fqn CONTAINS 'Test' AND NOT c.file_path CONTAINS '/generated/'
+        WITH split(c.package_fqn, '.') AS parts
+        WITH CASE WHEN size(parts) >= 4
+                  THEN parts[0]+'.'+parts[1]+'.'+parts[2]+'.'+parts[3]
+                  ELSE parts[0]+'.'+parts[1]+'.'+parts[2] END AS subsystem,
+             count(*) AS cnt
+        ORDER BY cnt DESC LIMIT 20
+        RETURN subsystem, cnt
+    """, rid=repo_id)
+
+    lines = ["## 4. Subsystem Map  [AUTO]", "",
+             "The table below shows the major subsystems ranked by size. "
+             "Use these package prefixes when searching for code.",
+             "",
+             "| Subsystem | Classes | Notes |",
+             "|-----------|---------|-------|"]
+
+    # Well-known annotations for common frameworks/ecosystems
+    known = {
+        # Elasticsearch
+        "org.elasticsearch.xpack": "X-Pack commercial features (ML, security, watcher, ESQL, CCR, ILM…)",
+        "org.elasticsearch.index": "Index internals: shards, segments, engine, mapper, store",
+        "org.elasticsearch.compute": "ESQL vectorised compute engine — generated evaluators live here",
+        "org.elasticsearch.search": "Search execution: aggregations, fetch, suggest, highlight",
+        "org.elasticsearch.action": "Transport action layer: every cluster operation is an Action/Request/Response triad",
+        "org.elasticsearch.cluster": "Cluster state, metadata, routing, allocation, master election",
+        "org.elasticsearch.common": "Shared utilities: I/O, bytes, settings, xcontent, transport",
+        "org.elasticsearch.painless": "Painless scripting engine — Antlr grammar + IR + symbol tables",
+        "org.elasticsearch.script": "Script service and context registry",
+        "org.elasticsearch.ingest": "Ingest pipelines and processors",
+        "org.elasticsearch.rest": "REST layer — maps HTTP → Transport actions",
+        "org.elasticsearch.gradle": "Build infrastructure (not shipped)",
+        "org.elasticsearch.xpack.core": "Shared X-Pack contracts, actions, settings",
+        "org.elasticsearch.xpack.ml": "Machine learning jobs, models, inference",
+        "org.elasticsearch.xpack.esql": "ESQL query language: parser, analyser, planner, executor",
+        "org.elasticsearch.xpack.security": "Security: auth, authz, TLS, API keys, roles",
+        "org.elasticsearch.xpack.core.ilm": "Index Lifecycle Management policies",
+        "org.elasticsearch.xpack.inference": "Inference service for ML models",
+        # Django
+        "django.db": "ORM, migrations, database backends",
+        "django.http": "Request/response, middleware, cookies",
+        "django.core": "Core framework: cache, mail, management, signals, validators",
+        "django.contrib": "Bundled apps: admin, auth, sessions, staticfiles, contenttypes",
+        "django.forms": "Form rendering, validation, widgets",
+        "django.template": "Template engine, loaders, context processors",
+        "django.views": "Class-based views, generic views",
+        "django.urls": "URL routing and resolvers",
+        "django.utils": "Utility helpers: text, timezone, encoding, functional",
+        # Spring / generic Java web
+        "com.example.controller": "REST controllers — HTTP entry points",
+        "com.example.service": "Business logic layer",
+        "com.example.repository": "Data access — JPA repositories",
+        "com.example.model": "Domain model / entities",
+        "com.example.config": "Application configuration",
+    }
+
+    for row in rows:
+        sub = row["subsystem"]
+        cnt = row["cnt"]
+        note = known.get(sub, "")
+        lines.append(f"| `{sub}` | {cnt:,} | {note} |")
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Danger zones
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_danger_zones(driver: Driver, repo_id: str) -> str:
+    lines = ["## 5. Danger Zones  [AUTO]",
+             "",
+             "> These are the highest-risk areas identified by static analysis. "
+             "Treat changes here with extra caution — full test suite required.",
+             ""]
+
+    high_blast = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE c.blast_size IS NOT NULL AND c.blast_size > 20
+          AND c.role NOT IN ['TEST','GENERATED']
+        RETURN c.name AS name, c.fqn AS fqn, c.role AS role,
+               c.coupling AS coupling, c.blast_size AS blast
+        ORDER BY c.blast_size DESC LIMIT 10
+    """, rid=repo_id)
+
+    if high_blast:
+        lines += ["### Largest Blast Radius — signature changes here affect the most classes", ""]
+        lines += ["| Class | Role | Coupling | Classes affected |",
+                  "|-------|------|----------|-----------------|"]
+        for g in high_blast:
+            risk = "🔴" if g["blast"] > 100 else "🟠" if g["blast"] > 30 else "🟡"
+            lines.append(
+                f"| `{g['name']}` | {g['role']} | {g['coupling']:.2f} | {risk} {g['blast']} |"
+            )
+        lines += ["",
+                  "> **Rule:** Any change to these classes requires running the full test suite. "
+                  "Prefer adding new methods over modifying existing signatures.",
+                  ""]
+
+    god = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})-[:HAS_METHOD]->(m:Method)
+        WHERE NOT c.fqn CONTAINS 'Test' AND NOT c.role IN ['TEST','GENERATED']
+        WITH c, count(m) AS mc WHERE mc > 40
+        RETURN c.fqn AS fqn, c.name AS name, mc,
+               c.coupling AS coupling, c.blast_size AS blast
+        ORDER BY mc DESC LIMIT 8
+    """, rid=repo_id)
+
+    if god:
+        lines += ["### God Classes — too many responsibilities", ""]
+        lines += ["| Class | Methods | Coupling | Blast radius |",
+                  "|-------|---------|----------|--------------|"]
+        for g in god:
+            risk = "🔴 CRITICAL" if g["mc"] > 100 else "🟠 HIGH"
+            lines.append(
+                f"| `{g['name']}` | {g['mc']} {risk} | {g['coupling'] or 0:.2f} | {g['blast'] or 0} |"
+            )
+        lines += ["",
+                  "> **Rule:** Never add more methods to these classes. "
+                  "Extract responsibilities into focused collaborators instead.",
+                  ""]
+
+    circ = _q(driver, """
+        MATCH (p1:Package {repo_id:$rid})-[:CONTAINS]->(c1:Class)
+              -[:IMPORTS]->(c2:Class)<-[:CONTAINS]-(p2:Package {repo_id:$rid})
+              -[:CONTAINS]->(c3:Class)-[:IMPORTS]->(c4:Class)<-[:CONTAINS]-(p1)
+        WHERE p1.fqn < p2.fqn
+        RETURN DISTINCT p1.fqn AS a, p2.fqn AS b LIMIT 10
+    """, rid=repo_id)
+
+    if circ:
+        lines += ["### Circular Package Dependencies", ""]
+        for c in circ:
+            lines.append(f"- `{c['a']}` ↔ `{c['b']}`")
+        lines.append("")
+        lines.append("> **Rule:** Do not add new imports between these packages. "
+                     "Break the cycle via an interface in a shared sub-package.")
+        lines.append("")
+
+    missing = _q(driver, """
+        MATCH (c:Class)-[:EXHIBITS]->(ap:ArchPattern {repo_id:$rid, name:'Missing Evaluator Variant'})
+        RETURN c.fqn AS fqn LIMIT 5
+    """, rid=repo_id)
+
+    if missing:
+        lines += ["### Missing Evaluator Variants — active bug risk  🔴", ""]
+        lines += [
+            "The following evaluator families are missing a `DocValuesAndDocValues` variant.",
+            "When both operand fields use doc-values storage, the runtime falls through to",
+            "the wrong evaluator and throws `ClassCastException`.",
+            "",
+        ]
+        for m in missing:
+            name = m["fqn"].split(".")[-1]
+            lines.append(f"- `{name}`")
+        lines += [
+            "",
+            "> **Fix:** For each affected family, generate the missing `DocValuesAndDocValues`",
+            "> variant from the same template used for `DocValuesAndSource`.",
+            "",
+        ]
+
+    dep = _q(driver, """
+        MATCH (d:Class {repo_id:$rid})
+        WHERE ANY(a IN d.annotations WHERE a CONTAINS 'Deprecated' OR a CONTAINS 'deprecated')
+          AND NOT d.fqn CONTAINS 'Test'
+        MATCH (caller:Class {repo_id:$rid})-[:IMPORTS]->(d)
+        WHERE NOT ANY(a IN caller.annotations WHERE a CONTAINS 'Deprecated' OR a CONTAINS 'deprecated')
+        WITH d.fqn AS deprecated, count(caller) AS callers
+        ORDER BY callers DESC LIMIT 8
+        RETURN deprecated, callers
+    """, rid=repo_id)
+
+    if dep:
+        lines += ["### Actively Used Deprecated Classes", ""]
+        lines += ["| Deprecated class | Active callers |",
+                  "|-----------------|----------------|"]
+        for d in dep:
+            name = d["deprecated"].split(".")[-1]
+            lines.append(f"| `{name}` | {d['callers']} |")
+        lines += ["",
+                  "> **Rule:** Do not add new callers of these classes. "
+                  "When touching a caller, migrate it off the deprecated API.",
+                  ""]
+
+    large = _q(driver, """
+        MATCH (p:Package {repo_id:$rid})-[:CONTAINS]->(c:Class)
+        WHERE NOT c.fqn CONTAINS 'Test'
+        WITH p, count(c) AS cnt WHERE cnt > 100
+        RETURN p.fqn AS pkg, cnt ORDER BY cnt DESC LIMIT 8
+    """, rid=repo_id)
+
+    if large:
+        lines += ["### Oversized Packages (> 100 production classes)", ""]
+        for l in large:
+            lines.append(f"- `{l['pkg']}` — {l['cnt']} classes")
+        lines += ["",
+                  "> These packages are too large to reason about as a unit. "
+                  "New code should go in focused sub-packages, not here.",
+                  ""]
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Call chains
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_call_chains(driver: Driver, repo_id: str) -> str:
+    rows = _q(driver, """
+        MATCH (c:Class {repo_id:$rid, role:'TRANSPORT'})
+        WHERE c.object_model IS NOT NULL
+        RETURN c.name AS name, c.object_model AS om, c.fqn AS fqn
+        ORDER BY c.coupling DESC LIMIT 12
+    """, rid=repo_id)
+    if not rows:
+        return ""
+
+    import json as _json
+    chain_rows = []
+    for r in rows:
+        try:
+            om = _json.loads(r["om"])
+            chains = om.get("call_chains") or []
+            if chains:
+                ch = chains[0]
+                steps = " → ".join(
+                    f"`{s['name']}` ({s['role']})" for s in ch.get("chain", [])
+                )
+                chain_rows.append((r["name"], steps, ch.get("depth", 0)))
+        except (ValueError, KeyError):
+            pass
+
+    if not chain_rows:
+        return ""
+
+    lines = ["## 6. Request / Execution Flow  [AUTO]", "",
+             "Call chains derived from constructor-injected field types. "
+             "Each chain shows how a request flows from entry point through the architecture.",
+             ""]
+
+    for name, steps, depth in chain_rows[:10]:
+        lines.append(f"- **{name}** (depth {depth}): {steps}")
+    lines.append("")
+    lines += [
+        "> These chains are derived statically from field injection — "
+        "they show the primary dependency spine, not every possible execution path.",
         "",
-        f"**Name:** {r.get('name', repo_id)}",
     ]
-    if bi.get("description"):
-        lines.append(f"**One-line purpose:** {bi['description']}")
-    else:
-        lines.append("**One-line purpose:** <!-- [HUMAN REQUIRED] -->")
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Extension points
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_extension_points(driver: Driver, repo_id: str) -> str:
+    bases = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})-[:EXTENDS]->(parent)
+        WHERE NOT parent.fqn CONTAINS 'Test'
+          AND NOT c.fqn CONTAINS 'Test'
+        WITH parent, count(c) AS subclasses
+        ORDER BY subclasses DESC LIMIT 15
+        RETURN parent.fqn AS fqn, parent.name AS name, subclasses
+    """, rid=repo_id)
+
+    ifaces = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})-[:IMPLEMENTS]->(iface)
+        WHERE NOT c.fqn CONTAINS 'Test'
+        WITH iface, count(c) AS implementors
+        ORDER BY implementors DESC LIMIT 10
+        RETURN iface.fqn AS fqn, iface.name AS name, implementors
+    """, rid=repo_id)
+
+    if not bases and not ifaces:
+        return ""
+
+    lines = ["## 7. Extension Points  [AUTO]",
+             "",
+             "These are the primary base classes and interfaces used to extend the system. "
+             "When adding new functionality, start here — not with arbitrary new classes.",
+             ""]
+
+    # Known base classes across ecosystems
+    known_bases = {
+        # Elasticsearch / Java
+        "ESIntegTestCase": "Base for integration tests — starts a full ES cluster",
+        "ESTestCase": "Base for unit tests — provides randomised testing utilities",
+        "Plugin": "Register a new plugin (REST handlers, settings, lifecycle)",
+        "AbstractSnapshotIntegTestCase": "Snapshot/restore integration test base",
+        "ESRestTestCase": "REST-level integration tests via the Java client",
+        "ESSingleNodeTestCase": "Single-node integration tests (faster than ESIntegTestCase)",
+        "MockScriptPlugin": "Plugin base for registering mock scripts in tests",
+        "AbstractLifecycleComponent": "Lifecycle-aware component (start/stop/close)",
+        "TransportAction": "Add a new cluster transport action",
+        "RestAction": "Add a new REST endpoint",
+        # Django / Python
+        "Model": "Define a new database-backed model",
+        "View": "Class-based view — override get/post/dispatch",
+        "ListView": "Generic view returning a list of objects",
+        "DetailView": "Generic view returning a single object",
+        "CreateView": "Generic form view for creating objects",
+        "UpdateView": "Generic form view for updating objects",
+        "DeleteView": "Generic confirmation view for deleting objects",
+        "Form": "Standard form — override clean/validate",
+        "ModelForm": "Form backed by a model — override save",
+        "Middleware": "WSGI/ASGI middleware — override __call__",
+        "BaseCommand": "Management command — implement handle()",
+        "TestCase": "Django unit test case with database support",
+        "APIView": "DRF class-based view",
+        "ModelViewSet": "DRF viewset providing CRUD for a model",
+        "Serializer": "DRF serializer — override validate/create/update",
+        "ModelSerializer": "DRF serializer backed by a model",
+        # Generic Python
+        "ABC": "Abstract base class — document the interface contract",
+        "BaseModel": "Pydantic model — add validation via validators",
+    }
+
+    if bases:
+        lines += ["### Base Classes", "",
+                  "| Base class | Subclasses | Purpose |",
+                  "|------------|------------|---------|"]
+        for b in bases:
+            name = b["name"]
+            note = known_bases.get(name, "")
+            lines.append(f"| `{name}` | {b['subclasses']} | {note} |")
+        lines.append("")
+
+    if ifaces:
+        lines += ["### Key Interfaces / Protocols", "",
+                  "| Interface | Implementors |",
+                  "|-----------|-------------|"]
+        for i in ifaces:
+            lines.append(f"| `{i['name']}` | {i['implementors']} |")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Transport action layer — Java/Elasticsearch only
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_transport_layer(driver: Driver, repo_id: str) -> str:
+    lang = _detect_language(driver, repo_id)
+    if lang != "Java":
+        return ""
+
+    triads = _q(driver, """
+        CALL {
+            MATCH (c:Class {repo_id:$rid}) WHERE c.name ENDS WITH 'Action'
+              AND NOT c.fqn CONTAINS 'Test' RETURN 'actions' AS k, count(c) AS v
+            UNION ALL
+            MATCH (c:Class {repo_id:$rid}) WHERE c.name ENDS WITH 'Request'
+              AND NOT c.fqn CONTAINS 'Test' RETURN 'requests' AS k, count(c) AS v
+            UNION ALL
+            MATCH (c:Class {repo_id:$rid}) WHERE c.name ENDS WITH 'Response'
+              AND NOT c.fqn CONTAINS 'Test' RETURN 'responses' AS k, count(c) AS v
+        } RETURN k, v
+    """, rid=repo_id)
+    counts = {r["k"]: r["v"] for r in triads}
+
+    # Only emit if this repo actually uses the pattern
+    if not counts.get("actions") and not counts.get("requests"):
+        return ""
+
+    namespaces = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE c.name ENDS WITH 'Action' AND NOT c.fqn CONTAINS 'Test'
+        WITH split(c.fqn, '.') AS parts
+        WITH CASE WHEN size(parts) >= 4
+                  THEN parts[0]+'.'+parts[1]+'.'+parts[2]+'.'+parts[3]
+                  ELSE parts[0]+'.'+parts[1]+'.'+parts[2] END AS ns,
+             count(*) AS cnt
+        ORDER BY cnt DESC LIMIT 10
+        RETURN ns, cnt
+    """, rid=repo_id)
+
+    serverless = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE ANY(a IN c.annotations WHERE a CONTAINS 'ServerlessScope')
+          AND NOT c.fqn CONTAINS 'Test'
+        WITH ANY(a IN c.annotations WHERE a CONTAINS 'PUBLIC') AS is_public, count(c) AS cnt
+        RETURN is_public, cnt
+    """, rid=repo_id)
+
+    lines = ["## 8. Transport Action Layer  [AUTO]", ""]
+    lines += [
+        "Every operation in Elasticsearch is implemented as a Transport Action triad: "
+        "`Action` (descriptor) + `Request` (input) + `Response` (output).",
+        "",
+        "| Type | Count |",
+        "|------|-------|",
+        f"| Actions | {counts.get('actions', 0):,} |",
+        f"| Requests | {counts.get('requests', 0):,} |",
+        f"| Responses | {counts.get('responses', 0):,} |",
+        "",
+    ]
+
+    if namespaces:
+        lines += ["**Action distribution by module:**", ""]
+        for ns in namespaces:
+            short = ns["ns"].replace("org.elasticsearch.", "")
+            lines.append(f"- `{short}` — {ns['cnt']} actions")
+        lines.append("")
+
+    pub     = next((r["cnt"] for r in serverless if r["is_public"]), 0)
+    internal = next((r["cnt"] for r in serverless if not r["is_public"]), 0)
+    if pub or internal:
+        lines += [
+            f"**Serverless API boundary** (`@ServerlessScope`): "
+            f"{pub} PUBLIC + {internal} INTERNAL endpoints.",
+            "",
+            "> `@ServerlessScope(Scope.PUBLIC)` — exposed in serverless Elasticsearch",
+            "> `@ServerlessScope(Scope.INTERNAL)` — cross-service only, not customer-facing",
+            "> Removing or changing the signature of PUBLIC endpoints is a **breaking change**.",
+            "",
+        ]
 
     lines += [
-        "**Who uses it:** <!-- [HUMAN REQUIRED] -->",
-        f"**Root directory:** `{r.get('path', '?')}`",
-        f"**Primary language(s):** Java" + (f" {bi['java_version']}" if bi.get("java_version") else ""),
-        f"**Build tool:** {bi.get('build_tool', '?')}",
-        f"**Last indexed commit:** `{r.get('last_commit', 'not yet indexed')}`",
+        "**Pattern for adding a new action:**",
+        "```",
+        "1. Create XxxAction extends ActionType<XxxResponse>",
+        "2. Create XxxRequest extends ActionRequest (add validate())",
+        "3. Create XxxResponse extends ActionResponse",
+        "4. Create TransportXxxAction extends TransportAction<XxxRequest, XxxResponse>",
+        "5. Register in your Plugin.getActions()",
+        "6. Optionally add RestXxxAction extends BaseRestHandler for HTTP exposure",
+        "```",
     ]
-    return "\n".join(lines)
-
-
-def _section_2_repo_map(driver: Driver, repo_id: str) -> str:
-    dirs = _q(driver,
-        """
-        MATCH (d:DirectoryEntry {repo_id: $rid})
-        RETURN d.path AS path, d.description AS description, d.package_roots AS package_roots
-        ORDER BY d.path
-        """,
-        rid=repo_id)
-
-    lines = ["## 2. Repository Map  [AUTO]", "", "```"]
-    if dirs:
-        max_path = max(len(d["path"]) for d in dirs)
-        for d in dirs:
-            pkg = f"  ({', '.join(d['package_roots'][:2])})" if d.get("package_roots") else ""
-            lines.append(f"{d['path']:<{max_path + 2}} — {d['description']}{pkg}")
-    else:
-        lines.append("<!-- Not yet indexed — run a full scan first -->")
-    lines.append("```")
-
-    # Also list top-level packages
-    pkgs = _q(driver,
-        """
-        MATCH (p:Package {repo_id: $rid})
-        WHERE NOT p.fqn CONTAINS '.' OR size(split(p.fqn, '.')) <= 2
-        RETURN DISTINCT p.fqn AS fqn
-        ORDER BY p.fqn
-        LIMIT 20
-        """,
-        rid=repo_id)
-    if pkgs:
-        lines += ["", "**Top-level packages:**", ""]
-        for p in pkgs:
-            lines.append(f"- `{p['fqn']}`")
 
     return "\n".join(lines)
 
 
-def _section_3_adrs(driver: Driver, repo_id: str) -> str:
-    adrs = _q(driver,
-        """
-        MATCH (adr:ADR {repo_id: $rid})
-        RETURN adr ORDER BY adr.adr_id
-        """,
-        rid=repo_id)
+# ──────────────────────────────────────────────────────────────────────────────
+# Architectural patterns
+# ──────────────────────────────────────────────────────────────────────────────
 
-    lines = ["## 3. Architecture Decision Records  [HUMAN REQUIRED]", ""]
-    if adrs:
-        for row in adrs:
-            a = row["adr"]
-            lines += [
-                f"### {a.get('adr_id', 'ADR-???')}: {a.get('title', 'Untitled')}",
-                "",
-                f"**Decision:** {a.get('decision', '...')}",
-                f"**Alternatives considered:** {a.get('alternatives', '...')}",
-                f"**Why:** {a.get('rationale', '...')}",
-                f"**Consequences:** {a.get('consequences', '...')}",
-                "",
-                "---",
-                "",
-            ]
-    else:
-        lines += [
-            "> No ADRs defined yet. Add them via the Architecture Console.",
-            "> ADRs capture the non-obvious decisions that prevent future engineers",
-            "> from undoing deliberate choices.",
-            "",
-            "<!-- Example:",
-            "### ADR-001: Why we chose X over Y",
-            "**Decision:** ...",
-            "**Alternatives considered:** ...",
-            "**Why:** ...",
-            "**Consequences:** ...",
-            "-->",
-        ]
-    return "\n".join(lines)
+def _section_patterns(driver: Driver, repo_id: str) -> str:
+    rows = _q(driver, """
+        MATCH (ap:ArchPattern {repo_id:$rid})
+        RETURN ap ORDER BY ap.anti_pattern DESC, ap.severity, ap.match_count DESC
+    """, rid=repo_id)
 
+    if not rows:
+        return ""
 
-def _section_4_glossary(driver: Driver, repo_id: str) -> str:
-    terms = _q(driver,
-        """
-        MATCH (g:GlossaryTerm {repo_id: $rid})
-        RETURN g ORDER BY g.term
-        """,
-        rid=repo_id)
+    lines = ["## 9. Architectural Patterns  [AUTO]",
+             "",
+             "Patterns detected across the codebase. Use these as a guide for "
+             "how to structure new code — don't invent new patterns when one already exists.",
+             ""]
 
-    lines = ["## 4. Domain Glossary  [HUMAN REQUIRED]", "",
-             "| Term | What it means here | Common misconception |",
-             "|------|--------------------|----------------------|"]
+    anti    = [r["ap"] for r in rows if r["ap"].get("anti_pattern")]
+    patterns = [r["ap"] for r in rows if not r["ap"].get("anti_pattern")]
 
-    if terms:
-        for row in terms:
-            g = row["g"]
-            lines.append(f"| **{g.get('term')}** | {g.get('definition', '...')} | {g.get('misconception', '—')} |")
-    else:
-        lines += [
-            "| <!-- Term --> | <!-- Definition --> | <!-- Common misconception --> |",
-            "",
-            "> No glossary terms defined yet. Add domain-specific terminology via the Architecture Console.",
-            "> Focus on words whose meaning in this codebase differs from common usage.",
-        ]
-    return "\n".join(lines)
-
-
-def _section_5_invariants(driver: Driver, repo_id: str) -> str:
-    policies = _q(driver,
-        """
-        MATCH (ap:ArchPolicy)-[:TARGETS]->(mod:Module)
-        WHERE ap.status = 'active'
-        RETURN ap.title AS title, ap.natural_language AS rule,
-               ap.severity AS severity, mod.module_id AS module
-        ORDER BY ap.severity DESC, mod.module_id
-        """)
-
-    lines = ["## 5. Per-Module Invariants  [AUTO + HUMAN]", ""]
-
-    if policies:
-        by_module: dict[str, list[dict]] = {}
-        for p in policies:
-            by_module.setdefault(p["module"], []).append(p)
-        for module, rules in sorted(by_module.items()):
-            lines.append(f"**`{module}`**")
-            for r in rules:
-                icon = "🚫" if r["severity"] == "error" else "⚠️" if r["severity"] == "warning" else "ℹ️"
-                lines.append(f"- {icon} {r['rule']}")
+    if anti:
+        lines += ["### ⚠ Anti-patterns — fix before adding more code in these areas", ""]
+        for ap in anti:
+            sev  = ap.get("severity", "warning")
+            icon = "🔴" if sev == "error" else "🟠"
+            lines.append(f"**{icon} {ap.get('name')}** ({ap.get('source')}) — "
+                         f"{ap.get('match_count')} classes affected")
+            lines.append(f"> {ap.get('intent')}")
+            top_pkgs = ap.get("top_packages", "[]")
+            if isinstance(top_pkgs, str):
+                try:
+                    top_pkgs = json.loads(top_pkgs)
+                except ValueError:
+                    top_pkgs = []
+            if top_pkgs:
+                pkgs = ", ".join(f"`{p['package'].split('.')[-1]}`" for p in top_pkgs[:3])
+                lines.append(f"> Hotspots: {pkgs}")
             lines.append("")
-    else:
-        lines += [
-            "> No architectural policies defined yet.",
-            "> Define them via the Architecture Console — they are enforced automatically on every commit.",
-        ]
-    return "\n".join(lines)
 
+    if patterns:
+        lines += ["### ✓ Established Patterns — follow these when adding similar code", ""]
+        by_cat: dict[str, list] = defaultdict(list)
+        for ap in patterns:
+            by_cat[ap.get("category", "Other")].append(ap)
 
-def _section_6_data_models(driver: Driver, repo_id: str) -> str:
-    # Find entity classes: annotated with @Entity, @Document, @Table, or named *Entity/*Model/*DTO
-    entities = _q(driver,
-        """
-        MATCH (c:Class {repo_id: $rid})
-        WHERE any(a IN c.annotations WHERE a CONTAINS 'Entity' OR a CONTAINS 'Document' OR a CONTAINS 'Table')
-           OR c.name ENDS WITH 'Entity'
-           OR c.name ENDS WITH 'Model'
-        RETURN c.fqn AS fqn, c.name AS name, c.annotations AS annotations
-        ORDER BY c.name
-        LIMIT 30
-        """,
-        rid=repo_id)
-
-    lines = ["## 6. Data Models  [AUTO]", ""]
-
-    if not entities:
-        lines.append("> No entity/document classes detected yet. Run a full scan to populate this section.")
-        return "\n".join(lines)
-
-    for e in entities:
-        fqn = e["fqn"]
-        lines.append(f"### `{e['name']}`")
-        lines.append(f"FQN: `{fqn}`")
-        if e.get("annotations"):
-            lines.append(f"Annotations: {', '.join(e['annotations'][:5])}")
-        lines.append("")
-
-        # Fields
-        fields = _q(driver,
-            """
-            MATCH (c {fqn: $fqn})-[:CONTAINS]->(f:Field)
-            RETURN f.name AS name, f.type_name AS type_name, f.modifiers AS modifiers
-            ORDER BY f.name
-            """,
-            fqn=fqn)
-        if fields:
-            lines.append("```")
-            for f in fields:
-                mods = " ".join(f.get("modifiers") or [])
-                lines.append(f"  {mods + ' ' if mods else ''}{f.get('type_name', '?')} {f['name']}")
-            lines.append("```")
-        lines.append("")
+        for cat, aps in sorted(by_cat.items()):
+            lines.append(f"**{cat}**")
+            for ap in sorted(aps, key=lambda x: -x.get("match_count", 0)):
+                lines.append(f"- `{ap.get('name')}` ({ap.get('source')}) — "
+                             f"{ap.get('match_count'):,} classes")
+            lines.append("")
 
     return "\n".join(lines)
 
 
-def _section_7_api_surface(driver: Driver, repo_id: str) -> str:
-    endpoints = _q(driver,
-        """
-        MATCH (e:ApiEndpoint {repo_id: $rid})
-        RETURN e.http_method AS method, e.path AS path,
-               e.handler_class AS handler, e.handler_method AS handler_method,
-               e.request_body_type AS request_body, e.response_type AS response_type
-        ORDER BY e.path, e.http_method
-        """,
-        rid=repo_id)
+# ──────────────────────────────────────────────────────────────────────────────
+# Generated code
+# ──────────────────────────────────────────────────────────────────────────────
 
-    lines = ["## 7. API Surface  [AUTO]", ""]
+def _section_generated_code(driver: Driver, repo_id: str) -> str:
+    rows = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})
+        WHERE c.file_path CONTAINS '/generated/'
+        WITH split(c.file_path, '/') AS parts
+        WITH parts[size(parts)-3] + '/' + parts[size(parts)-2] AS area, count(*) AS cnt
+        ORDER BY cnt DESC LIMIT 10
+        RETURN area, cnt
+    """, rid=repo_id)
 
-    if not endpoints:
-        lines.append("> No REST endpoints detected yet. The extractor looks for Spring MVC and JAX-RS annotations.")
-        return "\n".join(lines)
+    total = _q(driver, """
+        MATCH (c:Class {repo_id:$rid}) WHERE c.file_path CONTAINS '/generated/'
+        RETURN count(c) AS cnt
+    """, rid=repo_id)
+    total_cnt = total[0]["cnt"] if total else 0
 
-    # Group by handler class
-    by_class: dict[str, list[dict]] = {}
-    for ep in endpoints:
-        by_class.setdefault(ep["handler"], []).append(ep)
+    if not total_cnt:
+        return ""
 
-    for cls, eps in sorted(by_class.items()):
-        class_name = cls.split(".")[-1]
-        lines.append(f"### `{class_name}`")
-        lines.append(f"FQN: `{cls}`")
-        lines.append("")
-        lines.append("```")
-        for ep in eps:
-            rb = f"  ← {ep['request_body']}" if ep.get("request_body") else ""
-            rt = f"  → {ep['response_type']}" if ep.get("response_type") else ""
-            lines.append(f"{ep['method']:<8} {ep['path']}{rb}{rt}")
-        lines.append("```")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-def _section_8_concurrency(driver: Driver, repo_id: str) -> str:
-    pools = _q(driver,
-        """
-        MATCH (tp:ThreadPool {repo_id: $rid})
-        RETURN tp.class_fqn AS class_fqn, tp.field_name AS field_name,
-               tp.pool_type AS pool_type, tp.configuration AS config
-        ORDER BY tp.class_fqn
-        """,
-        rid=repo_id)
-
-    async_methods = _q(driver,
-        """
-        MATCH (am:AsyncMethod {repo_id: $rid})
-        RETURN am.class_fqn AS class_fqn, am.method_name AS method_name,
-               am.mechanism AS mechanism, am.return_type AS return_type
-        ORDER BY am.mechanism, am.class_fqn
-        LIMIT 30
-        """,
-        rid=repo_id)
-
-    facts = _q(driver,
-        """
-        MATCH (cf:ConcurrencyFact {repo_id: $rid})
-        RETURN cf.class_fqn AS class_fqn, cf.fact_type AS fact_type, cf.detail AS detail
-        ORDER BY cf.fact_type, cf.class_fqn
-        LIMIT 30
-        """,
-        rid=repo_id)
-
-    lines = ["## 8. Concurrency Model  [AUTO]", ""]
-
-    if not any([pools, async_methods, facts]):
-        lines.append("> No concurrency patterns detected yet.")
-        return "\n".join(lines)
-
-    if pools:
-        lines += ["### Thread Pools", "", "| Class | Field | Type | Configuration |",
-                  "|-------|-------|------|---------------|"]
-        for p in pools:
-            cls = p["class_fqn"].split(".")[-1]
-            lines.append(f"| `{cls}` | `{p['field_name']}` | `{p['pool_type']}` | {p.get('config') or '—'} |")
-        lines.append("")
-
-    if async_methods:
-        lines += ["### Async Methods", "", "| Mechanism | Class | Method | Return Type |",
-                  "|-----------|-------|--------|-------------|"]
-        for a in async_methods:
-            cls = a["class_fqn"].split(".")[-1]
-            lines.append(f"| `{a['mechanism']}` | `{cls}` | `{a['method_name']}` | `{a.get('return_type') or '?'}` |")
-        lines.append("")
-
-    if facts:
-        lines += ["### Thread Safety Annotations & Synchronization", ""]
-        for f in facts:
-            cls = f["class_fqn"].split(".")[-1]
-            lines.append(f"- `{cls}` — {f['fact_type']}" + (f": {f['detail']}" if f.get("detail") else ""))
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-def _section_9_build(driver: Driver, repo_id: str) -> str:
-    bi = _q(driver,
-        "MATCH (r:Repository {repo_id: $rid}) RETURN r.build_tool AS bt, r.java_version AS jv, r.test_framework AS tf, r.build_commands AS bc, r.key_dependencies AS deps",
-        rid=repo_id)
-
-    lines = ["## 9. Build & Test  [AUTO]", ""]
-
-    if not bi or not bi[0].get("bt"):
-        lines.append("> Build info not yet extracted.")
-        return "\n".join(lines)
-
-    b = bi[0]
-    bt = b.get("bt", "?")
-    tf = b.get("tf", "junit5")
-    jv = b.get("jv", "?")
+    lines = ["## 10. Generated Code  [AUTO]",
+             "",
+             f"**{total_cnt:,} classes** are machine-generated. "
+             "**Never edit generated files directly** — changes will be overwritten on next build.",
+             "",
+             "| Generated area | Classes |",
+             "|----------------|---------|"]
+    for r in rows:
+        lines.append(f"| `{r['area']}` | {r['cnt']:,} |")
 
     lines += [
-        f"**Build tool:** {bt}",
-        f"**Java version:** {jv}",
-        f"**Test framework:** {tf}",
+        "",
+        "**How to make changes in generated code:**",
+        "1. Find the template or generator (usually in `...processor/`, `...codegen/`, or `...generator/`)",
+        "2. Modify the template",
+        "3. Run the appropriate regeneration command",
+        "4. Do not patch the output — fix the generator",
     ]
+    return "\n".join(lines)
 
-    if b.get("deps"):
-        lines += ["", "**Key dependencies:**"]
-        for dep in (b["deps"] or []):
-            lines.append(f"- {dep}")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test architecture — adapts to language
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_test_architecture(driver: Driver, repo_id: str) -> str:
+    lang = _detect_language(driver, repo_id)
+
+    bases = _q(driver, """
+        MATCH (c:Class {repo_id:$rid})-[:EXTENDS]->(parent)
+        WHERE (c.fqn CONTAINS 'Test' OR c.name ENDS WITH 'Tests')
+          AND (parent.name CONTAINS 'Test' OR parent.name CONTAINS 'IT')
+        WITH parent.name AS base, count(c) AS cnt
+        ORDER BY cnt DESC LIMIT 10
+        RETURN base, cnt
+    """, rid=repo_id)
+
+    untested = _q(driver, """
+        MATCH (p:Package {repo_id:$rid})-[:CONTAINS]->(c:Class)
+        WHERE NOT c.fqn CONTAINS 'Test' AND NOT p.fqn CONTAINS 'test'
+        WITH p, count(c) AS prod
+        WHERE prod >= 5
+        WITH p, prod
+        WHERE NOT EXISTS {
+            MATCH (p)-[:CONTAINS]->(t:Class)
+            WHERE t.name ENDS WITH 'Test' OR t.name ENDS WITH 'Tests'
+        }
+        RETURN p.fqn AS pkg, prod ORDER BY prod DESC LIMIT 10
+    """, rid=repo_id)
+
+    cats = _q(driver, """
+        MATCH (tc:TestCategory {repo_id:$rid})
+        RETURN tc.annotation AS annotation, tc.description AS description,
+               tc.base_class AS base_class
+        ORDER BY tc.annotation
+    """, rid=repo_id)
+
+    lines = ["## 11. Test Architecture  [AUTO]", ""]
+
+    if cats:
+        lines += ["### Test Categories", "",
+                  "| Category | Base class | Description |",
+                  "|----------|------------|-------------|"]
+        for c in cats:
+            lines.append(f"| `{c['annotation']}` | `{c.get('base_class','?')}` | {c.get('description','')[:80]} |")
+        lines.append("")
+
+    if bases:
+        if lang == "Java":
+            base_guide = {
+                "ESIntegTestCase": "Multi-node integration tests (slow, use sparingly)",
+                "ESTestCase": "Unit tests — use this as the default starting point",
+                "ESSingleNodeTestCase": "Single-node integration tests (faster than ESIntegTestCase)",
+                "ESRestTestCase": "REST API tests via the Java high-level client",
+                "AbstractSnapshotIntegTestCase": "Snapshot/restore tests",
+                "MockScriptPlugin": "Tests that need scripting without a full script engine",
+            }
+        else:
+            base_guide = {
+                "TestCase": "Standard unit/integration test case",
+                "SimpleTestCase": "Tests with no database access (Django)",
+                "TransactionTestCase": "Tests needing real transactions (Django)",
+                "APITestCase": "DRF API tests with built-in client",
+                "LiveServerTestCase": "Selenium / browser tests against live server",
+            }
+
+        lines += ["### Test Base Class Usage", "",
+                  "| Base class | Subclasses | Recommended for |",
+                  "|------------|------------|-----------------|"]
+        for b in bases:
+            guide = base_guide.get(b["base"], "")
+            lines.append(f"| `{b['base']}` | {b['cnt']} | {guide} |")
+        lines.append("")
+
+    if untested:
+        lines += ["### Packages With No Tests (≥5 production classes)", "",
+                  "These are uncovered blind spots. Prioritise adding tests before modifying these packages.",
+                  ""]
+        for u in untested:
+            lines.append(f"- `{u['pkg']}` — {u['prod']} classes, 0 tests")
+        lines.append("")
+
+    # Language-specific test run commands
+    if lang == "Java":
+        lines += [
+            "### Running Tests",
+            "```bash",
+            "# All tests for a specific class",
+            "./gradlew test --tests 'org.elasticsearch.search.SearchServiceTests'",
+            "",
+            "# All tests in a module",
+            "./gradlew :server:test",
+            "",
+            "# Integration tests (slow)",
+            "./gradlew :server:internalClusterTest",
+            "",
+            "# Single test method",
+            "./gradlew test --tests 'org.elasticsearch.search.SearchServiceTests.testMethod'",
+            "```",
+        ]
+    elif lang == "Python":
+        lines += [
+            "### Running Tests",
+            "```bash",
+            "# Full test suite",
+            "pytest",
+            "",
+            "# Single file",
+            "pytest tests/test_module.py",
+            "",
+            "# Single test",
+            "pytest tests/test_module.py::TestClass::test_method",
+            "",
+            "# With coverage",
+            "pytest --cov=. --cov-report=term-missing",
+            "```",
+        ]
+    else:
+        lines += [
+            "### Running Tests",
+            "```bash",
+            "# Refer to the project README for the test command.",
+            "```",
+        ]
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Build — adapts to language
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _section_build(driver: Driver, repo_id: str) -> str:
+    bi = _q(driver, """
+        MATCH (r:Repository {repo_id:$rid})
+        RETURN r.build_tool AS bt, r.java_version AS jv,
+               r.test_framework AS tf, r.build_commands AS bc,
+               r.key_dependencies AS deps
+    """, rid=repo_id)
+
+    if not bi:
+        return ""
+    b = bi[0]
+    lines = ["## 12. Build & Dependencies  [AUTO]", ""]
 
     cmds = b.get("bc") or {}
+    if isinstance(cmds, str):
+        try:
+            cmds = json.loads(cmds)
+        except ValueError:
+            cmds = {}
+
+    bt = b.get("bt", "unknown")
+    jv = b.get("jv", "")
+    tf = b.get("tf", "unknown")
+
+    lines += [
+        f"**Build tool:** {bt}" +
+        (f"  |  **Java:** {jv}" if jv else "") +
+        f"  |  **Test framework:** {tf}",
+        "",
+    ]
+
     if cmds:
-        lines += ["", "**Common commands:**", "", "```bash"]
+        lines += ["**Common commands:**", "", "```bash"]
         for label, cmd in cmds.items():
             lines.append(f"# {label}")
             lines.append(cmd)
+            lines.append("")
         lines.append("```")
 
-    # Test categories
-    cats = _q(driver,
-        """
-        MATCH (tc:TestCategory {repo_id: $rid})
-        RETURN tc.annotation AS annotation, tc.description AS description,
-               tc.base_class AS base_class, tc.example_classes AS examples
-        ORDER BY tc.annotation
-        """,
-        rid=repo_id)
-
-    if cats:
-        lines += ["", "**Test categories:**", ""]
-        for c in cats:
-            lines.append(f"- `{c['annotation']}` — {c['description']}")
-            if c.get("base_class"):
-                lines.append(f"  Base class: `{c['base_class']}`")
-            if c.get("examples"):
-                ex = c["examples"][:2]
-                lines.append(f"  Examples: {', '.join('`' + e.split('.')[-1] + '`' for e in ex)}")
+    deps = b.get("deps") or []
+    if deps:
+        lines += ["", f"**Key dependencies:** {', '.join(deps)}"]
 
     return "\n".join(lines)
 
 
-def _section_9b_freshness(driver: Driver, repo_id: str) -> str:
-    rows = _q(driver,
-        """
-        MATCH (r:Repository {repo_id: $rid})
-        RETURN r.last_commit AS last_commit,
-               r.prov_freshness_ts AS freshness_ts,
-               r.prov_commit_sha AS prov_commit,
-               r.prov_confidence AS confidence,
-               r.prov_source_tool AS source_tool
-        """,
-        rid=repo_id)
-    if not rows:
-        return ""
-    r = rows[0]
+# ──────────────────────────────────────────────────────────────────────────────
+# Policies
+# ──────────────────────────────────────────────────────────────────────────────
 
-    lines = ["## 9b. Knowledge Graph Provenance  [AUTO]", ""]
-    lines += [
-        f"| Field | Value |",
-        f"|-------|-------|",
-        f"| Last indexed commit | `{r.get('last_commit', 'unknown')}` |",
-        f"| Index freshness | {r.get('freshness_ts', 'unknown')} |",
-        f"| Indexing tool | {r.get('source_tool', 'tree-sitter-java')} |",
-        f"| Confidence | {r.get('confidence', 0.85):.0%} |",
-        "",
-        "> Stale nodes (written at an earlier commit) can be identified via `GET /provenance/{repo_id}`.",
-        "> The watcher service re-indexes on every new commit automatically.",
-    ]
-    return "\n".join(lines)
+def _section_policies(driver: Driver, repo_id: str) -> str:
+    active = _q(driver, """
+        MATCH (ap:ArchPolicy)
+        WHERE ap.status = 'active' AND (ap.repo_id = $rid OR ap.repo_id IS NULL)
+        RETURN ap ORDER BY ap.severity, ap.title
+    """, rid=repo_id)
 
+    auto_draft = _q(driver, """
+        MATCH (ap:ArchPolicy {repo_id:$rid, status:'auto-draft'})
+        WHERE ap.severity = 'error'
+        RETURN ap ORDER BY ap.violator_count DESC LIMIT 5
+    """, rid=repo_id)
 
-def _section_10_working_style() -> str:
-    return """## 10. Working Style Preferences  [HUMAN REQUIRED]
+    lines = ["## 13. Architectural Policies  [AUTO]", ""]
 
-> How your team wants AI coding tools to behave in this codebase.
-> Fill this in once — it is injected into every coding tool session.
-
-**Scope:** <!-- e.g. Stay focused on the task. Do not refactor unrelated code. -->
-
-**Decisions:** <!-- e.g. Give a recommendation with one-line reason rather than listing options. -->
-
-**Breaking changes:** <!-- e.g. Always call out explicitly if a change touches the public API. -->
-
-**Tests:** <!-- e.g. Every bug fix needs a test that would have caught the bug. -->
-
-**Never do without asking:**
-<!-- List specific actions that require explicit approval, e.g.:
-- Change thread pool configuration
-- Modify database schema
-- Remove a public API endpoint
--->"""
-
-
-def _section_11_known_issues(driver: Driver, repo_id: str) -> str:
-    issues = _q(driver,
-        "MATCH (ki:KnownIssue {repo_id: $rid}) RETURN ki ORDER BY ki.status",
-        rid=repo_id)
-
-    lines = ["## 11. Known Issues & Active Work  [HUMAN REQUIRED]", "",
-             "| Issue | Status | Notes |",
-             "|-------|--------|-------|"]
-
-    if issues:
-        for row in issues:
-            ki = row["ki"]
-            lines.append(f"| {ki.get('title', '?')} | {ki.get('status', '?')} | {ki.get('notes', '—')} |")
+    if active:
+        lines += ["### Active Policies — these are enforced on every commit", ""]
+        for row in active:
+            ap   = dict(row["ap"])
+            icon = "🚫" if ap.get("severity") == "error" else "⚠️"
+            lines.append(f"{icon} **{ap.get('title')}** (`{ap.get('severity')}`)")
+            if ap.get("natural_language"):
+                lines.append(f"  > {ap['natural_language']}")
+            lines.append("")
     else:
-        lines += [
-            "| <!-- Describe the issue --> | <!-- Known / In progress / Deferred --> | <!-- Context and workarounds --> |",
-            "",
-            "> No known issues recorded. Add them via the Architecture Console.",
-        ]
+        lines += ["> No active policies yet. "
+                  "Review auto-detected policies in the Architecture Console and activate them.",
+                  ""]
+
+    if auto_draft:
+        lines += ["### Top Auto-detected Policy Violations (pending review)", ""]
+        for row in auto_draft:
+            ap = dict(row["ap"])
+            lines.append(f"- **{ap.get('title')}** — {ap.get('violator_count',0)} violations")
+            samples = ap.get("sample_violators") or []
+            if samples:
+                lines.append(f"  Examples: {', '.join(str(s).split('.')[-1] for s in samples[:3])}")
+        lines.append("")
+        lines.append("> Activate these in the Policies page to enforce them going forward.")
+
     return "\n".join(lines)
 
 
-def _section_12_pitfalls() -> str:
-    return """## 12. Common Pitfalls  [HUMAN REQUIRED]
+# ──────────────────────────────────────────────────────────────────────────────
+# Working rules — language-aware
+# ──────────────────────────────────────────────────────────────────────────────
 
-> Things that have burned people before. Read this before touching anything.
+def _section_working_rules(driver: Driver, repo_id: str) -> str:
+    lang = _detect_language(driver, repo_id)
 
-<!-- Add pitfalls specific to this codebase, e.g.:
-- **Changing X requires Y** — explain the non-obvious dependency
-- **Never call Z from thread pool W** — explain why
-- **This field is not what it looks like** — explain the gotcha
--->"""
+    common = """## 14. Working Rules for AI Coding Tools
+
+These rules apply to every coding session in this repo. Follow them without being asked.
+
+**Scope**
+- Work only on the explicitly requested change. Do not refactor unrelated code.
+- If a change requires touching a class from the Danger Zones section, call it out explicitly before proceeding.
+
+**Generated code**
+- Never edit generated files. Find and fix the generator instead.
+- If you cannot find the generator, say so — do not patch the output.
+
+**Tests**
+- Every bug fix needs a test that would have caught the bug.
+- Every new public function/method needs at least one test.
+- Do not delete or skip existing tests without explaining why.
+
+**Never do without explicit approval**
+- Delete or rename public APIs
+- Change database schema or migration order
+- Modify shared configuration or environment defaults"""
+
+    java_extra = """
+
+**Java-specific**
+- Every new cluster operation needs the full Action/Request/Response/TransportAction triad.
+- `Request.validate()` must be implemented and must check all required fields.
+- Any change to a class annotated `@ServerlessScope(Scope.PUBLIC)` is a breaking API change.
+- Any removal or rename of a public transport action breaks rolling upgrades.
+- Any schema change to a persistent data structure (IndexMetadata, ClusterState, etc.) needs a BWC layer.
+- Do not change thread pool configuration without explicit approval.
+- Do not modify cluster state structures without explicit approval."""
+
+    python_extra = """
+
+**Python-specific**
+- Follow PEP 8. Use type hints on all new public functions.
+- Do not use bare `except:` — always catch a specific exception type.
+- Database migrations must be reversible unless explicitly exempted.
+- Never call `.all()` on a queryset without a `.filter()` — always scope queries.
+- Use parameterised queries; never build SQL or Cypher via string concatenation."""
+
+    if lang == "Java":
+        return common + java_extra
+    elif lang == "Python":
+        return common + python_extra
+    else:
+        return common
 
 
-def _footer() -> str:
-    return f"---\n*Generated by CodeKG — {datetime.utcnow().strftime('%Y-%m-%d')}. Update by pushing to the repo or editing in the Architecture Console.*"
+# ──────────────────────────────────────────────────────────────────────────────
+# Footer
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _footer(driver: Driver, repo_id: str) -> str:
+    r = _repo(driver, repo_id)
+    commit = r.get("last_commit", "unknown")[:12]
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    return (f"---\n"
+            f"*CodeKG · commit `{commit}` · rendered {ts}*  \n"
+            f"*To refresh: push a commit or trigger a manual scan in the Architecture Console.*")

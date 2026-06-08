@@ -1,0 +1,669 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+{% block content %}
+<style>
+  .tk-toolbar { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .tk-scope-section { margin-bottom:2rem; }
+  .tk-scope-header { font-size:.65rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+                     color:#475569; border-bottom:1px solid var(--surface-2); padding-bottom:.35rem; margin-bottom:.75rem; }
+  .tk-target-group { margin-bottom:1.25rem; }
+  .tk-target-label { font-size:.72rem; font-family:monospace; color:var(--primary); margin-bottom:.4rem;
+                     display:flex; align-items:center; gap:.5rem; }
+  .tk-card { background:var(--surface); border:1px solid var(--border); border-radius:6px;
+             padding:.75rem 1rem; margin-bottom:.5rem; position:relative; }
+  .tk-card.hidden-card { opacity:.45; }
+  .tk-card.stale { border-left:3px solid var(--danger); }
+  .tk-card.pending { border-left:3px solid var(--warning); background:color-mix(in srgb, var(--surface) 92%, var(--warning)); }
+  .pending-badge { display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; font-weight:700;
+                   background:var(--warning); color:#1c1917; border-radius:20px;
+                   padding:.15rem .55rem; }
+  .approved-badge-inline { font-size:.68rem; color:var(--success); font-weight:600; }
+  .pending-badge-inline  { font-size:.68rem; color:var(--warning); font-weight:600; }
+  .tk-btn.approve { background:color-mix(in srgb, var(--surface-2) 50%, #166534); color:#bbf7d0; }
+  .tk-btn.approve:hover { background:#166534; color:#fff; }
+  .tk-btn.reject  { color:var(--warning); }
+  .tk-btn.reject:hover  { background:color-mix(in srgb, var(--surface-2) 50%, #78350f); }
+  .tk-insight { color:var(--text); font-size:.85rem; line-height:1.6; }
+  .tk-insight textarea { width:100%; background:#0f1520; color:var(--text); border:1px solid #334155;
+                         border-radius:4px; padding:.5rem; font-size:.85rem; line-height:1.6;
+                         resize:vertical; min-height:80px; font-family:inherit; }
+  .tk-meta { display:flex; gap:1rem; align-items:center; margin-top:.5rem; flex-wrap:wrap; }
+  .tk-conf { font-size:.7rem; color:var(--text-3); }
+  .tk-stale-badge { font-size:.68rem; color:var(--danger); }
+  .tk-saved { font-size:.68rem; color:#475569; }
+  .tk-session-link { font-size:.68rem; color:var(--purple); cursor:pointer; text-decoration:underline;
+                     text-decoration-style:dotted; }
+  .tk-actions { display:flex; gap:.5rem; margin-left:auto; }
+  .tk-btn { font-size:.7rem; padding:.2rem .6rem; border-radius:4px; border:none; cursor:pointer;
+            background:var(--surface-2); color:var(--text-3); transition:background .15s; }
+  .tk-btn:hover { background:#334155; color:var(--text); }
+  .tk-btn.save  { background:var(--info-lt); color:var(--primary); }
+  .tk-btn.save:hover { background:#1d4ed8; color:#fff; }
+  .tk-btn.del   { color:var(--danger); }
+  .tk-btn.del:hover { background:#3f1f1f; }
+  .tk-discovery { background:#0f1520; border:1px solid var(--surface-2); border-radius:4px;
+                  padding:.75rem 1rem; margin-top:.5rem; font-size:.78rem; display:none; }
+  .tk-discovery.open { display:block; }
+  .tk-discovery pre { color:var(--text-3); white-space:pre-wrap; word-break:break-word; margin:0; font-size:.72rem; }
+  .tk-debt { margin-top:.5rem; border-top:1px solid var(--surface-2); padding-top:.5rem; }
+  .tk-debt-label { font-size:.63rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+                   color:var(--warning); margin-bottom:.25rem; display:flex; align-items:center; gap:.35rem; }
+  .tk-debt-body { font-size:.78rem; color:var(--text-2); line-height:1.6; }
+  .tk-debt-body ul { margin:.25rem 0 0 1rem; padding:0; }
+  .tk-debt-body li { margin-bottom:.15rem; }
+  .tk-debt textarea { width:100%; background:#0f1520; color:var(--text); border:1px solid #334155;
+                      border-radius:4px; padding:.5rem; font-size:.78rem; line-height:1.6;
+                      resize:vertical; min-height:60px; font-family:inherit; }
+  .empty-state { color:var(--text-3); font-size:.85rem; padding:3rem; text-align:center; }
+  .conf-bar { display:inline-block; width:60px; height:6px; background:var(--surface-2); border-radius:3px;
+              vertical-align:middle; margin-right:.3rem; overflow:hidden; }
+  .imp-score { display:inline-flex; align-items:center; gap:.3rem; font-size:.7rem; font-weight:700; }
+  .imp-bar   { display:inline-block; width:44px; height:6px; background:var(--surface-2); border-radius:3px;
+               vertical-align:middle; overflow:hidden; }
+  .imp-fill  { height:100%; border-radius:3px; }
+  .imp-input { width:48px; font-size:.7rem; padding:.1rem .25rem; border-radius:4px;
+               border:1px solid var(--border); background:var(--surface); color:var(--text);
+               font-family:inherit; text-align:center; }
+  .imp-threshold { font-size:.63rem; color:var(--text-3); }
+  .conf-fill { height:100%; border-radius:3px; }
+
+  /* ── Analysis panel ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .finding-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+                  margin-bottom:0.75rem; overflow:hidden; }
+  .finding-header { display:flex; align-items:center; gap:0.6rem; padding:0.75rem 1rem;
+                    cursor:pointer; user-select:none; transition:background .1s; }
+  .finding-header:hover { background:var(--bg); }
+  .finding-type { font-size:0.65rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+                  padding:0.15rem 0.55rem; border-radius:20px; flex-shrink:0; }
+  .type-conflict  { background:#fef2f2; color:var(--danger);  border:1px solid #fca5a5; }
+  .type-redundant { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .type-uplift    { background:var(--info-lt);    color:var(--info);    border:1px solid #bae6fd; }
+  .type-rewrite   { background:var(--purple-lt);  color:var(--purple);  border:1px solid #ddd6fe; }
+
+  .finding-title { font-size:0.86rem; font-weight:600; color:var(--text); flex:1; }
+  .finding-conf  { font-size:0.7rem; color:var(--text-3); flex-shrink:0; }
+  .finding-chevron { color:var(--text-3); transition:transform .2s; flex-shrink:0; font-size:0.8rem; }
+  .finding-chevron.open { transform:rotate(90deg); }
+
+  .finding-body { display:none; padding:0.75rem 1rem; border-top:1px solid var(--border); background:var(--bg); }
+  .finding-body.open { display:block; }
+  .finding-desc { font-size:0.84rem; color:var(--text-2); margin-bottom:0.75rem; line-height:1.6; }
+
+  .affected-ids { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.75rem; }
+  .affected-chip { font-size:0.68rem; font-family:'JetBrains Mono',monospace; background:var(--surface);
+                   border:1px solid var(--border); border-radius:4px; padding:0.1rem 0.4rem; color:var(--text-2);
+                   cursor:pointer; transition:all .15s; }
+  .affected-chip:hover { border-color:var(--primary); color:var(--primary); }
+
+  .suggestion-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+                    padding:0.65rem 0.875rem; font-size:0.82rem; color:var(--text); margin-bottom:0.75rem;
+                    line-height:1.5; }
+  .suggestion-label { font-size:0.68rem; font-weight:600; color:var(--text-3); text-transform:uppercase;
+                      letter-spacing:.06em; margin-bottom:0.3rem; }
+
+  .finding-actions { display:flex; gap:0.5rem; }
+  .apply-btn   { font-size:0.75rem; padding:0.3rem 0.875rem; border-radius:20px; cursor:pointer;
+                 font-family:inherit; font-weight:600; border:none; transition:all .15s; }
+  .apply-btn.primary { background:var(--primary); color:#fff; }
+  .apply-btn.primary:hover { background:var(--primary-h); }
+  .apply-btn.ghost  { background:var(--surface-2); color:var(--text-3); border:1px solid var(--border); }
+  .apply-btn.ghost:hover { color:var(--text); }
+
+  .applied-badge { font-size:0.72rem; color:var(--success); font-weight:600;
+                   background:var(--success-lt); border:1px solid #86efac; border-radius:20px;
+                   padding:0.15rem 0.55rem; }
+</style>
+
+<div class="tk-toolbar">
+  <h2 style="margin:0">Insights
+    <span style="color:#475569;font-size:.8rem;font-weight:400">({{ total }} insight{{ 's' if total != 1 else '' }})</span>
+    {% if pending_count %}
+    <span class="pending-badge" style="margin-left:.5rem" title="{{ pending_count }} insight{{ 's' if pending_count != 1 else '' }} awaiting approval before they are included in the published agent index">
+      ⏳ {{ pending_count }} pending
+    </span>
+    {% endif %}
+  </h2>
+
+  <form method="get" action="/insights" style="display:flex;gap:0.5rem;align-items:center;flex:1;max-width:480px">
+    {% if include_hidden %}<input type="hidden" name="include_hidden" value="1">{% endif %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Search insights…"
+      style="flex:1;padding:0.3rem 0.65rem;font-size:0.8rem;border-radius:6px;
+             border:1px solid var(--border);background:var(--surface);color:var(--text);
+             font-family:inherit;outline:none"
+      oninput="this.form.submit()">
+    <select name="sort" onchange="this.form.submit()"
+      style="padding:0.3rem 0.5rem;font-size:0.78rem;border-radius:6px;
+             border:1px solid var(--border);background:var(--surface);color:var(--text);
+             font-family:inherit;cursor:pointer">
+      <option value="newest"     {% if sort == 'newest'     %}selected{% endif %}>Newest first</option>
+      <option value="oldest"     {% if sort == 'oldest'     %}selected{% endif %}>Oldest first</option>
+      <option value="confidence" {% if sort == 'confidence' %}selected{% endif %}>Confidence ↓</option>
+      <option value="staleness"  {% if sort == 'staleness'  %}selected{% endif %}>Staleness ↓</option>
+    </select>
+    {% if q %}
+    <a href="/insights?sort={{ sort }}{% if include_hidden %}&include_hidden=1{% endif %}"
+       style="font-size:.75rem;color:var(--text-3);text-decoration:none;white-space:nowrap">✕ Clear</a>
+    {% endif %}
+  </form>
+
+  <div style="margin-left:auto;display:flex;gap:0.75rem;align-items:center">
+    <button id="analyse-btn" onclick="runAnalysis()"
+      style="padding:0.3rem 0.9rem;font-size:0.78rem;border-radius:20px;background:var(--purple-lt);color:var(--purple);border:1px solid #ddd6fe;cursor:pointer;font-weight:600;font-family:inherit;transition:all .15s">
+      ✦ Analyse quality
+    </button>
+    <a href="/insights?q={{ q }}&sort={{ sort }}&include_hidden={{ '0' if include_hidden else '1' }}"
+       style="font-size:.75rem;color:var(--purple);text-decoration:none">
+      {{ 'Hide hidden' if include_hidden else 'Show hidden' }}
+    </a>
+  </div>
+</div>
+
+{# ── Analysis panel ── #}
+<div id="analysis-panel" style="display:none;margin-bottom:1.75rem">
+  <div class="card" style="border-color:#ddd6fe;background:var(--purple-lt);padding:0">
+
+    {# Header #}
+    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.875rem 1.25rem;border-bottom:1px solid #ddd6fe">
+      <span style="font-size:1rem">✦</span>
+      <span style="font-weight:600;color:var(--purple);font-size:0.9rem">Knowledge quality analysis</span>
+      <span id="analysis-model-badge" style="font-size:0.68rem;color:var(--text-3);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:0.1rem 0.5rem;display:none"></span>
+      <div id="analysis-spinner" style="display:none;width:14px;height:14px;border:2px solid #ddd6fe;border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite;margin-left:auto"></div>
+      <button onclick="document.getElementById('analysis-panel').style.display='none'"
+        style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1rem;padding:0;font-family:inherit">✕</button>
+    </div>
+
+    {# Body #}
+    <div id="analysis-body" style="padding:1rem 1.25rem">
+      <div id="analysis-empty" style="color:var(--text-3);font-size:0.84rem;text-align:center;padding:1.5rem 0">
+        Click <strong>Analyse quality</strong> to scan for conflicts, redundancies, and uplift opportunities.
+      </div>
+      <div id="analysis-findings" style="display:none"></div>
+    </div>
+
+    {# Footer stats #}
+    <div id="analysis-stats" style="display:none;padding:0.6rem 1.25rem;border-top:1px solid #ddd6fe;font-size:0.72rem;color:var(--text-3);display:flex;gap:1.5rem">
+      <span id="stat-scanned"></span>
+      <span id="stat-findings"></span>
+      <span id="stat-tokens"></span>
+    </div>
+  </div>
+</div>
+
+{% if not sections %}
+  {% if q %}
+  <div class="empty-state">No insights match <strong>{{ q }}</strong>.<br>
+    <a href="/insights?sort={{ sort }}{% if include_hidden %}&include_hidden=1{% endif %}" style="color:var(--primary)">Clear search</a>
+  </div>
+  {% else %}
+  <div class="empty-state">No insights recorded yet.<br>They accumulate automatically as Claude Code sessions submit telemetry.</div>
+  {% endif %}
+{% endif %}
+
+{% for scope, targets in sections %}
+<div class="tk-scope-section">
+  <div class="tk-scope-header">{{ scope }}</div>
+
+  {% for applies_to, entries in targets.items() %}
+  <div class="tk-target-group">
+    <div class="tk-target-label">
+      <span>{{ applies_to | highlight(q) }}</span>
+      <span style="color:#334155;font-size:.65rem">({{ entries|length }})</span>
+    </div>
+
+    {% for e in entries %}
+    {% set stale = e.staleness > 0.3 %}
+    {% set hidden = e.hidden %}
+    {% set approved = e.approved %}
+    {% set importance = (e.importance if 'importance' in e and e.importance is not none else 50)|int %}
+    <div class="tk-card {% if stale %}stale{% elif not approved %}pending{% endif %} {% if hidden %}hidden-card{% endif %}"
+         id="tk-{{ e.tk_id }}">
+
+      <div class="tk-insight" id="view-{{ e.tk_id }}">{{ e.insight | highlight(q) }}</div>
+      <textarea class="tk-insight" id="edit-{{ e.tk_id }}"
+                style="display:none">{{ e.insight }}</textarea>
+
+      {% set has_debt = 'technical_debt' in e and e.technical_debt %}
+      {% if has_debt or true %}
+      <div class="tk-debt" id="debt-wrap-{{ e.tk_id }}"{% if not has_debt %} style="display:none"{% endif %}>
+        <div class="tk-debt-label">⚠ Technical Debt
+          <button class="tk-btn" style="font-size:.6rem;padding:.1rem .4rem"
+                  onclick="startDebtEdit('{{ e.tk_id }}')">Edit</button>
+          <button class="tk-btn save" id="debt-save-btn-{{ e.tk_id }}" style="display:none;font-size:.6rem;padding:.1rem .4rem"
+                  onclick="saveDebt('{{ e.tk_id }}')">Save</button>
+          <button class="tk-btn" id="debt-cancel-btn-{{ e.tk_id }}" style="display:none;font-size:.6rem;padding:.1rem .4rem"
+                  onclick="cancelDebtEdit('{{ e.tk_id }}')">Cancel</button>
+        </div>
+        <div class="tk-debt-body" id="debt-view-{{ e.tk_id }}">
+          {% if has_debt %}{{ e.technical_debt | highlight(q) }}{% endif %}
+        </div>
+        <textarea class="tk-debt" id="debt-edit-{{ e.tk_id }}"
+                  style="display:none">{{ e.technical_debt if has_debt else '' }}</textarea>
+      </div>
+      {% endif %}
+
+      <div class="tk-meta">
+        <span class="imp-score" title="Importance score (>75 = published to agent index)">
+          <span class="imp-bar"><span class="imp-fill" style="width:{{ importance }}%;background:{% if importance > 75 %}var(--success){% elif importance > 50 %}var(--warning){% else %}var(--danger){% endif %}"></span></span>
+          <input class="imp-input" type="number" min="1" max="100" value="{{ importance }}"
+                 id="imp-{{ e.tk_id }}"
+                 onchange="saveImportance('{{ e.tk_id }}', this.value)"
+                 title="Edit importance score">
+          <span class="imp-threshold">{% if importance > 75 %}publishes{% else %}won't publish{% endif %}</span>
+        </span>
+        <span class="tk-conf">
+          <span class="conf-bar"><span class="conf-fill" style="width:{{ (e.confidence * 100)|int }}%;background:{% if e.confidence > 0.7 %}var(--success){% elif e.confidence > 0.4 %}var(--warning){% else %}var(--danger){% endif %}"></span></span>
+          {{ (e.confidence * 100)|int }}% conf
+        </span>
+        {% if stale %}
+        <span class="tk-stale-badge">⚠ {{ (e.staleness * 100)|int }}% stale</span>
+        {% endif %}
+        {% if hidden %}
+        <span style="font-size:.68rem;color:var(--purple)">hidden</span>
+        {% endif %}
+        {% if approved %}
+        <span class="approved-badge-inline">✓ approved</span>
+        {% else %}
+        <span class="pending-badge-inline">⏳ pending</span>
+        {% endif %}
+        <span class="tk-saved">saved {{ e.saved_at[:10] if e.saved_at else '?' }}</span>
+        {% if e.session_id %}
+        <span class="tk-session-link"
+              onclick="toggleDiscovery('{{ e.tk_id }}', '{{ e.session_id }}')">
+          🔍 how discovered
+        </span>
+        {% endif %}
+
+        <div class="tk-actions">
+          {% if not approved %}
+          <button class="tk-btn approve" id="approve-btn-{{ e.tk_id }}"
+                  onclick="setApproval('{{ e.tk_id }}', true)">✓ Approve</button>
+          {% else %}
+          <button class="tk-btn reject" id="reject-btn-{{ e.tk_id }}"
+                  onclick="setApproval('{{ e.tk_id }}', false)">Revoke</button>
+          {% endif %}
+          <button class="tk-btn" id="edit-btn-{{ e.tk_id }}"
+                  onclick="startEdit('{{ e.tk_id }}')">Edit</button>
+          <button class="tk-btn save" id="save-btn-{{ e.tk_id }}"
+                  style="display:none"
+                  onclick="saveEdit('{{ e.tk_id }}')">Save</button>
+          <button class="tk-btn" id="cancel-btn-{{ e.tk_id }}"
+                  style="display:none"
+                  onclick="cancelEdit('{{ e.tk_id }}')">Cancel</button>
+          <button class="tk-btn"
+                  onclick="toggleHide('{{ e.tk_id }}', {{ 'true' if not hidden else 'false' }})">
+            {{ 'Unhide' if hidden else 'Hide' }}
+          </button>
+          <button class="tk-btn del"
+                  onclick="deleteTk('{{ e.tk_id }}')">Delete</button>
+          {% if not has_debt %}
+          <button class="tk-btn" style="color:var(--warning)"
+                  onclick="startDebtEdit('{{ e.tk_id }}')">+ Debt</button>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="tk-discovery" id="discovery-{{ e.tk_id }}">
+        <div style="color:var(--text-3);margin-bottom:.5rem;font-size:.7rem">
+          Session <code style="color:var(--purple)">{{ e.session_id }}</code>
+          · commit <code style="color:#475569">{{ e.last_touched_commit[:8] if e.last_touched_commit else '?' }}</code>
+        </div>
+        <div id="discovery-content-{{ e.tk_id }}" style="color:var(--text-3);font-size:.72rem">
+          Loading session data…
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<script>
+function startDebtEdit(id) {
+  document.getElementById('debt-view-' + id).style.display = 'none';
+  document.getElementById('debt-edit-' + id).style.display = 'block';
+  document.getElementById('debt-save-btn-' + id).style.display = '';
+  document.getElementById('debt-cancel-btn-' + id).style.display = '';
+  // Make the wrap visible in case it was hidden (no debt yet)
+  document.getElementById('debt-wrap-' + id).style.display = '';
+}
+
+function cancelDebtEdit(id) {
+  document.getElementById('debt-view-' + id).style.display = '';
+  document.getElementById('debt-edit-' + id).style.display = 'none';
+  document.getElementById('debt-save-btn-' + id).style.display = 'none';
+  document.getElementById('debt-cancel-btn-' + id).style.display = 'none';
+  // Hide wrap again if there was no debt originally
+  const view = document.getElementById('debt-view-' + id);
+  if (!view.textContent.trim()) document.getElementById('debt-wrap-' + id).style.display = 'none';
+}
+
+async function saveDebt(id) {
+  const debt = document.getElementById('debt-edit-' + id).value.trim();
+  const r = await fetch('/api/insights/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({technical_debt: debt || null}),
+  });
+  if (r.ok) {
+    const view = document.getElementById('debt-view-' + id);
+    view.textContent = debt;
+    cancelDebtEdit(id);
+    if (!debt) document.getElementById('debt-wrap-' + id).style.display = 'none';
+  } else {
+    appToast('Save failed', false);
+  }
+}
+
+function startEdit(id) {
+  document.getElementById('view-' + id).style.display = 'none';
+  document.getElementById('edit-' + id).style.display = 'block';
+  document.getElementById('edit-btn-' + id).style.display = 'none';
+  document.getElementById('save-btn-' + id).style.display = '';
+  document.getElementById('cancel-btn-' + id).style.display = '';
+}
+
+function cancelEdit(id) {
+  document.getElementById('view-' + id).style.display = '';
+  document.getElementById('edit-' + id).style.display = 'none';
+  document.getElementById('edit-btn-' + id).style.display = '';
+  document.getElementById('save-btn-' + id).style.display = 'none';
+  document.getElementById('cancel-btn-' + id).style.display = 'none';
+}
+
+async function saveEdit(id) {
+  const insight = document.getElementById('edit-' + id).value.trim();
+  if (!insight) return;
+  const r = await fetch('/api/insights/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({insight}),
+  });
+  if (r.ok) {
+    document.getElementById('view-' + id).textContent = insight;
+    cancelEdit(id);
+  } else {
+    appToast('Save failed', false);
+  }
+}
+
+async function saveImportance(id, value) {
+  const v = Math.max(1, Math.min(100, parseInt(value, 10)));
+  const r = await fetch('/api/insights/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({importance: v}),
+  });
+  if (r.ok) {
+    // Update the bar and threshold label without a full reload
+    const card = document.getElementById('tk-' + id);
+    const fill = card.querySelector('.imp-fill');
+    const label = card.querySelector('.imp-threshold');
+    if (fill) fill.style.width = v + '%';
+    if (fill) fill.style.background = v > 75 ? 'var(--success)' : v > 50 ? 'var(--warning)' : 'var(--danger)';
+    if (label) label.textContent = v > 75 ? 'publishes' : "won't publish";
+  } else {
+    appToast('Failed to update importance', false);
+  }
+}
+
+async function setApproval(id, approve) {
+  const r = await fetch('/api/insights/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({approved: approve}),
+  });
+  if (r.ok) location.reload();
+  else appToast('Failed to ' + (approve ? 'approve' : 'revoke') + ' insight', false);
+}
+
+async function toggleHide(id, hide) {
+  const r = await fetch('/api/insights/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({hidden: hide}),
+  });
+  if (r.ok) location.reload();
+  else appToast('Failed', false);
+}
+
+async function deleteTk(id) {
+  const ok = await appConfirm('This insight will be permanently removed.', 'Delete insight?');
+  if (!ok) return;
+  const r = await fetch('/api/insights/' + id, {method: 'DELETE'});
+  if (r.ok) {
+    const card = document.getElementById('tk-' + id);
+    card.style.transition = 'opacity .3s';
+    card.style.opacity = '0';
+    setTimeout(() => card.remove(), 300);
+  } else {
+    appToast('Delete failed', false);
+  }
+}
+
+// Discovery panel — loads session telemetry from MCP audit
+const _discoveryCache = {};
+async function toggleDiscovery(tkId, sessionId) {
+  const panel = document.getElementById('discovery-' + tkId);
+  panel.classList.toggle('open');
+  if (!panel.classList.contains('open')) return;
+
+  const contentEl = document.getElementById('discovery-content-' + tkId);
+  if (_discoveryCache[tkId]) { contentEl.innerHTML = _discoveryCache[tkId]; return; }
+
+  try {
+    const r = await fetch('/api/mcp-audit/sessions/analysed');
+    const sessions = await r.json();
+    const match = sessions.find(s => s.session_id === sessionId);
+    if (!match) {
+      contentEl.innerHTML = '<span style="color:#475569">Session data not found in audit log.</span>';
+      return;
+    }
+    const tr = match.transcript || {};
+    const prompt = tr.user_prompt || '(no prompt recorded)';
+    const turns  = (tr.turns || []).length;
+    const codekg = tr.total_codekg || 0;
+    const html = `
+      <div style="margin-bottom:.5rem">
+        <span style="color:var(--text-3);font-weight:600">Prompt:</span>
+        <span style="color:var(--text)">${escHtml(prompt)}</span>
+      </div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:.7rem;color:var(--text-3)">
+        <span>🔧 ${turns} tool calls</span>
+        <span>🧠 ${codekg} codeKG calls</span>
+        <span>↑ ${fmtTok(tr.tok_input||0)} in</span>
+        <span>↓ ${fmtTok(tr.tok_output||0)} out</span>
+      </div>`;
+    _discoveryCache[tkId] = html;
+    contentEl.innerHTML = html;
+  } catch(e) {
+    contentEl.innerHTML = '<span style="color:var(--danger)">Failed to load: ' + e.message + '</span>';
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtTok(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if (n >= 1000)    return (n/1000).toFixed(0)+'K';
+  return String(n);
+}
+
+// ── Analysis ──────────────────────────────────────────────────────────────────
+
+const TYPE_LABELS = {
+  conflict:  'Conflict',
+  redundant: 'Redundant',
+  uplift:    'Uplift',
+  rewrite:   'Rewrite',
+};
+
+async function runAnalysis() {
+  const panel   = document.getElementById('analysis-panel');
+  const spinner = document.getElementById('analysis-spinner');
+  const btn     = document.getElementById('analyse-btn');
+  const body    = document.getElementById('analysis-body');
+  const findings= document.getElementById('analysis-findings');
+  const empty   = document.getElementById('analysis-empty');
+  const stats   = document.getElementById('analysis-stats');
+
+  panel.style.display = '';
+  spinner.style.display = '';
+  btn.disabled = true;
+  btn.textContent = 'Analysing…';
+  findings.style.display = 'none';
+  empty.style.display = '';
+  empty.textContent = 'Running analysis… this takes a few seconds.';
+  stats.style.display = 'none';
+
+  // Detect current repo from URL params
+  const repoId = new URLSearchParams(window.location.search).get('repo_id') || '';
+
+  try {
+    const resp = await fetch('/api/insights/analyse', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({repo_id: repoId}),
+    });
+    const data = await resp.json();
+
+    if (data.error) throw new Error(data.error);
+
+    const fs = data.findings || [];
+
+    if (fs.length === 0) {
+      empty.style.display = '';
+      empty.innerHTML = '<span style="color:var(--success);font-weight:600">✓ No issues found.</span> All ' + data.entry_count + ' entries look consistent.';
+    } else {
+      empty.style.display = 'none';
+      findings.style.display = '';
+      window._analysisFindings = fs;
+      findings.innerHTML = fs.map((f, i) => renderFinding(f, i)).join('');
+
+      // Stats bar
+      document.getElementById('stat-scanned').textContent  = data.entry_count + ' entries scanned';
+      document.getElementById('stat-findings').textContent = fs.length + ' issue' + (fs.length !== 1 ? 's' : '') + ' found';
+      document.getElementById('stat-tokens').textContent   = fmtTok((data.tokens_in||0) + (data.tokens_out||0)) + ' tokens';
+      stats.style.display = 'flex';
+
+      if (data.model) {
+        const badge = document.getElementById('analysis-model-badge');
+        badge.textContent = data.model;
+        badge.style.display = '';
+      }
+    }
+  } catch(e) {
+    empty.style.display = '';
+    empty.innerHTML = '<span style="color:var(--danger)">Analysis failed: ' + escHtml(e.message) + '</span>';
+  } finally {
+    spinner.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '✦ Re-analyse';
+  }
+}
+
+function renderFinding(f, idx) {
+  const typeLabel = TYPE_LABELS[f.type] || f.type;
+  const conf = Math.round((f.confidence || 0) * 100);
+  const ids  = (f.affected_ids || []);
+
+  const affectedHtml = ids.map(id =>
+    `<span class="affected-chip" onclick="scrollToEntry('${escHtml(id)}')" title="Scroll to entry">${escHtml(id.slice(-8))}</span>`
+  ).join('');
+
+  let suggestionHtml = '';
+  if (f.suggested_insight) {
+    suggestionHtml += `<div class="suggestion-label">Suggested text</div>
+      <div class="suggestion-box">${escHtml(f.suggested_insight)}</div>`;
+  }
+  if (f.suggested_scope || f.suggested_applies_to) {
+    suggestionHtml += `<div class="suggestion-label">Suggested uplift target</div>
+      <div class="suggestion-box">
+        scope: <strong>${escHtml(f.suggested_scope||'')}</strong> &nbsp;·&nbsp;
+        applies_to: <code>${escHtml(f.suggested_applies_to||'')}</code>
+      </div>`;
+  }
+
+  const canApply = (f.type === 'uplift' && f.suggested_scope && f.suggested_applies_to)
+                || ((f.type === 'rewrite' || f.type === 'redundant') && f.suggested_insight)
+                || (f.type === 'conflict' && ids.length >= 2);
+
+  const applyBtn = canApply
+    ? `<button class="apply-btn primary" id="apply-btn-${idx}" onclick="applyFinding(${idx})">Apply</button>`
+    : '';
+
+  return `
+  <div class="finding-card" id="finding-${idx}">
+    <div class="finding-header" onclick="toggleFinding(${idx})">
+      <span class="finding-type type-${f.type}">${escHtml(typeLabel)}</span>
+      <span class="finding-title">${escHtml(f.title || '')}</span>
+      <span class="finding-conf">${conf}% confident</span>
+      <span class="finding-chevron" id="chev-${idx}">▶</span>
+    </div>
+    <div class="finding-body" id="fbody-${idx}">
+      <div class="finding-desc">${escHtml(f.description || '')}</div>
+      ${affectedHtml ? `<div class="affected-ids">${affectedHtml}</div>` : ''}
+      ${suggestionHtml}
+      <div class="finding-actions">
+        ${applyBtn}
+        <button class="apply-btn ghost" onclick="dismissFinding(${idx})">Dismiss</button>
+        <span id="applied-${idx}" class="applied-badge" style="display:none">✓ Applied</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleFinding(idx) {
+  const body = document.getElementById('fbody-' + idx);
+  const chev = document.getElementById('chev-' + idx);
+  const open = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+function scrollToEntry(tkId) {
+  const el = document.getElementById('tk-' + tkId);
+  if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.outline = '2px solid var(--purple)'; setTimeout(() => el.style.outline = '', 2000); }
+}
+
+// Store findings data for apply
+const _findings = [];
+async function applyFinding(idx) {
+  const data = window._analysisFindings && window._analysisFindings[idx];
+  if (!data) return;
+  const btn = document.getElementById('apply-btn-' + idx);
+  btn.disabled = true;
+  btn.textContent = 'Applying…';
+  try {
+    const r = await fetch('/api/insights/apply-finding', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({finding: data, action: 'apply'}),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      btn.style.display = 'none';
+      document.getElementById('applied-' + idx).style.display = '';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Apply';
+      appToast('Apply failed: ' + (res.error || 'unknown error'), false);
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Apply';
+    appToast('Apply failed: ' + e.message, false);
+  }
+}
+
+function dismissFinding(idx) {
+  const card = document.getElementById('finding-' + idx);
+  card.style.transition = 'opacity .2s';
+  card.style.opacity = '0';
+  setTimeout(() => card.remove(), 200);
+}
+
+</script>
+{% endblock %}

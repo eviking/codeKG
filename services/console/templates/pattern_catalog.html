@@ -1,0 +1,600 @@
+{% extends "base.html" %}
+{% block title %}Pattern Catalog{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Layout ─────────────────────────────────────────── */
+  .catalog-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+  }
+  .catalog-header h1 { margin: 0; }
+  .catalog-header p  { margin: 0.3rem 0 0; color: var(--text-3); font-size: 0.875rem; }
+
+  /* ── Filter bar ─────────────────────────────────────── */
+  .filter-bar {
+    display: flex; gap: 0.5rem; flex-wrap: wrap;
+    align-items: center; margin-bottom: 1.25rem;
+  }
+  .filter-bar input[type=search] {
+    flex: 1; min-width: 200px; max-width: 340px;
+    background: var(--surface); border: 1px solid var(--border); color: #f1f5f9;
+    border-radius: 6px; padding: 0.45rem 0.75rem; font-size: 0.875rem;
+  }
+  .filter-bar input[type=search]:focus { outline: none; border-color: var(--info); }
+
+  .pill-group { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .pill {
+    cursor: pointer; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em;
+    padding: 0.25rem 0.65rem; border-radius: 12px; border: 1px solid transparent;
+    user-select: none; transition: all 0.15s;
+  }
+  .pill.all       { border-color:var(--info); color:var(--info); }
+  .pill.all.active{ background:var(--info); color:#fff; }
+  .pill.any       { border-color:var(--text-3); color:var(--text-3); }
+  .pill.any.active{ background:#334155; color:#f1f5f9; }
+  .pill.java      { border-color:var(--bg); color:var(--primary); }
+  .pill.java.active{ background:var(--info-lt); color:var(--info); }
+  .pill.python    { border-color:var(--bg); color:#86efac; }
+  .pill.python.active{ background:var(--bg); color:#bbf7d0; }
+  .pill.cpp       { border-color:#b45309; color:#fdba74; }
+  .pill.cpp.active{ background:#431407; color:#fed7aa; }
+  .pill.anti      { border-color:#991b1b; color:var(--danger); }
+  .pill.anti.active{ background:#450a0a; color:#fca5a5; }
+
+  /* ── Stats row ───────────────────────────────────────── */
+  .stats-row {
+    display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+  }
+  .stat-chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.4rem 0.85rem; font-size: 0.75rem; color: var(--text-3);
+  }
+  .stat-chip strong { color: #f1f5f9; font-size: 0.95rem; margin-right: 0.3rem; }
+
+  /* ── Table ───────────────────────────────────────────── */
+  .catalog-table { width: 100%; border-collapse: collapse; font-size: 0.825rem; }
+  .catalog-table th {
+    text-align: left; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-3); padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  .catalog-table th:hover { color: var(--text-3); }
+  .catalog-table th .sort-icon { opacity: 0.4; margin-left: 0.25rem; font-size: 0.65rem; }
+  .catalog-table th.sorted .sort-icon { opacity: 1; color: var(--info); }
+
+  .catalog-table td {
+    padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .catalog-table tr:hover td { background: var(--bg); }
+  .catalog-table tr.hidden { display: none; }
+
+  /* ── Cell types ──────────────────────────────────────── */
+  .c-id    { font-family: monospace; font-size: 0.72rem; color: #475569; }
+  .c-name  { font-weight: 600; color: #f1f5f9; }
+  .c-name small { display: block; font-weight: 400; color: var(--text-3);
+                  font-size: 0.72rem; margin-top: 0.1rem; }
+
+  .badge   { font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 10px;
+             font-weight: 600; white-space: nowrap; }
+  .b-gof   { background:var(--info-lt); color:var(--primary); }
+  .b-eip   { background:#2d1e5f; color:var(--purple); }
+  .b-django{ background:var(--bg); color:#86efac; }
+  .b-python{ background:var(--bg); color:var(--success); }
+  .b-custom{ background:#3d2b1e; color:#fb923c; }
+  .b-pmd   { background:#3d1e1e; color:var(--danger); }
+
+  .lang-tag { display: inline-block; font-size: 0.68rem; font-weight: 600;
+              padding: 0.15rem 0.5rem; border-radius: 10px; white-space: nowrap; }
+  .lt-any    { background:var(--surface-2); color:var(--text-3); border:1px solid #334155; }
+  .lt-java   { background:var(--info-lt); color:var(--info); border:1px solid var(--bg); }
+  .lt-python { background:var(--bg); color:#bbf7d0; border:1px solid var(--bg); }
+  .lt-cpp    { background:#431407; color:#fed7aa; border:1px solid #b45309; }
+
+  .sev-error   { font-size:0.68rem; padding:0.15rem 0.5rem; border-radius:3px;
+                 background:var(--danger-lt); color:var(--danger); }
+  .sev-warning { font-size:0.68rem; padding:0.15rem 0.5rem; border-radius:3px;
+                 background:var(--warning-lt); color:var(--warning); }
+  .sev-info    { font-size:0.68rem; padding:0.15rem 0.5rem; border-radius:3px;
+                 background:var(--surface-2); color:var(--text-3); }
+
+  .toggle-btn {
+    cursor: pointer; background: none; border: none; padding: 0;
+    font-size: 0.75rem; color: var(--text-3);
+  }
+  .toggle-btn:hover { color: #f1f5f9; }
+
+  /* ── Expand row (detail panel) ───────────────────────── */
+  .detail-row td {
+    padding: 0; background: var(--bg); border-bottom: 2px solid var(--info);
+  }
+  .detail-panel {
+    padding: 1.25rem 1.5rem; display: grid;
+    grid-template-columns: 1fr 1fr; gap: 1.5rem;
+  }
+  @media (max-width: 760px) { .detail-panel { grid-template-columns: 1fr; } }
+
+  .dp-section h4 {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-3); margin: 0 0 0.5rem; font-weight: 600;
+  }
+  .dp-text {
+    font-size: 0.825rem; color: var(--text-3); line-height: 1.65; margin: 0;
+  }
+  .dp-signals {
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .sig-row {
+    display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.75rem;
+  }
+  .sig-label { color: #475569; width: 130px; flex-shrink: 0; font-family: monospace; }
+  .sig-vals  { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .sig-val   { background: var(--border); color: #7dd3fc; border-radius: 3px;
+               padding: 0.1rem 0.4rem; font-family: monospace; font-size: 0.72rem; }
+  .sig-val.thresh { color: var(--warning); background: #2d2000; }
+  .sig-empty { color: #334155; font-style: italic; }
+
+  .edit-link {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-size: 0.75rem; color: var(--info); text-decoration: none;
+    padding: 0.3rem 0.7rem; border: 1px solid var(--bg);
+    border-radius: 4px; margin-top: 0.75rem;
+  }
+  .edit-link:hover { background: var(--bg); text-decoration: none; }
+
+  /* ── Form layout inside modal ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); font-weight: 600; }
+  .form-group input, .form-group select, .form-group textarea {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 0.5rem 0.75rem; font-size: 0.84rem; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
+  .form-group textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+  .save-status { font-size: 0.78rem; padding: 0.25rem 0.55rem; border-radius: 20px; display: none; font-weight: 600; }
+  .save-status.ok  { background: var(--success-lt); color: var(--success); border: 1px solid #86efac; display: inline-block; }
+  .save-status.err { background: var(--danger-lt);  color: var(--danger);  border: 1px solid #fca5a5; display: inline-block; }
+
+  /* row disabled state */
+  .catalog-table tr[data-enabled="false"] td:not(.c-actions) { opacity: 0.45; }
+</style>
+
+<div class="catalog-header">
+  <div>
+    <h1>Pattern Catalog</h1>
+    <p>Manage detection patterns, their descriptions, language scope, and detection signals.</p>
+  </div>
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <span class="save-status" id="globalStatus"></span>
+    <a href="/patterns" style="font-size:0.85rem; color:var(--info);">← Back to Detection</a>
+  </div>
+</div>
+
+{# ── Filter bar ───────────────────────────────────────────── #}
+<div class="filter-bar">
+  <input type="search" id="search" placeholder="Search name, category, ID…" oninput="applyFilters()">
+  <div class="pill-group" id="langPills">
+    <span class="pill all active" data-lang="all"    onclick="setLang(this)">All</span>
+    <span class="pill any"        data-lang="any"    onclick="setLang(this)">Any lang</span>
+    <span class="pill java"       data-lang="java"   onclick="setLang(this)">Java</span>
+    <span class="pill python"     data-lang="python" onclick="setLang(this)">Python</span>
+    <span class="pill cpp"        data-lang="cpp"    onclick="setLang(this)">C++</span>
+    <span class="pill anti"       data-lang="anti"   onclick="setLang(this)">Anti-patterns</span>
+  </div>
+</div>
+
+{# ── Stats ────────────────────────────────────────────────── #}
+{% set total   = patterns | length %}
+{% set enabled = patterns | selectattr('enabled') | list | length %}
+{% set anti    = patterns | selectattr('anti_pattern') | list | length %}
+{% set by_lang = {} %}
+{% for p in patterns %}{% set _ = by_lang.update({p.language: (by_lang.get(p.language, 0) + 1)}) %}{% endfor %}
+
+<div class="stats-row">
+  <div class="stat-chip"><strong>{{ total }}</strong> patterns total</div>
+  <div class="stat-chip"><strong>{{ enabled }}</strong> enabled</div>
+  <div class="stat-chip"><strong>{{ anti }}</strong> anti-patterns</div>
+  {% for lang, cnt in by_lang.items() | sort %}
+  <div class="stat-chip"><strong>{{ cnt }}</strong> {{ lang }}</div>
+  {% endfor %}
+</div>
+
+{# ── Table ────────────────────────────────────────────────── #}
+<div class="card" style="padding:0; overflow:hidden;">
+<table class="catalog-table" id="catalogTable">
+  <thead>
+    <tr>
+      <th onclick="sortTable(0)" data-col="0">Source <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable(1)" data-col="1">Name / Category <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable(2)" data-col="2">Language <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable(3)" data-col="3">Type <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable(4)" data-col="4">Severity <span class="sort-icon">↕</span></th>
+      <th>Signals</th>
+      <th style="width:80px; text-align:center;">Enabled</th>
+      <th style="width:50px;"></th>
+    </tr>
+  </thead>
+  <tbody id="tableBody">
+  {% for p in patterns %}
+  {% set src_lower = p.source | lower %}
+  <tr data-id="{{ p.id }}"
+      data-lang="{{ p.language }}"
+      data-anti="{{ 'true' if p.anti_pattern else 'false' }}"
+      data-enabled="{{ 'true' if p.get('enabled', true) else 'false' }}"
+      data-search="{{ p.id }} {{ p.name }} {{ p.category }} {{ p.source }} {{ p.language }}">
+    <td><span class="badge b-{{ src_lower }}">{{ p.source }}</span></td>
+    <td class="c-name">
+      {{ p.name }}
+      <small>{{ p.category }}</small>
+    </td>
+    <td>
+      <span class="lang-tag lt-{{ p.language }}">{{ p.language }}</span>
+    </td>
+    <td>
+      {% if p.anti_pattern %}<span style="color:var(--danger); font-size:0.75rem;">anti-pattern</span>
+      {% else %}<span style="color:#86efac; font-size:0.75rem;">pattern</span>{% endif %}
+    </td>
+    <td>
+      <span class="sev-{{ p.severity }}">{{ p.severity }}</span>
+    </td>
+    <td style="font-size:0.72rem; color:var(--text-3); max-width:220px;">
+      {% set sigs = [] %}
+      {% if p.signals.name_suffix %}{% set _ = sigs.append("suffix:" + (p.signals.name_suffix | join(","))) %}{% endif %}
+      {% if p.signals.name_prefix %}{% set _ = sigs.append("prefix:" + (p.signals.name_prefix | join(","))) %}{% endif %}
+      {% if p.signals.base_class_contains %}{% set _ = sigs.append("base:" + (p.signals.base_class_contains | join(","))) %}{% endif %}
+      {% if p.signals.annotation_contains %}{% set _ = sigs.append("ann:" + (p.signals.annotation_contains | join(","))) %}{% endif %}
+      {% if p.signals.get('method_name_contains') %}{% set _ = sigs.append("methods:" + (p.signals.method_name_contains | join(","))) %}{% endif %}
+      <span title="{{ sigs | join(' | ') }}" style="overflow:hidden; display:block; text-overflow:ellipsis; white-space:nowrap;">
+        {{ sigs | join(" · ") if sigs else "—" }}
+      </span>
+    </td>
+    <td style="text-align:center;" class="c-actions">
+      <button class="toggle-btn" onclick="toggleEnabled('{{ p.id }}', this)"
+              title="{{ 'Disable' if p.get('enabled', true) else 'Enable' }}">
+        {% if p.get('enabled', true) %}✅{% else %}⬜{% endif %}
+      </button>
+    </td>
+    <td>
+      <button class="toggle-btn" onclick="expandRow('{{ p.id }}', this)" title="Expand">▶</button>
+    </td>
+  </tr>
+
+  {# Detail row — hidden until expanded #}
+  <tr class="detail-row" id="detail-{{ p.id }}" style="display:none;">
+    <td colspan="8">
+      <div class="detail-panel">
+        <div>
+          <div class="dp-section">
+            <h4>Intent</h4>
+            <p class="dp-text">{{ p.intent }}</p>
+          </div>
+          <div class="dp-section" style="margin-top:1rem;">
+            <h4>Description</h4>
+            <p class="dp-text">{{ p.description or '—' }}</p>
+          </div>
+          <div class="dp-section" style="margin-top:1rem;">
+            <h4>When to apply</h4>
+            <p class="dp-text">{{ p.when_to_apply or '—' }}</p>
+          </div>
+          <a class="edit-link" href="#" onclick="openEdit('{{ p.id }}'); return false;">✏ Edit this pattern</a>
+        </div>
+        <div>
+          <div class="dp-section">
+            <h4>Detection signals</h4>
+            <div class="dp-signals">
+              {% macro sig(label, vals) %}
+              <div class="sig-row">
+                <span class="sig-label">{{ label }}</span>
+                <span class="sig-vals">
+                  {% if vals %}{% for v in vals %}<span class="sig-val">{{ v }}</span>{% endfor %}
+                  {% else %}<span class="sig-empty">none</span>{% endif %}
+                </span>
+              </div>
+              {% endmacro %}
+              {{ sig("name_suffix", p.signals.name_suffix) }}
+              {{ sig("name_prefix", p.signals.name_prefix) }}
+              {{ sig("base_class_contains", p.signals.base_class_contains) }}
+              {{ sig("annotation_contains", p.signals.annotation_contains) }}
+              {{ sig("method_name_contains", p.signals.get('method_name_contains', [])) }}
+              {% if p.signals.get('method_count_gt') is not none %}
+              <div class="sig-row">
+                <span class="sig-label">method_count_gt</span>
+                <span class="sig-vals"><span class="sig-val thresh">{{ p.signals.method_count_gt }}</span></span>
+              </div>
+              {% endif %}
+              {% if p.signals.get('field_count_gt') is not none %}
+              <div class="sig-row">
+                <span class="sig-label">field_count_gt</span>
+                <span class="sig-vals"><span class="sig-val thresh">{{ p.signals.field_count_gt }}</span></span>
+              </div>
+              {% endif %}
+              {% if p.signals.get('generated_path') %}
+              <div class="sig-row">
+                <span class="sig-label">generated_path</span>
+                <span class="sig-vals"><span class="sig-val thresh">true</span></span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="dp-section" style="margin-top:1.25rem;">
+            <h4>ID</h4>
+            <code style="font-size:0.75rem; color:#475569;">{{ p.id }}</code>
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<p id="noResults" style="display:none; color:var(--text-3); text-align:center; padding:2rem;">
+  No patterns match the current filter.
+</p>
+
+{# ── Edit Modal ────────────────────────────────────────────── #}
+<div class="modal-backdrop" id="editModal" onclick="if(event.target===this)closeEdit()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Edit Pattern</h2>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="editForm" onsubmit="savePattern(event)">
+        <input type="hidden" id="editId">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="editName" required>
+          </div>
+          <div class="form-group">
+            <label>Source</label>
+            <select id="editSource">
+              <option>GoF</option><option>EIP</option><option>Python</option>
+              <option>Django</option><option>Custom</option><option>PMD</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <input type="text" id="editCategory">
+          </div>
+          <div class="form-group">
+            <label>Language</label>
+            <select id="editLanguage">
+              <option value="any">any</option>
+              <option value="java">java</option>
+              <option value="python">python</option>
+              <option value="cpp">cpp</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Severity</label>
+            <select id="editSeverity">
+              <option value="info">info</option>
+              <option value="warning">warning</option>
+              <option value="error">error</option>
+            </select>
+          </div>
+          <div class="form-group" style="align-self:end;">
+            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.84rem;text-transform:none;letter-spacing:normal;">
+              <input type="checkbox" id="editAntiPattern"> Anti-pattern
+            </label>
+          </div>
+          <div class="form-group form-full">
+            <label>Intent <span style="font-weight:400;text-transform:none;letter-spacing:normal">(one-liner)</span></label>
+            <input type="text" id="editIntent">
+          </div>
+          <div class="form-group form-full">
+            <label>Description <span style="font-weight:400;text-transform:none;letter-spacing:normal">(what the pattern is and how it works)</span></label>
+            <textarea id="editDescription" rows="5"></textarea>
+          </div>
+          <div class="form-group form-full">
+            <label>When to apply <span style="font-weight:400;text-transform:none;letter-spacing:normal">(guidance on when to use and avoid it)</span></label>
+            <textarea id="editWhenToApply" rows="5"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <span class="save-status" id="saveStatus"></span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeEdit()">Cancel</button>
+      <button type="button" class="btn btn-sm" onclick="savePattern()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+let activeLang = 'all';
+let sortCol    = -1;
+let sortAsc    = true;
+let openDetailId = null;
+
+// ── Filtering ─────────────────────────────────────────────────
+function setLang(el) {
+  document.querySelectorAll('#langPills .pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  activeLang = el.dataset.lang;
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let visCount = 0;
+  document.querySelectorAll('#tableBody tr[data-id]').forEach(row => {
+    const lang    = row.dataset.lang;
+    const isAnti  = row.dataset.anti === 'true';
+    const search  = row.dataset.search.toLowerCase();
+    const langOk  = activeLang === 'all'
+                 || (activeLang === 'anti' && isAnti)
+                 || (activeLang !== 'anti' && lang === activeLang);
+    const searchOk = !q || search.includes(q);
+    const show = langOk && searchOk;
+    row.classList.toggle('hidden', !show);
+    // Also hide the associated detail row
+    const det = document.getElementById('detail-' + row.dataset.id);
+    if (det && !show) det.style.display = 'none';
+    if (show) visCount++;
+  });
+  document.getElementById('noResults').style.display = visCount === 0 ? 'block' : 'none';
+}
+
+// ── Sorting ────────────────────────────────────────────────────
+function sortTable(col) {
+  const tbody = document.getElementById('tableBody');
+  const ths   = document.querySelectorAll('.catalog-table th');
+  if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+  ths.forEach((th, i) => th.classList.toggle('sorted', i === col));
+
+  // Collect main rows (not detail rows)
+  const rowPairs = [];
+  const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+  rows.forEach(r => {
+    const det = document.getElementById('detail-' + r.dataset.id);
+    rowPairs.push([r, det]);
+  });
+
+  rowPairs.sort(([a], [b]) => {
+    const aCell = a.cells[col]?.textContent.trim() || '';
+    const bCell = b.cells[col]?.textContent.trim() || '';
+    return sortAsc ? aCell.localeCompare(bCell) : bCell.localeCompare(aCell);
+  });
+
+  rowPairs.forEach(([r, det]) => {
+    tbody.appendChild(r);
+    if (det) tbody.appendChild(det);
+  });
+}
+
+// ── Expand / collapse row detail ───────────────────────────────
+function expandRow(id, btn) {
+  const det = document.getElementById('detail-' + id);
+  if (!det) return;
+  const isOpen = det.style.display !== 'none';
+  // Close any other open detail
+  if (openDetailId && openDetailId !== id) {
+    const prev = document.getElementById('detail-' + openDetailId);
+    if (prev) { prev.style.display = 'none'; }
+    const prevBtn = document.querySelector(`tr[data-id="${openDetailId}"] button[onclick^="expandRow"]`);
+    if (prevBtn) prevBtn.textContent = '▶';
+  }
+  det.style.display = isOpen ? 'none' : '';
+  btn.textContent = isOpen ? '▶' : '▼';
+  openDetailId = isOpen ? null : id;
+}
+
+// ── Toggle enabled ─────────────────────────────────────────────
+function toggleEnabled(id, btn) {
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  const current = row.dataset.enabled === 'true';
+  const newVal  = !current;
+  fetch('/pattern-catalog/' + id + '/toggle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: newVal})
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      row.dataset.enabled = newVal ? 'true' : 'false';
+      btn.textContent = newVal ? '✅' : '⬜';
+      btn.title = newVal ? 'Disable' : 'Enable';
+      showGlobalStatus('Saved', true);
+    } else {
+      showGlobalStatus('Error: ' + (data.error || 'unknown'), false);
+    }
+  }).catch(() => showGlobalStatus('Network error', false));
+}
+
+// ── Edit modal ─────────────────────────────────────────────────
+const CATALOG = {{ patterns_json | safe }};
+const byId = Object.fromEntries(CATALOG.map(p => [p.id, p]));
+
+function openEdit(id) {
+  const p = byId[id];
+  if (!p) return;
+  document.getElementById('editId').value            = id;
+  document.getElementById('modalTitle').textContent  = 'Edit: ' + p.name;
+  document.getElementById('editName').value          = p.name || '';
+  document.getElementById('editSource').value        = p.source || 'Custom';
+  document.getElementById('editCategory').value      = p.category || '';
+  document.getElementById('editLanguage').value      = p.language || 'any';
+  document.getElementById('editSeverity').value      = p.severity || 'info';
+  document.getElementById('editAntiPattern').checked = !!p.anti_pattern;
+  document.getElementById('editIntent').value        = p.intent || '';
+  document.getElementById('editDescription').value   = p.description || '';
+  document.getElementById('editWhenToApply').value   = p.when_to_apply || '';
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeEdit() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+function savePattern(e) {
+  if (e) e.preventDefault();
+  const id = document.getElementById('editId').value;
+  const payload = {
+    name:          document.getElementById('editName').value,
+    source:        document.getElementById('editSource').value,
+    category:      document.getElementById('editCategory').value,
+    language:      document.getElementById('editLanguage').value,
+    severity:      document.getElementById('editSeverity').value,
+    anti_pattern:  document.getElementById('editAntiPattern').checked,
+    intent:        document.getElementById('editIntent').value,
+    description:   document.getElementById('editDescription').value,
+    when_to_apply: document.getElementById('editWhenToApply').value,
+  };
+  fetch('/pattern-catalog/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      closeEdit();
+      showGlobalStatus('Saved ✓', true);
+      // Patch in-memory + refresh the expanded detail panel text
+      Object.assign(byId[id], payload);
+      refreshDetailPanel(id, payload);
+      // Update lang tag in table row
+      const row = document.querySelector(`tr[data-id="${id}"]`);
+      if (row) {
+        row.dataset.lang = payload.language;
+        const ltSpan = row.querySelector('.lang-tag');
+        if (ltSpan) {
+          ltSpan.className = 'lang-tag lt-' + payload.language;
+          ltSpan.textContent = payload.language;
+        }
+        row.dataset.search = id + ' ' + payload.name + ' ' + payload.category + ' ' + payload.source + ' ' + payload.language;
+      }
+    } else {
+      showGlobalStatus('Error: ' + (data.error || 'unknown'), false);
+    }
+  }).catch(() => showGlobalStatus('Network error', false));
+}
+
+function refreshDetailPanel(id, p) {
+  const det = document.getElementById('detail-' + id);
+  if (!det) return;
+  const texts = det.querySelectorAll('.dp-text');
+  if (texts[0]) texts[0].textContent = p.intent        || '—';
+  if (texts[1]) texts[1].textContent = p.description   || '—';
+  if (texts[2]) texts[2].textContent = p.when_to_apply || '—';
+}
+
+function showGlobalStatus(msg, ok) {
+  ['globalStatus', 'saveStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'save-status ' + (ok ? 'ok' : 'err');
+    setTimeout(() => { el.className = 'save-status'; el.textContent = ''; }, 3500);
+  });
+}
+</script>
+{% endblock %}

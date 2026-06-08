@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+{% block title %}System Health{% endblock %}
+{% block content %}
+<style>
+  .health-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+  .health-header h1 { margin: 0; }
+  .last-updated { font-size: 0.78rem; color: var(--text-3); margin-left: auto; }
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success);
+           animation: pulse 2s infinite; margin-right: 0.4rem; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .svc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; box-shadow: var(--shadow); }
+  .svc-card .svc-name { font-size: 0.72rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .5rem; font-weight: 600; }
+  .svc-card .svc-status { display: flex; align-items: center; gap: .4rem; font-size: 1rem; font-weight: 600; margin-bottom: .75rem; }
+  .svc-card .svc-metrics { font-size: 0.78rem; color: var(--text-3); display: flex; flex-direction: column; gap: .2rem; }
+  .svc-card .svc-metrics span { display: flex; justify-content: space-between; }
+  .svc-card .svc-metrics .val { color: var(--text); font-weight: 500; }
+  .dot-ok { color: var(--success); } .dot-warn { color: var(--warning); } .dot-err { color: var(--danger); }
+
+  .bar-wrap { background: var(--surface-2); border-radius: 3px; height: 6px; margin-top: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+  .bar-blue { background: var(--info); } .bar-green { background: var(--success); }
+  .bar-amber { background: var(--warning); } .bar-red { background: var(--danger); }
+
+  .neo4j-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+  @media(max-width:900px){ .neo4j-grid { grid-template-columns: 1fr 1fr; } }
+  @media(max-width:600px){ .neo4j-grid { grid-template-columns: 1fr; } }
+
+  .metric-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; box-shadow: var(--shadow); }
+  .metric-block h3 { font-size: 0.72rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .9rem; font-weight: 600; }
+  .big-metric { font-size: 2.2rem; font-weight: 700; color: var(--primary); line-height: 1; letter-spacing: -0.04em; }
+  .big-metric-sub { font-size: 0.78rem; color: var(--text-3); margin-top: .2rem; }
+  .metric-row { display: flex; justify-content: space-between; font-size: 0.82rem; padding: .35rem 0; border-bottom: 1px solid var(--border); }
+  .metric-row:last-child { border: none; }
+  .metric-row .mkey { color: var(--text-3); }
+  .metric-row .mval { color: var(--text); font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .data-table th { text-align: left; padding: .5rem .875rem; color: var(--text-3); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .data-table td { padding: .45rem .875rem; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border: none; }
+  .data-table tr:hover td { background: var(--primary-lt); }
+  .mini-bar { display: inline-block; background: var(--primary); height: 8px; border-radius: 2px; vertical-align: middle; margin-left: .5rem; opacity: 0.6; }
+
+  .llm-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+  @media(max-width:700px){ .llm-grid { grid-template-columns: 1fr; } }
+
+  .section-title { font-size: 0.72rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 1rem; }
+
+  .tag { display: inline-block; padding: .15rem .5rem; border-radius: 20px; font-size: .7rem; font-weight: 600; }
+  .tag-ok   { background: var(--success-lt); color: var(--success); border: 1px solid #86efac; }
+  .tag-warn { background: var(--warning-lt); color: var(--warning); border: 1px solid #fcd34d; }
+  .tag-err  { background: var(--danger-lt);  color: var(--danger);  border: 1px solid #fca5a5; }
+  .tag-gray { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
+
+  .spinner { color: var(--text-3); font-size: .85rem; }
+
+  /* ── Pipeline progress (inline in ingestion status block) ── */
+  .pipeline-toggle { display: flex; align-items: center; gap: .4rem; cursor: pointer;
+                     font-size: .72rem; color: var(--text-3); margin-top: .6rem;
+                     user-select: none; border: none; background: none; padding: 0; }
+  .pipeline-toggle:hover { color: var(--text-2); }
+  .pipeline-toggle .chevron { transition: transform .2s; display: inline-block; }
+  .pipeline-toggle.open .chevron { transform: rotate(90deg); }
+  .pipeline-stages { display: flex; flex-direction: column; gap: .3rem; margin-top: .6rem; }
+  .stage-row  { display: flex; align-items: center; gap: .5rem; font-size: .78rem; }
+  .stage-icon { width: 1rem; text-align: center; flex-shrink: 0; }
+  .stage-label { flex: 1; color: var(--text-2); }
+  .stage-label.running { color: var(--text); font-weight: 600; }
+  .stage-label.done    { color: var(--text-3); }
+  .stage-label.pending { color: var(--text-3); opacity: .5; }
+  .stage-spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border);
+                border-top-color: var(--primary); border-radius: 50%;
+                animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .parse-progress-wrap { margin-top: .8rem; }
+  .parse-progress-label { font-size: .7rem; color: var(--text-3); margin-bottom: .25rem;
+                          display: flex; justify-content: space-between; }
+  .parse-bar-outer { background: var(--surface-2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .parse-bar-inner { height: 100%; border-radius: 4px; background: var(--primary); transition: width .4s ease; }
+</style>
+
+<div class="health-header">
+  <h1>System Health</h1>
+  <span><span class="pulse" id="pulse"></span><span class="last-updated" id="last-updated">Loading…</span></span>
+</div>
+
+<!-- ── Services row ──────────────────────────────────────────────── -->
+<div class="svc-grid" id="svc-grid">
+  <div class="svc-card"><div class="svc-name">Loading…</div></div>
+</div>
+
+<!-- ── Neo4j detail ──────────────────────────────────────────────── -->
+<div class="section-title">Neo4j Deep Metrics</div>
+<div class="neo4j-grid" id="neo4j-grid">
+  <div class="metric-block spinner">Loading…</div>
+</div>
+
+<!-- ── Bottom row: node counts + LLM stats ──────────────────────── -->
+<div class="llm-grid">
+  <div>
+    <div class="section-title">Graph Node Counts</div>
+    <div class="card" id="node-counts"><div class="spinner">Loading…</div></div>
+  </div>
+  <div>
+    <div class="section-title">LLM Calls — last 24h</div>
+    <div class="card" id="llm-stats"><div class="spinner">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+const SERVICE_ORDER = ['neo4j','ingestion','api','console','mcp','watcher'];
+
+function cpuColor(pct) {
+  if (pct > 80) return 'bar-red';
+  if (pct > 50) return 'bar-amber';
+  return 'bar-blue';
+}
+function memColor(pct) {
+  if (pct > 85) return 'bar-red';
+  if (pct > 60) return 'bar-amber';
+  return 'bar-green';
+}
+function statusDot(s) {
+  if (s === 'running' || s === 'ok') return '<span class="dot-ok">●</span>';
+  if (s === 'stopped' || s === 'unreachable' || s === 'error') return '<span class="dot-err">●</span>';
+  return '<span class="dot-warn">●</span>';
+}
+function statusTag(s) {
+  if (s === 'running' || s === 'ok') return `<span class="tag tag-ok">${s}</span>`;
+  if (s === 'stopped' || s === 'unreachable' || s === 'error') return `<span class="tag tag-err">${s}</span>`;
+  return `<span class="tag tag-gray">${s}</span>`;
+}
+function fmtMs(ms) { return ms > 1000 ? (ms/1000).toFixed(1)+'s' : ms+'ms'; }
+function fmtNum(n) { return n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n; }
+function bar(pct, cls) {
+  const w = Math.min(pct, 100).toFixed(1);
+  return `<div class="bar-wrap"><div class="bar-fill ${cls}" style="width:${w}%"></div></div>`;
+}
+
+function renderSvcCards(data) {
+  const { containers, ingestion, api } = data;
+  let html = '';
+  for (const key of SERVICE_ORDER) {
+    const c = containers[key] || {};
+    const status = c.status || 'unknown';
+    const cpu = c.cpu_pct ?? 0;
+    const mem = c.mem_pct ?? 0;
+    html += `
+    <div class="svc-card">
+      <div class="svc-name">${key}</div>
+      <div class="svc-status">${statusDot(status)} ${statusTag(status)}</div>
+      <div class="svc-metrics">
+        <span><span class="mkey">CPU</span><span class="val">${cpu.toFixed(1)}%</span></span>
+        ${bar(cpu, cpuColor(cpu))}
+        <span style="margin-top:.4rem"><span class="mkey">Memory</span><span class="val">${c.mem_usage || '—'} (${mem.toFixed(1)}%)</span></span>
+        ${bar(mem, memColor(mem))}
+        ${c.pids ? `<span style="margin-top:.4rem"><span class="mkey">Threads</span><span class="val">${c.pids}</span></span>` : ''}
+        ${c.net_io ? `<span><span class="mkey">Net I/O</span><span class="val">${c.net_io}</span></span>` : ''}
+      </div>
+    </div>`;
+  }
+  document.getElementById('svc-grid').innerHTML = html;
+}
+
+function renderNeo4j(neo4j) {
+  if (neo4j.status === 'error') {
+    document.getElementById('neo4j-grid').innerHTML =
+      `<div class="metric-block"><span class="dot-err">●</span> Neo4j unreachable: ${neo4j.error||''}</div>`;
+    return;
+  }
+
+  const heapPct = neo4j.heap_pct ?? 0;
+  const fdPct = neo4j.max_fds ? (neo4j.open_fds / neo4j.max_fds * 100).toFixed(1) : 0;
+  const physUsedMb = (neo4j.total_phys_mb||0) - (neo4j.free_phys_mb||0);
+  const physPct = neo4j.total_phys_mb ? (physUsedMb / neo4j.total_phys_mb * 100).toFixed(1) : 0;
+
+  document.getElementById('neo4j-grid').innerHTML = `
+    <!-- JVM Heap -->
+    <div class="metric-block">
+      <h3>JVM Heap Memory</h3>
+      <div class="big-metric">${neo4j.heap_used_mb ?? '—'} <span style="font-size:1rem;color:var(--text-3)">MB</span></div>
+      <div class="big-metric-sub">of ${neo4j.heap_max_mb ?? '—'} MB max (${heapPct}%)</div>
+      ${bar(heapPct, memColor(heapPct))}
+      <div style="margin-top:.9rem">
+        <div class="metric-row"><span class="mkey">Committed</span><span class="mval">${neo4j.heap_committed_mb ?? '—'} MB</span></div>
+        <div class="metric-row"><span class="mkey">Non-heap</span><span class="mval">${neo4j.nonheap_used_mb ?? '—'} MB</span></div>
+      </div>
+    </div>
+
+    <!-- CPU -->
+    <div class="metric-block">
+      <h3>CPU & Load</h3>
+      <div class="big-metric">${neo4j.process_cpu_load ?? '—'}<span style="font-size:1rem;color:var(--text-3)">%</span></div>
+      <div class="big-metric-sub">Neo4j process CPU</div>
+      ${bar(neo4j.process_cpu_load ?? 0, cpuColor(neo4j.process_cpu_load ?? 0))}
+      <div style="margin-top:.9rem">
+        <div class="metric-row"><span class="mkey">System CPU</span><span class="mval">${neo4j.system_cpu_load ?? '—'}%</span></div>
+        <div class="metric-row"><span class="mkey">Load avg (1m)</span><span class="mval">${neo4j.load_avg ?? '—'}</span></div>
+      </div>
+    </div>
+
+    <!-- Host OS Memory -->
+    <div class="metric-block">
+      <h3>Host OS Memory</h3>
+      <div class="big-metric">${physUsedMb} <span style="font-size:1rem;color:var(--text-3)">MB</span></div>
+      <div class="big-metric-sub">used of ${neo4j.total_phys_mb ?? '—'} MB (${physPct}%)</div>
+      ${bar(physPct, memColor(parseFloat(physPct)))}
+      <div style="margin-top:.9rem">
+        <div class="metric-row"><span class="mkey">Free</span><span class="mval">${neo4j.free_phys_mb ?? '—'} MB</span></div>
+        <div class="metric-row"><span class="mkey">Open FDs</span><span class="mval">${neo4j.open_fds ?? '—'} / ${neo4j.max_fds ?? '—'}</span></div>
+        ${bar(fdPct, fdPct > 80 ? 'bar-red' : 'bar-blue')}
+      </div>
+    </div>
+
+    <!-- Graph stats -->
+    <div class="metric-block">
+      <h3>Graph Size</h3>
+      <div class="big-metric">${fmtNum(neo4j.total_nodes ?? 0)}</div>
+      <div class="big-metric-sub">total nodes</div>
+      <div style="margin-top:.9rem">
+        <div class="metric-row"><span class="mkey">Relationships</span><span class="mval">${fmtNum(neo4j.total_rels ?? 0)}</span></div>
+        ${(neo4j.repos||[]).map(r =>
+          `<div class="metric-row"><span class="mkey">${r.id}</span><span class="mval"><span class="tag tag-gray">${r.lang||'?'}</span> <span style="color:var(--text-3);font-size:.72rem">${r.sha}</span></span></div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <!-- Relationships breakdown -->
+    <div class="metric-block">
+      <h3>Relationship Types</h3>
+      ${(neo4j.rel_counts||[]).map(r => {
+        const maxRel = Math.max(...(neo4j.rel_counts||[]).map(x => x.count), 1);
+        const pct = (r.count / maxRel * 100).toFixed(0);
+        return `<div class="metric-row">
+          <span class="mkey">${r.type}</span>
+          <span class="mval">${fmtNum(r.count)}<span class="mini-bar" style="width:${pct}px"></span></span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Ingestion status — populated by renderIngestion() -->
+    <div class="metric-block" id="ingestion-status-block"><div class="spinner">Loading…</div></div>
+  `;
+}
+
+function renderNodeCounts(neo4j) {
+  if (!neo4j.node_counts) { document.getElementById('node-counts').innerHTML = '<div class="spinner">—</div>'; return; }
+  const maxN = Math.max(...neo4j.node_counts.map(r => r.count), 1);
+  let html = '<table class="data-table"><thead><tr><th>Label</th><th>Count</th><th></th></tr></thead><tbody>';
+  for (const r of neo4j.node_counts) {
+    const w = Math.round(r.count / maxN * 120);
+    html += `<tr><td>${r.label||'?'}</td><td style="font-family:monospace">${r.count.toLocaleString()}</td>
+      <td><span class="mini-bar" style="width:${w}px"></span></td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('node-counts').innerHTML = html;
+}
+
+function renderLLM(llm_stats, llm_total) {
+  if (!llm_stats || !llm_stats.length) {
+    document.getElementById('llm-stats').innerHTML = '<div class="spinner">No calls in last 24h</div>';
+    return;
+  }
+  let html = `<div style="margin-bottom:.75rem;font-size:.82rem;color:var(--text-3)">
+    <strong style="color:var(--text)">${llm_total.calls}</strong> calls &nbsp;·&nbsp;
+    <strong style="color:var(--text)">$${(llm_total.cost_usd||0).toFixed(4)}</strong> total cost
+  </div>`;
+  html += '<table class="data-table"><thead><tr><th>Source</th><th>Calls</th><th>Avg</th><th>Cost</th><th>Err</th></tr></thead><tbody>';
+  for (const r of llm_stats) {
+    const errTag = r.errors > 0 ? `<span class="tag tag-err">${r.errors}</span>` : '—';
+    html += `<tr>
+      <td style="font-size:.75rem;font-family:monospace">${r.source}</td>
+      <td>${r.calls}</td>
+      <td>${fmtMs(r.avg_ms||0)}</td>
+      <td>$${(r.cost_usd||0).toFixed(4)}</td>
+      <td>${errTag}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('llm-stats').innerHTML = html;
+}
+
+// ── Ingestion status + inline pipeline ───────────────────────────────────────
+
+// Track whether the user has manually toggled the pipeline open/closed.
+// null = use auto behaviour; true/false = user override.
+let _pipelineUserOpen = null;
+
+let _stageErrOpen = {};
+
+function toggleStageErr(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  _stageErrOpen[id] = !_stageErrOpen[id];
+  el.style.display = _stageErrOpen[id] ? 'block' : 'none';
+}
+
+function buildStagesHtml(stages, parse_done, parse_total, parse_errors) {
+  const stagesHtml = stages.map((s, i) => {
+    let iconHtml;
+    const errTitle = s.error_detail ? s.error_detail.replace(/"/g, '&quot;') : 'Completed with error';
+    if (s.error) {
+      iconHtml = `<span class="stage-icon" style="color:var(--warning);cursor:pointer" title="${errTitle}" onclick="toggleStageErr('serr-${i}')">⚠</span>`;
+    } else if (s.status === 'done') {
+      iconHtml = `<span class="stage-icon" style="color:var(--success)">✓</span>`;
+    } else if (s.status === 'running') {
+      iconHtml = `<span class="stage-icon"><span class="stage-spin"></span></span>`;
+    } else {
+      iconHtml = `<span class="stage-icon" style="color:var(--text-3)">○</span>`;
+    }
+    const labelExtra = s.error
+      ? ` <button onclick="toggleStageErr('serr-${i}')" style="background:none;border:none;padding:0;cursor:pointer;color:var(--warning);font-size:.68rem;text-decoration:underline dotted">failed</button>`
+      : '';
+    const errBlock = (s.error && s.error_detail)
+      ? `<div id="serr-${i}" style="display:none;margin:.3rem 0 .2rem 1.6rem;padding:.35rem .6rem;background:var(--surface-2);border-left:2px solid var(--warning);border-radius:3px;font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--warning);word-break:break-all">${s.error_detail.replace(/</g,'&lt;')}</div>`
+      : '';
+    return `<div class="stage-row">${iconHtml}<span class="stage-label ${s.status}">${s.label}${labelExtra}</span></div>${errBlock}`;
+  }).join('');
+
+  let parseHtml = '';
+  if (parse_total > 0) {
+    const parsePct = Math.round(parse_done / parse_total * 100);
+    const errText = parse_errors > 0
+      ? ` · <span style="color:var(--danger)">${parse_errors} errors</span>` : '';
+    parseHtml = `<div class="parse-progress-wrap">
+      <div class="parse-progress-label">
+        <span>Files parsed${errText}</span>
+        <span style="font-family:'JetBrains Mono',monospace">${parse_done.toLocaleString()} / ${parse_total.toLocaleString()} (${parsePct}%)</span>
+      </div>
+      <div class="parse-bar-outer"><div class="parse-bar-inner" style="width:${parsePct}%"></div></div>
+    </div>`;
+  }
+  return `<div class="pipeline-stages">${stagesHtml}</div>${parseHtml}`;
+}
+
+function renderIngestion(ingData, pipelineData) {
+  const block = document.getElementById('ingestion-status-block');
+  if (!block) return;
+
+  const active  = ingData?.active_scans  || [];
+  const recent  = ingData?.recent_scans  || [];
+  const scanning = active.length > 0;
+
+  // Status headline
+  const statusHtml = scanning
+    ? `<div class="big-metric" style="font-size:1.4rem;color:var(--primary)">⟳ ${active.length} running</div>`
+    : `<div class="big-metric" style="font-size:1.4rem">✓ Idle</div>`;
+
+  // Active scan rows + cancel buttons
+  const activeHtml = active.map(s => `
+    <div class="metric-row">
+      <span class="mkey">⟳ ${s.repo_id}</span>
+      <span class="mval" style="color:var(--primary)">${s.scan_type}</span>
+      <button onclick="cancelScan('${s.repo_id}')"
+        style="margin-left:.5rem;background:#ef4444;color:#fff;border:none;border-radius:4px;padding:.1rem .5rem;font-size:.72rem;cursor:pointer">stop</button>
+    </div>`).join('');
+
+  // Recent scans table
+  const recentHtml = recent.map(s => {
+    const ok      = s.status === 'ok';
+    const running = s.status === 'running';
+    const ts      = (s.finished_at || s.started_at || '').slice(0,16).replace('T',' ');
+    const icon    = running ? '⟳' : ok ? '✓' : '✕';
+    const color   = running ? 'var(--primary)' : ok ? 'var(--success)' : 'var(--danger)';
+    const logSnippet = s.logs ? s.logs.slice(-300) : '';
+    const logId   = `log-${s.id}`;
+    return `<tr>
+      <td style="color:${color};font-size:.9rem">${icon}</td>
+      <td style="font-size:.78rem">${s.repo_id}</td>
+      <td style="font-size:.72rem;color:var(--text-3)">${s.scan_type}</td>
+      <td style="font-size:.72rem;color:var(--text-3)">${ts}</td>
+      <td>${!ok && !running && logSnippet
+        ? `<button onclick="document.getElementById('${logId}').style.display=document.getElementById('${logId}').style.display==='none'?'block':'none'"
+             style="background:none;border:1px solid var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.7rem;cursor:pointer;color:var(--danger)">logs</button>`
+        : ''}</td>
+    </tr>
+    ${logSnippet ? `<tr id="${logId}" style="display:none"><td colspan="5">
+      <pre style="font-size:.68rem;background:var(--surface-2);padding:.5rem;border-radius:4px;overflow-x:auto;max-height:200px;white-space:pre-wrap;color:var(--danger)">${logSnippet.replace(/</g,'&lt;')}</pre>
+    </td></tr>` : ''}`;
+  }).join('');
+
+  // Pipeline section
+  let pipelineHtml = '';
+  if (pipelineData?.stages?.length) {
+    const stages     = pipelineData.stages;
+    const doneCount  = stages.filter(s => s.status === 'done').length;
+    const totalStages = stages.length;
+    const pct        = totalStages ? Math.round(doneCount / totalStages * 100) : 0;
+    const hasError   = stages.some(s => s.error);
+    const elapsed    = pipelineData.elapsed_ms != null
+      ? (pipelineData.elapsed_ms >= 60000
+          ? `${(pipelineData.elapsed_ms/60000).toFixed(1)}m`
+          : `${(pipelineData.elapsed_ms/1000).toFixed(1)}s`)
+      : '';
+
+    // Auto-open when: scan is running, OR last scan failed/had errors
+    const recentFailed = !scanning && recent.length > 0 && (recent[0].status !== 'ok' || hasError);
+    const autoOpen = scanning || recentFailed;
+    // User override takes priority; fall back to auto
+    const isOpen = _pipelineUserOpen !== null ? _pipelineUserOpen : autoOpen;
+
+    const statusLabel = pipelineData.finished
+      ? (hasError
+          ? `<span style="color:var(--warning);font-weight:600">⚠ Completed with errors</span>`
+          : `<span style="color:var(--success);font-weight:600">✓ Complete</span>`)
+      : scanning
+        ? `<span style="color:var(--primary)">${doneCount}/${totalStages} · ${pct}%</span>`
+        : '';
+    const elapsedSpan = elapsed ? `<span style="color:var(--text-3);font-size:.7rem;margin-left:auto">${elapsed}</span>` : '';
+    const repoSpan    = pipelineData.repo_id
+      ? `<span style="font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--primary)">${pipelineData.repo_id}</span>` : '';
+
+    const stagesBody = buildStagesHtml(stages, pipelineData.parse_done||0, pipelineData.parse_total||0, pipelineData.parse_errors||0);
+
+    pipelineHtml = `
+      <div style="margin-top:.75rem;border-top:1px solid var(--border);padding-top:.6rem">
+        <button class="pipeline-toggle${isOpen ? ' open' : ''}" id="pipeline-toggle-btn"
+                onclick="togglePipeline(this)">
+          <span class="chevron">›</span>
+          <span style="font-weight:600;color:var(--text-2)">Pipeline</span>
+          ${repoSpan}
+          ${statusLabel}
+          ${elapsedSpan}
+        </button>
+        <div id="pipeline-detail" style="display:${isOpen ? 'block' : 'none'}">
+          ${stagesBody}
+        </div>
+      </div>`;
+  }
+
+  block.innerHTML = `
+    <h3>Ingestion Status</h3>
+    ${statusHtml}
+    ${activeHtml}
+    <span id="cancel-scan-msg" style="font-size:.78rem;color:var(--text-3)"></span>
+    ${recentHtml ? `<div style="margin-top:.75rem">
+      <div class="section-title" style="margin-bottom:.35rem">Recent Scans</div>
+      <table style="width:100%;font-size:.78rem;border-collapse:collapse">${recentHtml}</table>
+    </div>` : ''}
+    ${pipelineHtml}`;
+}
+
+function togglePipeline(btn) {
+  const detail = document.getElementById('pipeline-detail');
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
+  _pipelineUserOpen = !isOpen;
+}
+
+let _pipelineInterval = null;
+let _lastPipelineData = null;
+
+async function refreshPipeline(repoId) {
+  try {
+    const r = await fetch(`/api/system-health/scan-progress/${encodeURIComponent(repoId)}`);
+    const data = await r.json();
+    _lastPipelineData = data;
+    renderIngestion(window._healthData?.ingestion, data);
+    if (data.finished && _pipelineInterval) {
+      clearInterval(_pipelineInterval);
+      _pipelineInterval = null;
+    }
+  } catch(e) { /* silent */ }
+}
+
+function startPipelinePolling(repoId) {
+  if (_pipelineInterval) clearInterval(_pipelineInterval);
+  refreshPipeline(repoId);
+  _pipelineInterval = setInterval(() => refreshPipeline(repoId), 2000);
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/system-health');
+    const data = await res.json();
+    window._healthData = data;
+
+    renderSvcCards(data);
+    renderNeo4j(data.neo4j);
+    renderNodeCounts(data.neo4j);
+    renderLLM(data.llm_stats, data.llm_total);
+
+    // Ingestion status block (without pipeline data first, then update with pipeline)
+    renderIngestion(data.ingestion, _lastPipelineData);
+
+    // Pipeline polling
+    const activeScans = data.ingestion?.active_scans || [];
+    if (activeScans.length > 0) {
+      const repoId = activeScans[0].repo_id;
+      if (!_pipelineInterval) startPipelinePolling(repoId);
+    } else if (_pipelineInterval) {
+      clearInterval(_pipelineInterval);
+      _pipelineInterval = null;
+    } else {
+      // No active scan — show last finished scan's pipeline
+      const last = data.ingestion?.recent_scans?.[0];
+      if (last && !_lastPipelineData) refreshPipeline(last.repo_id);
+    }
+
+    const t = new Date(data.ts);
+    document.getElementById('last-updated').textContent = 'Updated ' + t.toLocaleTimeString();
+    document.getElementById('pulse').style.background = 'var(--success)';
+  } catch(e) {
+    document.getElementById('last-updated').textContent = 'Error: ' + e.message;
+    document.getElementById('pulse').style.background = 'var(--danger)';
+  }
+}
+
+async function cancelScan(repoId) {
+  const msg = document.getElementById('cancel-scan-msg');
+  try {
+    const url = repoId
+      ? `/api/system-health/cancel-scan?repo_id=${encodeURIComponent(repoId)}`
+      : '/api/system-health/cancel-scan';
+    const r = await fetch(url, {method: 'POST'});
+    const j = await r.json();
+    if (r.ok) {
+      if (msg) { msg.textContent = 'Scan stopped.'; msg.style.color = 'var(--success)'; }
+      setTimeout(refresh, 1500);
+    } else {
+      if (msg) { msg.textContent = j.detail || 'Error stopping scan.'; msg.style.color = 'var(--danger)'; }
+    }
+  } catch(e) {
+    if (msg) { msg.textContent = 'Request failed.'; msg.style.color = 'var(--danger)'; }
+  }
+}
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+{% endblock %}

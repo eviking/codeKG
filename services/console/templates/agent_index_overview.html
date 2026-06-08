@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Agent Indexing{% endblock %}
+{% block content %}
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.75rem; }
+  .page-header h1 { margin:0; }
+  .page-header p { margin:.25rem 0 0; color:var(--text-3); font-size:.85rem; }
+  .actions { display:flex; gap:.75rem; align-items:center; }
+
+  .section-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--text-3); margin:1.5rem 0 .75rem; }
+
+  /* Standard file cards */
+  .file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:.875rem; margin-bottom:1.5rem; }
+  .file-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:1.1rem 1.25rem; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:.5rem;
+  }
+  .file-card-top { display:flex; align-items:flex-start; gap:.75rem; }
+  .file-icon { font-size:1.3rem; flex-shrink:0; line-height:1; margin-top:.1rem; }
+  .file-name { font-size:.85rem; font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; }
+  .file-desc { font-size:.76rem; color:var(--text-3); margin-top:.1rem; }
+  .file-meta { font-size:.71rem; color:var(--text-3); display:flex; gap:.75rem; flex-wrap:wrap; }
+  .file-actions { display:flex; gap:.4rem; margin-top:.25rem; }
+
+  .dir-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-2); margin:1.25rem 0 .6rem; display:flex; align-items:center; gap:.5rem; }
+  .dir-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* Status badges */
+  .status-badge { display:inline-flex; align-items:center; padding:.1rem .4rem; border-radius:20px; font-size:.67rem; font-weight:600; white-space:nowrap; }
+  .status-current { background:var(--success-lt); color:var(--success); border:1px solid #86efac; }
+  .status-stale   { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .status-hidden  { background:var(--surface-2);  color:var(--text-3);  border:1px solid var(--border); }
+  .status-empty   { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+
+  /* Module files table */
+  .module-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); margin-bottom:1.5rem; }
+  .module-wrap table { font-size:.81rem; }
+  .module-wrap td { padding:.45rem .875rem; vertical-align:middle; }
+  .module-wrap td:last-child { white-space:nowrap; }
+  .module-actions { display:flex; gap:.35rem; }
+
+  .publish-bar {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem;
+    box-shadow:var(--shadow); margin-bottom:1.5rem;
+  }
+  .publish-bar .pub-info { flex:1; }
+  .publish-bar .pub-title { font-weight:600; font-size:.88rem; }
+  .publish-bar .pub-sub { font-size:.76rem; color:var(--text-3); margin-top:.15rem; }
+
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-3); }
+  .empty-state .icon { font-size:3rem; margin-bottom:1rem; }
+  .empty-state h3 { color:var(--text-2); font-size:1.1rem; margin-bottom:.5rem; }
+
+  #toast {
+    position:fixed; bottom:1.5rem; right:1.5rem; z-index:999;
+    background:var(--success); color:#fff; padding:.65rem 1.25rem;
+    border-radius:var(--radius); font-size:.84rem; font-weight:500;
+    box-shadow:var(--shadow-md); opacity:0; transition:opacity .2s; pointer-events:none;
+  }
+  #toast.show { opacity:1; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Agent Indexing</h1>
+    <p>Pre-computed intelligence files for AI agents — generated from the knowledge graph and published to the repo</p>
+  </div>
+  <div class="actions">
+    {% if selected_repo %}
+    <button class="btn btn-ghost btn-sm" onclick="regenAll(event)">↺ Regenerate all</button>
+    <button class="btn btn-sm" onclick="publish()" style="background:var(--success)">↑ Publish to repo</button>
+    {% endif %}
+  </div>
+</div>
+
+{% if not selected_repo %}
+<div class="empty-state">
+  <div class="icon">📂</div>
+  <h3>No repository selected</h3>
+  <p>Select a repository from the top-right dropdown to manage its agent index.</p>
+</div>
+
+{% elif not has_files %}
+<div class="empty-state card">
+  <div class="icon">🤖</div>
+  <h3>No index files generated yet</h3>
+  <p style="margin-bottom:1.5rem">Generate the full agent index from the knowledge graph.</p>
+  <button class="btn" onclick="regenAll(event)">↺ Generate agent index</button>
+</div>
+
+{% else %}
+
+<div class="publish-bar">
+  <div class="pub-info">
+    <div class="pub-title">Publish to <code>{{ selected_repo }}</code></div>
+    <div class="pub-sub">Writes all visible files to <code>.codekg/</code> and creates a git commit</div>
+  </div>
+  <button class="btn" onclick="publish()" style="background:var(--success)">↑ Publish to repo</button>
+</div>
+
+{# ── Standard files — card grid grouped by directory ── #}
+{% for dir_name, dir_files in standard_grouped.items() %}
+<div class="dir-label">{{ dir_name if dir_name != 'root' else 'root' }}/</div>
+<div class="file-grid">
+  {% for f in dir_files %}
+  {% set status = 'empty' if f.is_empty else ('hidden' if f.hidden else f.status) %}
+  <div class="file-card">
+    <div class="file-card-top">
+      <div class="file-icon">{% if f.is_empty %}🈳{% elif f.hidden %}🙈{% elif status == 'stale' %}⚠️{% else %}📄{% endif %}</div>
+      <div style="flex:1; min-width:0">
+        <div class="file-name">{{ f.filename }}</div>
+        <div class="file-desc">{{ f.description }}</div>
+      </div>
+      <span class="status-badge status-{{ status }}">{{ status }}</span>
+    </div>
+    <div class="file-meta">
+      {% if f.generated_at %}<span>{{ f.generated_at[:10] }}</span>{% endif %}
+      {% if f.content %}<span>{{ (f.content | length) }} chars</span>{% endif %}
+      {% if f.manual_additions %}<span style="color:var(--primary)">+ notes</span>{% endif %}
+      {% if f.published_at and f.status == 'stale' %}<span style="color:var(--warning)">⚠ needs republish</span>{% elif f.published_at %}<span style="color:var(--success)">✓ published</span>{% endif %}
+    </div>
+    <div class="file-actions">
+      <a href="/agent-index/file/{{ f.file_key }}" class="btn btn-ghost btn-sm">View</a>
+      <button class="btn btn-ghost btn-sm" onclick="regenOne('{{ f.file_key }}', this)">↺ Regen</button>
+      <button class="btn btn-ghost btn-sm" style="{{ 'color:var(--danger)' if not f.hidden else '' }}"
+              onclick="toggleHidden('{{ f.file_key }}', {{ 'true' if not f.hidden else 'false' }}, this)">
+        {{ 'Hide' if not f.hidden else 'Show' }}
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+{# ── Per-module files — compact table ── #}
+{% if modules %}
+<div class="section-label" style="margin-top:2rem">Per-module files ({{ modules | length }} modules)</div>
+<div class="module-wrap">
+  <table>
+    <thead><tr>
+      <th>Module</th>
+      <th>Module file</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+    {% for m in modules %}
+    {% set mod_key = 'modules/' ~ m.id %}
+    {% set mod_file = module_files.get(mod_key) %}
+    <tr>
+      <td><code>{{ m.id }}</code>{% if m.name %} <span style="color:var(--text-3)">{{ m.name }}</span>{% endif %}</td>
+      <td>
+        {% if mod_file %}
+          <a href="/agent-index/file/{{ mod_key }}" style="font-family:monospace;font-size:.78rem">{{ mod_file.filename }}</a>
+          {% set ms = 'empty' if mod_file.is_empty else ('hidden' if mod_file.hidden else mod_file.status) %}
+          <span class="status-badge status-{{ ms }}" style="margin-left:.35rem">{{ ms }}</span>
+        {% else %}
+          <span style="color:var(--text-3);font-size:.78rem">not generated</span>
+        {% endif %}
+      </td>
+      <td>
+        <div class="module-actions">
+          <button class="btn btn-ghost btn-sm" onclick="regenOne('{{ mod_key }}', this)">↺ Regen</button>
+          {% if mod_file %}
+          <button class="btn btn-ghost btn-sm" style="{{ 'color:var(--danger)' if not mod_file.hidden else '' }}"
+                  onclick="toggleHidden('{{ mod_key }}', {{ 'true' if not mod_file.hidden else 'false' }}, this)">
+            {{ 'Hide' if not mod_file.hidden else 'Show' }}
+          </button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endif %}
+
+<div id="error-panel" style="display:none;background:var(--danger-lt);border:1px solid var(--danger);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.5rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+    <strong style="color:var(--danger)" id="error-title"></strong>
+    <button onclick="document.getElementById('error-panel').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-3)">✕</button>
+  </div>
+  <ul id="error-list" style="margin:0;padding-left:1.25rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;color:var(--text)"></ul>
+</div>
+
+<div id="toast"></div>
+<script>
+const REPO = "{{ selected_repo }}";
+
+function toast(msg, ok=true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok ? 'var(--success)' : 'var(--danger)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function showErrors(title, itemsHtml) {
+  const panel = document.getElementById('error-panel');
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('error-list').innerHTML = itemsHtml;
+  panel.style.display = 'block';
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+async function regenAll(e) {
+  const btn = e.target;
+  const orig = btn.textContent;
+  btn.textContent = '↺ Generating…'; btn.disabled = true;
+  toast('Generating all files — this may take 20–30 seconds for large repos…');
+  try {
+    const r = await fetch('/api/agent-index/regen-all', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Generated ${d.generated} files${d.errors ? ` — ${d.errors} errors` : ''}`);
+      if (d.errors && d.detail) {
+        const failures = Object.entries(d.detail)
+          .filter(([k, v]) => v !== 'ok')
+          .map(([k, v]) => `<li><code>${k}</code>: ${v}</li>`)
+          .join('');
+        showErrors(`${d.errors} file(s) failed to generate`, failures);
+        btn.textContent = orig; btn.disabled = false;
+      } else {
+        setTimeout(() => location.reload(), 2500);
+      }
+    } else {
+      toast(d.detail || 'Error', false);
+      btn.textContent = orig; btn.disabled = false;
+    }
+  } catch(e) { toast('Request failed', false); btn.textContent = orig; btn.disabled = false; }
+}
+
+async function regenOne(fileKey, btn) {
+  const orig = btn.textContent;
+  btn.textContent = '…'; btn.disabled = true;
+  try {
+    const r = await fetch('/api/agent-index/regen', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO, file_key: fileKey})
+    });
+    const d = await r.json();
+    if (d.ok) { toast(`Regenerated — ${d.chars} chars`); setTimeout(() => location.reload(), 1500); }
+    else       { toast(d.detail || 'Error', false); }
+  } catch(e) { toast('Request failed', false); }
+  btn.textContent = orig; btn.disabled = false;
+}
+
+async function toggleHidden(fileKey, currentlyVisible, btn) {
+  const hidden = currentlyVisible;
+  try {
+    const r = await fetch('/api/agent-index/toggle-hidden', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO, file_key: fileKey, hidden})
+    });
+    const d = await r.json();
+    if (d.ok) { toast(hidden ? 'File hidden' : 'File visible'); setTimeout(() => location.reload(), 900); }
+    else toast('Error', false);
+  } catch(e) { toast('Request failed', false); }
+}
+
+async function publish() {
+  const ok = await appConfirm(`Write files to .codekg/ and create a git commit for repo "${REPO}".`, 'Publish agent index?');
+  if (!ok) return;
+  toast('Publishing…');
+  try {
+    const r = await fetch('/api/agent-index/publish', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO})
+    });
+    const d = await r.json();
+    if (d.ok) { toast(`Published ${d.files_written} files — commit ${d.sha}`); setTimeout(() => location.reload(), 1500); }
+    else      toast(d.detail || 'Publish failed', false);
+  } catch(e) { toast('Request failed', false); }
+}
+</script>
+{% endblock %}

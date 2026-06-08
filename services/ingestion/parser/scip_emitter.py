@@ -36,6 +36,8 @@ from parser.java_parser import ParsedFile
 # ------------------------------------------------------------------
 
 class SymbolRole(IntEnum):
+    """Enumerates symbol roles used in emitted SCIP data. Watch out for numeric compatibility here, because external tooling expects these values to line up with SCIP semantics."""
+
     UNSPECIFIED = 0
     DEFINITION = 1
     IMPORT = 8
@@ -45,6 +47,8 @@ class SymbolRole(IntEnum):
 
 
 class RelationshipKind(str):
+    """Names supported relationship kinds in emitted SCIP symbol information. Watch out for spelling changes here, because consumers treat these strings as wire-format values."""
+
     pass
 
 IMPLEMENTS  = RelationshipKind("IMPLEMENTS")
@@ -57,6 +61,8 @@ CONTAINS    = RelationshipKind("CONTAINS")
 
 @dataclass
 class SCIPRange:
+    """Represents a source range in SCIP coordinates. Watch out for line and character indexing here, because off-by-one errors make downstream navigation frustrating fast."""
+
     start_line: int     # 0-based
     start_char: int
     end_line: int
@@ -74,6 +80,8 @@ class SCIPOccurrence:
 
 @dataclass
 class SCIPRelationship:
+    """Represents a relationship attached to symbol information. Watch out for directionality here, because consumers use these links to reconstruct hierarchy and inheritance."""
+
     symbol: str                 # the related symbol
     kind: RelationshipKind
     is_implementation: bool = False

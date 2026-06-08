@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}Refactoring Plan — {{ repo_id }}{% endblock %}
+{% block content %}
+<style>
+  .rf-back   { font-size:.82rem; color:var(--primary); text-decoration:none; margin-bottom:1.25rem; display:inline-block; }
+  .rf-back:hover { text-decoration:underline; }
+
+  .rf-header { display:flex; align-items:baseline; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .rf-header h1 { margin:0; }
+  .rf-header .rf-sub { font-size:.84rem; color:var(--text-3); }
+
+  /* Class card */
+  .rf-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    margin-bottom:1rem;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .rf-card-head {
+    display:flex; align-items:center; gap:.875rem;
+    padding:.875rem 1.25rem;
+    cursor:pointer;
+    user-select:none;
+    transition:background .12s;
+  }
+  .rf-card-head:hover { background:var(--surface-2); }
+
+  .rf-grade { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:800; flex-shrink:0; }
+  .rg-A { background:#dcfce7; color:#15803d; } .rg-B { background:#dbeafe; color:#1d4ed8; }
+  .rg-C { background:#fef9c3; color:#a16207; } .rg-D { background:#ffedd5; color:#c2410c; }
+  .rg-F { background:#fee2e2; color:#b91c1c; }
+
+  .rf-name { font-weight:600; font-size:.9rem; color:var(--text); }
+  .rf-fqn  { font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-3); }
+  .rf-meta { display:flex; gap:.75rem; flex-wrap:wrap; margin-left:auto; flex-shrink:0; }
+  .rf-meta-pill { font-size:.68rem; padding:.1rem .45rem; border-radius:10px; font-weight:600; white-space:nowrap; }
+  .rmp-high   { background:var(--danger-lt);  color:var(--danger);  border:1px solid #fca5a5; }
+  .rmp-medium { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .rmp-low    { background:var(--info-lt);    color:var(--info);    border:1px solid #bae6fd; }
+  .rf-benefit { font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--success); font-weight:700; white-space:nowrap; }
+  .rf-chevron { color:var(--text-3); font-size:.8rem; transition:transform .2s; flex-shrink:0; }
+  .rf-chevron.open { transform:rotate(90deg); }
+
+  /* Card body */
+  .rf-card-body { display:none; border-top:1px solid var(--border); padding:1rem 1.25rem; background:var(--bg); }
+  .rf-card-body.open { display:block; }
+
+  .rf-summary { font-size:.84rem; color:var(--text-2); margin-bottom:1rem; line-height:1.6; font-style:italic; }
+
+  /* Reason item */
+  .rf-reason {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:.75rem 1rem;
+    margin-bottom:.6rem;
+    display:flex;
+    gap:.875rem;
+    align-items:flex-start;
+  }
+  .rf-reason.severity-high   { border-left:3px solid var(--danger); }
+  .rf-reason.severity-medium { border-left:3px solid var(--warning); }
+  .rf-reason.severity-low    { border-left:3px solid var(--info); }
+  .rf-reason-check { margin-top:.15rem; width:16px; height:16px; flex-shrink:0; accent-color:var(--primary); cursor:pointer; }
+  .rf-reason-content { flex:1; min-width:0; }
+  .rf-reason-title { font-weight:600; font-size:.84rem; color:var(--text); margin-bottom:.3rem; }
+  .rf-reason-detail { font-size:.8rem; color:var(--text-2); line-height:1.6; margin-bottom:.4rem; }
+  .rf-reason-outcome { font-size:.76rem; color:var(--success); font-weight:500; }
+  .rf-reason-outcome::before { content:'→ '; opacity:.6; }
+
+  /* Prompt button */
+  .rf-actions { display:flex; align-items:center; gap:.75rem; margin-top:1rem; padding-top:.875rem; border-top:1px solid var(--border); }
+  .rf-prompt-btn {
+    background:var(--primary); color:#fff; border:none; border-radius:var(--radius);
+    padding:.45rem 1.1rem; font-size:.8rem; font-weight:600; font-family:inherit;
+    cursor:pointer; transition:background .15s;
+  }
+  .rf-prompt-btn:hover { background:var(--primary-h); }
+  .rf-select-all { font-size:.75rem; color:var(--primary); cursor:pointer; border:none; background:none; font-family:inherit; text-decoration:underline; text-underline-offset:2px; }
+
+  /* Prompt modal — uses shared .modal-backdrop/.modal/.modal-head/.modal-body/.modal-foot from base.html */
+  .modal { max-width: 800px; }
+  #rf-prompt-text {
+    width:100%; min-height:360px; resize:vertical;
+    font-family:'JetBrains Mono',monospace; font-size:.76rem; line-height:1.6;
+    background:var(--bg); color:var(--text); border:1px solid var(--border);
+    border-radius:var(--radius); padding:1rem; outline:none;
+  }
+  #rf-prompt-text:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(22,163,74,.12); }
+
+  /* Benefit bar */
+  .rf-benefit-bar { height:4px; background:var(--surface-2); border-radius:2px; margin-top:.3rem; overflow:hidden; }
+  .rf-benefit-fill { height:100%; background:linear-gradient(90deg, var(--success), #4ade80); border-radius:2px; }
+
+  /* Empty */
+  .rf-empty { text-align:center; padding:4rem 2rem; color:var(--text-3); }
+
+  /* Filters */
+  .rf-filters { display:flex; gap:.5rem; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .rf-filters input { height:32px; padding:.3rem .65rem; font-size:.8rem; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:var(--radius); width:200px; }
+  .rf-filters input:focus { outline:none; border-color:var(--primary); }
+  .rf-count { font-size:.78rem; color:var(--text-3); }
+</style>
+
+<a href="/hygiene/{{ repo_id }}" class="rf-back">← Hygiene — {{ repo_id }}</a>
+
+<div class="rf-header">
+  <h1>Refactoring Plan</h1>
+  <span class="rf-sub">{{ classes|length }} class{{ 'es' if classes|length != 1 else '' }} · ranked by estimated benefit · <span id="rf-visible-count">{{ classes|length }}</span> shown</span>
+</div>
+
+{% if not classes %}
+<div class="rf-empty card">
+  <p style="font-size:1.1rem;margin-bottom:.5rem">🎉 No C/D/F classes found</p>
+  <p>All classes in <strong>{{ repo_id }}</strong> have a hygiene grade of B or better.</p>
+</div>
+{% else %}
+
+<div class="rf-filters">
+  <input id="rf-search" placeholder="Filter by class name…" oninput="rfFilter()">
+  <span class="rf-count" id="rf-count-text">{{ classes|length }} classes</span>
+</div>
+
+<div id="rf-list">
+{% for c in classes %}
+{% set max_benefit = classes[0].benefit if classes else 1 %}
+{% set benefit_pct = ((c.benefit / max_benefit) * 100)|round(1) if max_benefit > 0 else 0 %}
+<div class="rf-card"
+     data-name="{{ c.name|lower }}"
+     data-fqn="{{ c.fqn|lower }}"
+     data-methods="{{ c.methods | tojson | e }}"
+     data-callers="{{ c.callers | tojson | e }}"
+     data-has-tests="{{ 'true' if c.has_tests else 'false' }}"
+     data-summary="{{ c.summary | e }}"
+     data-module="{{ c.module_id | e }}">
+  <div class="rf-card-head" onclick="rfToggle(this)">
+    <div class="rf-grade rg-{{ c.grade }}">{{ c.grade }}</div>
+    <div style="min-width:0;flex:1">
+      <div class="rf-name">{{ c.name }}</div>
+      <div class="rf-fqn">{{ c.fqn }}</div>
+      <div class="rf-benefit-bar" style="margin-top:.4rem;width:120px">
+        <div class="rf-benefit-fill" style="width:{{ benefit_pct }}%"></div>
+      </div>
+    </div>
+    <div class="rf-meta">
+      {% for r in c.reasons %}
+      <span class="rf-meta-pill rmp-{{ r.severity }}">{{ r.title.split('—')[0].strip() }}</span>
+      {% endfor %}
+      <span class="rf-benefit" title="Estimated refactoring benefit score">⬆ {{ c.benefit|int }}</span>
+    </div>
+    <span class="rf-chevron">▶</span>
+  </div>
+
+  <div class="rf-card-body">
+    {% if not c.has_tests %}
+    <div style="background:var(--warning-lt);border:1px solid #fcd34d;border-radius:var(--radius);padding:.5rem .875rem;font-size:.78rem;color:var(--warning);font-weight:600;margin-bottom:.75rem">
+      ⚠ No test class found — prompt will require writing a characterisation test first
+    </div>
+    {% endif %}
+
+    {% if c.summary %}
+    <div class="rf-summary">{{ c.summary }}</div>
+    {% endif %}
+
+    {% if c.methods or c.callers %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.875rem">
+      {% if c.methods %}
+      <div>
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:.35rem">Public methods ({{ c.methods|length }})</div>
+        {% for m in c.methods[:8] %}
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-2);padding:.1rem 0">{{ m }}</div>
+        {% endfor %}
+        {% if c.methods|length > 8 %}<div style="font-size:.68rem;color:var(--text-3)">…and {{ c.methods|length - 8 }} more</div>{% endif %}
+      </div>
+      {% endif %}
+      {% if c.callers %}
+      <div>
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:.35rem">Called by ({{ c.callers|length }})</div>
+        {% for caller in c.callers[:8] %}
+        <div style="font-size:.72rem;color:var(--text-2);padding:.1rem 0">
+          <a href="/classes/{{ caller.fqn }}" style="color:var(--primary);text-decoration:none">{{ caller.name }}</a>
+        </div>
+        {% endfor %}
+        {% if c.callers|length > 8 %}<div style="font-size:.68rem;color:var(--text-3)">…and {{ c.callers|length - 8 }} more</div>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% for r in c.reasons %}
+    <div class="rf-reason severity-{{ r.severity }}"
+         data-class-fqn="{{ c.fqn }}"
+         data-reason-id="{{ r.id }}">
+      <input type="checkbox" class="rf-reason-check" checked
+             id="chk-{{ loop.index0 }}-{{ c.fqn | replace('.','_') }}-{{ r.id }}"
+             data-fqn="{{ c.fqn }}"
+             data-name="{{ c.name }}"
+             data-file="{{ c.file_path }}"
+             data-module="{{ c.module_id }}"
+             data-reason-id="{{ r.id }}"
+             data-reason-title="{{ r.title }}"
+             data-reason-detail="{{ r.detail }}"
+             data-reason-outcome="{{ r.expected_outcome }}"
+             data-severity="{{ r.severity }}">
+      <div class="rf-reason-content">
+        <div class="rf-reason-title">{{ r.title }}</div>
+        <div class="rf-reason-detail">{{ r.detail }}</div>
+        <div class="rf-reason-outcome">{{ r.expected_outcome }}</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="rf-actions">
+      <button class="rf-prompt-btn" onclick="generatePrompt('{{ c.fqn }}', '{{ c.name }}', '{{ c.file_path }}', '{{ c.module_id }}', {{ c.score }}, '{{ c.grade }}')">
+        Generate refactoring prompt
+      </button>
+      <button class="rf-select-all" onclick="toggleAllReasons(this, '{{ c.fqn }}')">Deselect all</button>
+    </div>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% endif %}
+
+<!-- Prompt modal -->
+<div class="modal-backdrop" id="rf-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="rf-modal-title">Refactoring prompt</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.78rem;color:var(--text-3);margin-bottom:.75rem">
+        Copy this prompt and paste it into Claude Code to start the refactoring session.
+      </p>
+      <textarea id="rf-prompt-text" spellcheck="false" readonly></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button>
+      <button class="btn btn-sm" onclick="copyPrompt()" id="rf-copy-btn">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Card toggle ───────────────────────────────────────────────────
+function rfToggle(head) {
+  const body  = head.nextElementSibling;
+  const chev  = head.querySelector('.rf-chevron');
+  const open  = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+// ── Filter ────────────────────────────────────────────────────────
+function rfFilter() {
+  const q = document.getElementById('rf-search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#rf-list .rf-card').forEach(card => {
+    const match = !q || card.dataset.name.includes(q) || card.dataset.fqn.includes(q);
+    card.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('rf-visible-count').textContent = visible;
+  document.getElementById('rf-count-text').textContent = visible + ' class' + (visible !== 1 ? 'es' : '');
+}
+
+// ── Select all / deselect all within a card ───────────────────────
+function toggleAllReasons(btn, fqn) {
+  const checks = document.querySelectorAll(`input.rf-reason-check[data-fqn="${fqn}"]`);
+  const allChecked = Array.from(checks).every(c => c.checked);
+  checks.forEach(c => c.checked = !allChecked);
+  btn.textContent = allChecked ? 'Select all' : 'Deselect all';
+}
+
+// ── Prompt generation ─────────────────────────────────────────────
+function generatePrompt(fqn, name, filePath, moduleId, score, grade) {
+  const checks = document.querySelectorAll(`input.rf-reason-check[data-fqn="${fqn}"]:checked`);
+  if (checks.length === 0) {
+    appToast('Select at least one reason first', false); return;
+  }
+
+  // Read enrichment data from the card element
+  const card     = document.querySelector(`.rf-card[data-fqn="${fqn.toLowerCase()}"]`);
+  const methods  = card ? JSON.parse(card.dataset.methods  || '[]') : [];
+  const callers  = card ? JSON.parse(card.dataset.callers  || '[]') : [];
+  const hasTests = card ? card.dataset.hasTests === 'true'          : false;
+  const summary  = card ? (card.dataset.summary || '')              : '';
+
+  const reasons = Array.from(checks).map(c => ({
+    id:       c.dataset.reasonId,
+    title:    c.dataset.reasonTitle,
+    detail:   c.dataset.reasonDetail,
+    outcome:  c.dataset.reasonOutcome,
+    severity: c.dataset.severity,
+  }));
+
+  const highCount = reasons.filter(r => r.severity === 'high').length;
+  const medCount  = reasons.filter(r => r.severity === 'medium').length;
+  const urgency   = highCount >= 2 ? 'critical' : highCount === 1 ? 'high' : 'medium';
+
+  const fileRef = filePath
+    ? filePath.replace(/.*\/(services\/)/, '$1')
+    : `(search for ${name} — use search_classes MCP tool)`;
+
+  const safeModuleId = moduleId || 'unknown';
+  const moduleFile   = safeModuleId !== 'unknown'
+    ? `.codekg/modules/${safeModuleId.replace(/\//g, '--')}.md`
+    : null;
+
+  const methodsSection = methods.length
+    ? `### Public methods\n${methods.map(m => `- \`${m}\``).join('\n')}`
+    : '### Public methods\n_Not available — read the source file._';
+
+  const callersSection = callers.length
+    ? `### Called by (${callers.length} known callers — these files must continue to work after refactoring)\n${callers.map(c => `- \`${c.fqn}\``).join('\n')}`
+    : '### Called by\n_No callers detected in KG — verify manually before moving or renaming anything._';
+
+  const reasonLines = reasons.map((r, i) =>
+    `### Issue ${i+1}: ${r.title} [${r.severity.toUpperCase()}]\n**Problem:** ${r.detail}\n**Expected outcome:** ${r.outcome}`
+  ).join('\n\n');
+
+  const testSection = hasTests
+    ? `Tests exist — run them after every structural change to catch regressions.`
+    : `⚠ **No test class found for \`${name}\`.** Before making any structural changes, write a characterisation test that locks down current behaviour. A broken refactor with no tests is worse than the original.`;
+
+  const prompt = `# Refactoring task: \`${name}\`
+Priority: **${urgency}** · Grade: ${grade} (${score}/100) · Issues: ${reasons.length}
+
+---
+
+## Step 0 — Orient before touching anything (agent-specific)
+
+1. Read \`${moduleFile || '.codekg/modules/<name>.md'}\` — method signatures, blast radius, and session insights for this module are pre-computed here. Do NOT open source files to understand structure first.
+2. Note the callers listed below — every one of them must still compile and behave correctly after the refactoring.
+3. Read the source file \`${fileRef}\` only after reviewing the index.
+
+---
+
+## Class context
+
+- **FQN:** \`${fqn}\`
+- **File:** \`${fileRef}\`
+- **Module:** \`${safeModuleId}\`
+${summary ? `- **Summary:** ${summary}` : ''}
+
+${methodsSection}
+
+${callersSection}
+
+---
+
+## Test coverage
+
+${testSection}
+
+---
+
+## Issues to fix
+
+${reasonLines}
+
+---
+
+## How to approach this (agent workflow)
+
+**Plan in one pass, execute in bulk, verify once.**
+
+1. **Read once** — read the source file and the module index. Form a complete refactoring plan covering all issues before writing a single line. Note every method you will move, every class you will extract, every caller you will update.
+
+2. **Check callers** — for each caller listed above, confirm whether it will be affected. Open the caller files only if needed to understand the calling contract.
+
+3. **Execute all changes** — apply the full plan. If extracting new classes, create them. Update all callers atomically in the same session, not as a follow-up.
+
+4. **Verify blast radius** — after changes, call \`get_change_impact\` on the modified files. If blast radius of \`${name}\` has increased, reconsider the approach before committing.
+
+5. **Run tests** — if tests exist, run them. If they fail, fix before proceeding. If no tests exist, verify behaviour by reading callers.
+
+6. **Capture what you learned** — call \`capture_insight\` with anything non-obvious you discovered: hidden dependencies, surprising behaviour, constraints that aren't obvious from the code. This improves future refactoring sessions.
+
+---
+
+## Definition of done
+
+- [ ] All ${reasons.length} issue(s) addressed
+- [ ] All ${callers.length} known caller(s) still compile and behave correctly
+- [ ] Every new or modified class has a docstring stating what it is, what it solves, and what it is NOT responsible for
+- [ ] \`get_change_impact\` confirms blast radius of \`${name}\` has not increased
+- [ ] Tests pass (or characterisation test written if none existed)
+- [ ] \`capture_insight\` called with findings from this session
+- [ ] Commit message explains the WHY, not just the WHAT
+`;
+
+  document.getElementById('rf-modal-title').textContent = `Refactoring prompt — ${name}`;
+  document.getElementById('rf-prompt-text').value = prompt;
+  document.getElementById('rf-modal').classList.add('open');
+  document.getElementById('rf-copy-btn').textContent = 'Copy to clipboard';
+}
+
+function closeModal() {
+  document.getElementById('rf-modal').classList.remove('open');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('rf-prompt-text').value;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('rf-copy-btn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy to clipboard', 2500);
+  });
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+{% endblock %}

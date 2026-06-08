@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}{{ file.filename }} — Agent Index{% endblock %}
+{% block content %}
+<style>
+  .file-header { display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.5rem; }
+  .file-header h1 { margin:0; font-size:1.1rem; font-family:'JetBrains Mono',monospace; }
+  .file-header .meta { color:var(--text-3); font-size:.8rem; margin-top:.3rem; }
+  .back-link { color:var(--text-3); font-size:.82rem; margin-bottom:.75rem; display:inline-block; }
+  .back-link:hover { color:var(--primary); }
+
+  .two-col { display:grid; grid-template-columns:1fr 380px; gap:1.25rem; align-items:start; }
+  .two-col > :first-child { min-width: 0; }
+
+  .content-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); }
+  .content-body { overflow-x: auto; }
+  .content-card .card-header { padding:.75rem 1.25rem; border-bottom:1px solid var(--border); background:var(--bg); display:flex; align-items:center; justify-content:space-between; }
+  .content-card .card-header span { font-size:.78rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; }
+  .content-body { padding:1.25rem; }
+
+  .md-preview { font-size:.84rem; line-height:1.65; }
+  .md-preview h1 { font-size:1.2rem; margin:0 0 1rem; }
+  .md-preview h2 { font-size:.95rem; margin:1.25rem 0 .5rem; color:var(--text-2); }
+  .md-preview h3 { font-size:.88rem; margin:1rem 0 .35rem; }
+  .md-preview table { width:100%; border-collapse:collapse; margin:.75rem 0; font-size:.8rem; }
+  .md-preview th { background:var(--bg); padding:.4rem .75rem; text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); border-bottom:1px solid var(--border); }
+  .md-preview td { padding:.4rem .75rem; border-bottom:1px solid var(--border); }
+  .md-preview code { background:var(--surface-2); border:1px solid var(--border); border-radius:3px; padding:.1rem .3rem; font-size:.78rem; color:var(--primary); }
+  .md-preview pre { background:#1e1e2e; color:#cdd6f4; padding:1rem; border-radius:var(--radius); overflow-x:auto; font-size:.78rem; }
+  .md-preview blockquote { border-left:3px solid var(--border-2); padding:.25rem .75rem; color:var(--text-3); margin:.5rem 0; }
+  .md-preview ul, .md-preview ol { padding-left:1.5rem; }
+  .md-preview li { margin:.2rem 0; }
+  .md-preview hr { border:none; border-top:1px solid var(--border); margin:1rem 0; }
+  .md-preview strong { color:var(--text); }
+
+  .sidebar-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.1rem 1.25rem; box-shadow:var(--shadow); margin-bottom:1rem; }
+  .sidebar-card h3 { font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin-bottom:.75rem; }
+
+  .meta-row { display:flex; justify-content:space-between; font-size:.8rem; padding:.3rem 0; border-bottom:1px solid var(--border); }
+  .meta-row:last-child { border-bottom:none; }
+  .meta-label { color:var(--text-3); }
+  .meta-val { font-weight:500; }
+
+  .status-badge { display:inline-flex; align-items:center; padding:.12rem .45rem; border-radius:20px; font-size:.68rem; font-weight:600; }
+  .status-current { background:var(--success-lt); color:var(--success); border:1px solid #86efac; }
+  .status-stale   { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .status-hidden  { background:var(--surface-2);  color:var(--text-3);  border:1px solid var(--border); }
+
+  .manual-textarea { width:100%; min-height:120px; resize:vertical; font-family:'JetBrains Mono',monospace; font-size:.78rem; }
+  .save-row { display:flex; justify-content:flex-end; margin-top:.5rem; }
+
+  #toast {
+    position:fixed; bottom:1.5rem; right:1.5rem; z-index:999;
+    background:var(--success); color:#fff; padding:.65rem 1.25rem;
+    border-radius:var(--radius); font-size:.84rem; font-weight:500;
+    box-shadow:var(--shadow-md); opacity:0; transition:opacity .2s;
+    pointer-events:none;
+  }
+  #toast.show { opacity:1; }
+</style>
+
+<a href="/agent-index" class="back-link">← Agent Indexing</a>
+
+<div class="file-header">
+  <div style="flex:1">
+    <h1>
+      {% if file.directory %}<span style="color:var(--text-3)">{{ file.directory }}/</span>{% endif %}{{ file.filename }}
+    </h1>
+    <div class="meta">
+      {{ file.description }} ·
+      {% if file.generated_at %}Generated {{ file.generated_at[:16] | replace('T',' ') }} UTC{% else %}Not yet generated{% endif %}
+      {% if file.content %} · {{ file.content | length }} chars{% endif %}
+    </div>
+  </div>
+  <span class="status-badge status-{{ 'hidden' if file.hidden else file.status }}">
+    {{ 'hidden' if file.hidden else file.status }}
+  </span>
+</div>
+
+<div class="two-col">
+
+  <!-- Content preview -->
+  <div class="content-card">
+    <div class="card-header">
+      <span>Preview</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-ghost btn-sm" onclick="copyContent()">Copy</button>
+        <button class="btn btn-ghost btn-sm" onclick="regenThis()">↺ Regenerate</button>
+      </div>
+    </div>
+    <div class="content-body">
+      {% if content_html %}
+      <div class="md-preview">{{ content_html | safe }}</div>
+      {% else %}
+      <div style="color:var(--text-3); text-align:center; padding:2rem">
+        Not generated yet — click Regenerate.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div>
+    <!-- File info -->
+    <div class="sidebar-card">
+      <h3>File info</h3>
+      <div class="meta-row"><span class="meta-label">Trigger</span><span class="meta-val">{{ file.trigger or '—' }}</span></div>
+      <div class="meta-row"><span class="meta-label">Status</span><span class="meta-val">{{ 'hidden' if file.hidden else file.status }}</span></div>
+      <div class="meta-row"><span class="meta-label">Generated</span><span class="meta-val">{{ file.generated_at[:10] if file.generated_at else '—' }}</span></div>
+      <div class="meta-row"><span class="meta-label">Published</span><span class="meta-val">
+        {% if file.published_at and file.status == 'stale' %}
+          <span style="color:var(--warning)">⚠ {{ file.published_at[:10] }} — needs republish</span>
+        {% elif file.published_at %}
+          {{ file.published_at[:10] }}
+        {% else %}Not yet{% endif %}
+      </span></div>
+      {% if file.published_sha %}<div class="meta-row"><span class="meta-label">Commit</span><span class="meta-val"><code>{{ file.published_sha }}</code></span></div>{% endif %}
+      <div class="meta-row"><span class="meta-label">Size</span><span class="meta-val">{{ file.content | length if file.content else 0 }} chars</span></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="sidebar-card">
+      <h3>Actions</h3>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <button class="btn btn-sm" onclick="regenThis()">↺ Regenerate now</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleHidden({{ 'true' if not file.hidden else 'false' }})">
+          {{ '🙈 Hide this file' if not file.hidden else '👁 Show this file' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Manual additions -->
+    <div class="sidebar-card">
+      <h3>Manual additions</h3>
+      <p style="font-size:.78rem;color:var(--text-3);margin-bottom:.6rem">
+        Appended to the bottom of this file on publish. Preserved across regenerations.
+      </p>
+      <textarea class="manual-textarea" id="manual-text" placeholder="Add notes, context, or instructions here…">{{ file.manual_additions or '' }}</textarea>
+      <div class="save-row">
+        <button class="btn btn-sm" onclick="saveManual()">Save</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const REPO     = "{{ selected_repo }}";
+const FILE_KEY = "{{ file_key }}";
+</script>
+<script>
+function toast(msg, ok=true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok ? 'var(--success)' : 'var(--danger)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+async function regenThis() {
+  toast('Regenerating…');
+  try {
+    const r = await fetch('/api/agent-index/regen', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO, file_key: FILE_KEY})
+    });
+    const d = await r.json();
+    if (d.ok) { toast('Done'); setTimeout(() => location.reload(), 1200); }
+    else toast(d.detail || 'Error', false);
+  } catch(e) { toast('Request failed', false); }
+}
+async function toggleHidden(currentlyVisible) {
+  const hidden = currentlyVisible;
+  try {
+    const r = await fetch('/api/agent-index/toggle-hidden', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO, file_key: FILE_KEY, hidden})
+    });
+    const d = await r.json();
+    if (d.ok) { toast(hidden ? 'File hidden' : 'File visible'); setTimeout(() => location.reload(), 900); }
+    else toast('Error', false);
+  } catch(e) { toast('Request failed', false); }
+}
+async function saveManual() {
+  const text = document.getElementById('manual-text').value;
+  try {
+    const r = await fetch('/api/agent-index/manual-additions', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({repo_id: REPO, file_key: FILE_KEY, text})
+    });
+    const d = await r.json();
+    toast(d.ok ? 'Saved' : 'Error', d.ok);
+  } catch(e) { toast('Request failed', false); }
+}
+function copyContent() {
+  const el = document.getElementById('md-preview');
+  navigator.clipboard.writeText(el ? el.innerText : '').then(() => toast('Copied to clipboard'));
+}
+</script>
+{% endblock %}

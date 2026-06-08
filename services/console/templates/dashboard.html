@@ -1,90 +1,254 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+<style>
+  .summary-bar { display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:2rem; }
+  .summary-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.15s;
+  }
+  .summary-chip:hover { box-shadow: var(--shadow-md); }
+  .summary-chip .chip-val { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -0.03em; }
+  .summary-chip .chip-lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-top: 0.3rem; font-weight: 500; }
+  .summary-chip.highlight .chip-val { color: var(--success); }
+  .summary-chip.warn .chip-val { color: var(--warning); }
+  .summary-chip.alert .chip-val { color: var(--danger); }
+
+  .repo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:1rem; }
+  .repo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .repo-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
+  .repo-card h3 { font-size: 0.95rem; margin-bottom: 0.1rem; font-weight: 600; }
+  .repo-card h3 a { color: var(--primary); }
+  .repo-card .repo-meta { font-size: 0.72rem; color: var(--text-3); margin-bottom: 0.75rem; }
+  .repo-card .repo-meta code { color: var(--text-2); }
+  .repo-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:0.4rem; margin-top:0.75rem; }
+  .rs { background: var(--bg); border-radius: var(--radius); padding:0.4rem 0.5rem; text-align:center; border: 1px solid var(--border); }
+  .rs .rv { font-size: 1rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  .rs .rl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+  .repo-tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.5rem; }
+  .tag {
+    font-size: 0.65rem;
+    background: var(--surface-2);
+    color: var(--text-2);
+    border-radius: 20px;
+    padding: 0.15rem 0.55rem;
+    border: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .tag.java    { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .tag.python  { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+  .tag.cpp     { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+  .tag.gradle  { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+  .tag.maven   { background: #fefce8; border-color: #fef08a; color: #a16207; }
+  .tag.policies { background: var(--purple-lt); border-color: #ddd6fe; color: var(--purple); }
+
+  .event-list { list-style:none; padding:0; margin:0; }
+  .event-item { display:flex; align-items:flex-start; gap:0.75rem; padding:0.75rem 0; border-bottom:1px solid var(--border); }
+  .event-item:last-child { border-bottom:none; }
+  .event-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; flex-shrink: 0; margin-top: 0.1rem;
+  }
+  .event-icon.scan    { background: var(--info-lt); color: var(--info); }
+  .event-icon.policy  { background: var(--purple-lt); color: var(--purple); }
+  .event-icon.violation { background: var(--danger-lt); color: var(--danger); }
+  .event-icon.violation.warning { background: var(--warning-lt); color: var(--warning); }
+  .event-body { flex:1; min-width:0; }
+  .event-msg { font-size: 0.84rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event-sub { font-size: 0.72rem; color: var(--text-3); margin-top: 0.15rem; }
+  .event-repo {
+    font-size: 0.68rem;
+    color: var(--primary);
+    background: var(--primary-lt);
+    border: 1px solid #c7d2fe;
+    border-radius: 20px;
+    padding: 0.05rem 0.45rem;
+    font-weight: 500;
+  }
+</style>
+
 <h1>Dashboard</h1>
 
-<div class="section grid grid-3">
-  <div class="card stat">
-    <div class="value">{{ stats.get('classes', 0) }}</div>
-    <div class="label">Classes</div>
+{# ── Global summary bar ── #}
+<div class="summary-bar">
+  <div class="summary-chip">
+    <span class="chip-val">{{ gc.get('repos', 0) }}</span>
+    <span class="chip-lbl">Repos managed</span>
   </div>
-  <div class="card stat">
-    <div class="value">{{ stats.get('methods', 0) }}</div>
-    <div class="label">Methods</div>
+  <div class="summary-chip">
+    <span class="chip-val">{{ "{:,}".format(gc.get('classes', 0)) }}</span>
+    <span class="chip-lbl">Classes indexed</span>
   </div>
-  <div class="card stat">
-    <div class="value">{{ stats.get('packages', 0) }}</div>
-    <div class="label">Packages</div>
+  <div class="summary-chip">
+    <span class="chip-val">{{ "{:,}".format(gc.get('methods', 0)) }}</span>
+    <span class="chip-lbl">Methods indexed</span>
   </div>
+  <div class="summary-chip">
+    <span class="chip-val">{{ "{:,}".format(gc.get('packages', 0)) }}</span>
+    <span class="chip-lbl">Packages indexed</span>
+  </div>
+  <div class="summary-chip {% if gc.get('active_policies', 0) > 0 %}highlight{% endif %}">
+    <span class="chip-val">{{ gc.get('active_policies', 0) }}</span>
+    <span class="chip-lbl">Active policies</span>
+  </div>
+  {% if gc.get('pending_policies', 0) > 0 %}
+  <div class="summary-chip warn">
+    <span class="chip-val">{{ gc.get('pending_policies', 0) }}</span>
+    <span class="chip-lbl">Policies to review</span>
+  </div>
+  {% endif %}
+  {% if gc.get('violations', 0) > 0 %}
+  <div class="summary-chip alert">
+    <span class="chip-val">{{ gc.get('violations', 0) }}</span>
+    <span class="chip-lbl">Open violations</span>
+  </div>
+  {% endif %}
+  {% if token_savings %}
+  <div class="summary-chip highlight" title="Fresh input tokens consumed by codeKG calls as % of total input — the direct token cost of using the KG">
+    <span class="chip-val">{{ token_savings.input_pct }}%</span>
+    <span class="chip-lbl">Input via KG</span>
+  </div>
+  {% endif %}
+  {% if tk_total > 0 %}
+  <a href="/insights" style="text-decoration:none">
+    <div class="summary-chip highlight" title="Total insights captured across all repos">
+      <span class="chip-val">{{ tk_total }}</span>
+      <span class="chip-lbl">Insights</span>
+    </div>
+  </a>
+  {% endif %}
 </div>
 
-<div class="section grid grid-2">
-
-  <div>
-    <h2>Repositories</h2>
-    <div class="card">
-      {% if repos %}
-      <table>
-        <thead><tr><th>Repo</th><th>Last Indexed Commit</th><th></th></tr></thead>
-        <tbody>
-          {% for r in repos %}
-          <tr>
-            <td><a href="/repos/{{ r.repo_id }}"><code>{{ r.repo_id }}</code></a></td>
-            <td><code>{{ (r.last_commit or 'not yet indexed')[:12] }}</code></td>
-            <td><a href="/repos/{{ r.repo_id }}" style="font-size:0.75rem;color:#4a5568">details →</a></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty">No repositories indexed yet.<br><a href="/repos">Register a repository →</a></div>
-      {% endif %}
-    </div>
-  </div>
-
-  <div>
-    <h2>Active Policies</h2>
-    <div class="card">
-      {% if policies %}
-      <table>
-        <thead><tr><th>Policy</th><th>Severity</th><th>Status</th></tr></thead>
-        <tbody>
-          {% for p in policies %}
-          {% set pol = p.ap if p.ap is defined else p %}
-          <tr>
-            <td><a href="/policies/{{ pol.policy_id }}">{{ pol.title }}</a></td>
-            <td><span class="badge badge-{{ pol.severity }}">{{ pol.severity }}</span></td>
-            <td><span class="badge badge-{{ pol.status }}">{{ pol.status }}</span></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty">No policies defined yet. <a href="/policies">Create one →</a></div>
-      {% endif %}
-    </div>
-  </div>
-
-</div>
-
+{# ── Repos under management ── #}
 <div class="section">
-  <h2>Recent Error Violations</h2>
+  <h2>Repositories under management</h2>
+  {% if repo_stats %}
+  <div class="repo-grid">
+    {% for r in repo_stats %}
+    <div class="repo-card">
+      <h3><a href="/repos/{{ r.repo_id }}">{{ r.name or r.repo_id }}</a></h3>
+      <div class="repo-meta">
+        <code>{{ r.last_commit[:12] if r.last_commit else 'not yet indexed' }}</code>
+      </div>
+      <div class="repo-tags">
+        {% set lang = r.language or 'java' %}
+        <span class="tag {{ lang }}">{{ lang | capitalize }}</span>
+        {% if r.build_tool and r.build_tool != 'unknown' %}<span class="tag {{ r.build_tool }}">{{ r.build_tool }}</span>{% endif %}
+        {% if r.java_version %}<span class="tag">JDK {{ r.java_version }}</span>{% endif %}
+        {% if r.active_policies > 0 %}<span class="tag policies">{{ r.active_policies }} active polic{{ 'y' if r.active_policies == 1 else 'ies' }}</span>{% endif %}
+      </div>
+      <div class="repo-stats">
+        <div class="rs">
+          <div class="rv">{{ "{:,}".format(r.total_classes or 0) }}</div>
+          <div class="rl">Classes</div>
+        </div>
+        <div class="rs">
+          <div class="rv">{{ "{:,}".format(r.total_methods or 0) }}</div>
+          <div class="rl">Methods</div>
+        </div>
+        <div class="rs">
+          <div class="rv">{{ "{:,}".format(r.total_packages or 0) }}</div>
+          <div class="rl">Packages</div>
+        </div>
+        <div class="rs">
+          <div class="rv">{{ r.test_classes or 0 }}</div>
+          <div class="rl">Test classes</div>
+        </div>
+        <div class="rs">
+          <div class="rv" style="{% if r.patterns > 0 %}color:var(--success){% endif %}">{{ r.patterns or 0 }}</div>
+          <div class="rl">Patterns</div>
+        </div>
+        <div class="rs">
+          <a href="/insights" style="text-decoration:none;color:inherit">
+            <div class="rv" style="{% if tk_by_repo.get(r.repo_id, 0) > 0 %}color:var(--purple){% endif %}">
+              {{ tk_by_repo.get(r.repo_id, 0) }}
+            </div>
+            <div class="rl">Tribal KG</div>
+          </a>
+        </div>
+        {% if r.hygiene_score is not none %}
+        <div class="rs" style="grid-column:span 3">
+          <a href="/hygiene/{{ r.repo_id }}" style="text-decoration:none;color:inherit;display:flex;align-items:center;justify-content:center;gap:.5rem">
+            {% set hg = r.hygiene_grade or '?' %}
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;font-size:.85rem;font-weight:800;
+              {% if hg == 'A' %}background:#dcfce7;color:#15803d
+              {% elif hg == 'B' %}background:#dbeafe;color:#1d4ed8
+              {% elif hg == 'C' %}background:#fef9c3;color:#a16207
+              {% elif hg == 'D' %}background:#ffedd5;color:#c2410c
+              {% else %}background:#fee2e2;color:#b91c1c{% endif %}">{{ hg }}</span>
+            <div>
+              <div class="rv" style="font-size:.9rem">{{ r.hygiene_score|int }}/100</div>
+              <div class="rl">Hygiene · save {{ r.hygiene_savings_pct|int }}%</div>
+            </div>
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
   <div class="card">
-    {% if violations %}
-    <table>
-      <thead><tr><th>Violator</th><th>File</th><th>Policy</th></tr></thead>
-      <tbody>
-        {% for v in violations %}
-        <tr>
-          <td><code>{{ v.violator }}</code></td>
-          <td><code style="color:#64748b">{{ (v.file_path or '').split('/')[-1] }}</code></td>
-          <td><a href="/policies/{{ v.policy_id }}">{{ v.policy_title }}</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="empty">No repositories indexed yet. <a href="/repos">Register a repository →</a></div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Recent events ── #}
+<div class="section">
+  <h2>Recent events</h2>
+  <div class="card" style="padding:0 1rem;">
+    {% if recent_events %}
+    <ul class="event-list">
+      {% for ev in recent_events %}
+      <li class="event-item">
+        <div class="event-icon {{ ev.type }}{% if ev.type == 'violation' and ev.get('severity') == 'warning' %} warning{% endif %}">
+          {% if ev.type == 'scan' %}⟳
+          {% elif ev.type == 'policy' %}⚑
+          {% else %}✕{% endif %}
+        </div>
+        <div class="event-body">
+          <div class="event-msg">
+            {% if ev.type == 'scan' %}
+              Scan complete — {{ ev.repo_name }}
+            {% elif ev.type == 'policy' %}
+              <a href="/policies/{{ ev.policy_id }}" style="color:var(--purple)">{{ ev.message }}</a>
+            {% else %}
+              <a href="/policies/{{ ev.policy_id }}" style="color:var(--danger)">{{ ev.message }}</a>
+            {% endif %}
+          </div>
+          <div class="event-sub">
+            <span class="event-repo">{{ ev.repo_id }}</span>
+            &nbsp;{{ ev.detail }}
+          </div>
+        </div>
+        {% if ev.type == 'scan' %}
+        <a href="/repos/{{ ev.repo_id }}" style="font-size:0.72rem;color:var(--text-3);flex-shrink:0">details →</a>
+        {% elif ev.type in ('policy', 'violation') %}
+        {% if ev.get('severity') %}
+        <span class="badge badge-{{ ev.severity }}" style="flex-shrink:0">{{ ev.severity }}</span>
+        {% endif %}
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
     {% else %}
-    <div class="empty">No error-level violations. All clear.</div>
+    <div class="empty" style="padding:1rem 0">No events yet. Run a scan to get started.</div>
     {% endif %}
   </div>
 </div>

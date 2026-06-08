@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Telemetry{% endblock %}
+{% block content %}
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.75rem; }
+  .page-header h1 { margin:0; }
+  .page-header p { margin:.25rem 0 0; color:var(--text-3); font-size:.85rem; }
+
+  .session-table { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); }
+  .session-table table { font-size:.82rem; }
+  .session-table td, .session-table th { padding:.5rem .875rem; }
+
+  .num { font-family:'JetBrains Mono',monospace; font-size:.78rem; }
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-3); }
+  .empty-state .icon { font-size:3rem; margin-bottom:1rem; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Telemetry</h1>
+    <p>Claude Code sessions captured by the Stop hook — exact token counts from transcripts</p>
+  </div>
+</div>
+
+{% if not sessions %}
+<div class="empty-state card">
+  <div class="icon">📡</div>
+  <h3>No sessions recorded yet</h3>
+  <p>The Stop hook will submit data at the end of each Claude Code turn.</p>
+</div>
+{% else %}
+<div class="session-table">
+  <table>
+    <thead><tr>
+      <th>Session</th>
+      <th>Last seen</th>
+      <th>Turns</th>
+      <th title="Uncached input tokens only — what you're actually billed for at full rate">Input tokens (billed)</th>
+      <th title="cache_read / (cache_read + input) — higher is cheaper">Cache hit %</th>
+      <th title="Output tokens — task complexity, not affected by CodeKG">Output</th>
+      <th title="Estimated input tokens avoided by using CodeKG instead of manual exploration">Saved by CodeKG ↓</th>
+      <th title="Estimated input context if Claude had explored the codebase manually">Input without CodeKG ↑</th>
+    </tr></thead>
+    <tbody>
+    {% for s in sessions %}
+    <tr style="cursor:pointer" onclick="location.href='/telemetry/{{ s.session_id }}'">
+      <td><code>{{ s.session_id[:12] }}</code></td>
+      <td>{{ s.last_seen[:16].replace('T',' ') if s.last_seen else '—' }}</td>
+      <td class="num">{{ s.turn_count or 0 }}</td>
+      <td class="num">
+        {{ '{:,}'.format(s.total_input) if s.total_input else '—' }}
+      </td>
+      <td class="num">
+        {% set ctx = (s.total_input or 0) + (s.total_cache_read or 0) %}
+        {% if ctx %}
+          {% set pct = ((s.total_cache_read or 0) / ctx * 100)|round(1) %}
+          <span style="color:{{ 'var(--success)' if pct >= 80 else 'var(--warning)' if pct >= 50 else 'var(--danger)' }}">{{ pct }}%</span>
+        {% else %}—{% endif %}
+      </td>
+      <td class="num" style="color:var(--text-3)">{{ '{:,}'.format(s.total_output or 0) if s.total_output else '—' }}</td>
+      <td class="num" style="color:var(--success);font-weight:600">
+        {% if s.tokens_saved %}{{ '{:,}'.format(s.tokens_saved) }}{% else %}—{% endif %}
+      </td>
+      <td class="num" style="color:var(--text-3)">
+        {% set ctx = (s.total_input or 0) + (s.total_cache_read or 0) %}
+        {% set without = ctx + (s.tokens_saved or 0) %}
+        {{ '{:,}'.format(without) if without else '—' }}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

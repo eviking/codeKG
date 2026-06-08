@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}NL Summary Job{% endblock %}
+{% block content %}
+<style>
+  .job-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .job-header h1 { margin:0; }
+
+  .progress-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+                   padding:1.25rem; box-shadow:var(--shadow); margin-bottom:1.25rem; }
+
+  .big-prog { display:flex; align-items:center; gap:1rem; margin-bottom:0.5rem; }
+  .big-prog .counts { font-size:1.5rem; font-weight:700; color:var(--primary); letter-spacing:-0.03em; }
+  .big-prog .label  { font-size:0.8rem; color:var(--text-3); font-weight:500; }
+  .prog-track { flex:1; height:10px; background:var(--surface-2); border-radius:5px; overflow:hidden; }
+  .prog-bar   { height:100%; border-radius:5px; background:var(--primary); transition:width 0.4s; }
+
+  .status-chip { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem;
+                 border-radius:20px; font-size:0.78rem; font-weight:600; }
+  .status-running { background:var(--info-lt);    color:var(--info);    border:1px solid #bae6fd; }
+  .status-done    { background:var(--success-lt); color:var(--success); border:1px solid #86efac; }
+  .status-error   { background:var(--danger-lt);  color:var(--danger);  border:1px solid #fca5a5; }
+  .status-starting{ background:var(--surface-2);  color:var(--text-3);  border:1px solid var(--border); }
+
+  .pulse { display:inline-block; width:8px; height:8px; border-radius:50%;
+           background:var(--info); animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .log-box { background:#1e1e2e; border:1px solid #313244; border-radius:var(--radius);
+             padding:0.75rem 1rem; height:340px; overflow-y:auto; font-family:'JetBrains Mono',monospace;
+             font-size:0.74rem; line-height:1.6; color:#cdd6f4; }
+  .log-line.info    { color:#cdd6f4; }
+  .log-line.warning { color:#f9e2af; }
+  .log-line.error   { color:#f38ba8; }
+  .log-line.debug   { color:#6272a4; }
+</style>
+
+<div class="job-header">
+  <a href="/classes{% if request.query_params.get('repo_id') %}?repo_id={{ request.query_params.get('repo_id') }}{% endif %}"
+     style="color:var(--text-3);font-size:0.85rem">← Classes</a>
+  <h1>NL Summary Job</h1>
+  <span id="status-chip" class="status-chip status-{{ status }}">
+    {% if status == 'running' %}<span class="pulse"></span>{% endif %}
+    {{ status }}
+  </span>
+  <code style="font-size:0.75rem;color:var(--text-3)">{{ job_id }}</code>
+</div>
+
+<div class="progress-card">
+  <div class="big-prog">
+    <div>
+      <div class="counts"><span id="done-count">{{ done }}</span> <span style="font-size:1rem;color:var(--text-3)">/ <span id="total-count">{{ total if total > 0 else '?' }}</span></span></div>
+      <div class="label">classes summarised this run</div>
+    </div>
+    <div class="prog-track">
+      <div class="prog-bar" id="prog-bar" style="width:{% if total > 0 %}{{ ((done / total * 100)|int) }}%{% else %}0%{% endif %}"></div>
+    </div>
+    <div id="pct-label" style="font-size:0.9rem;font-weight:600;color:var(--primary);min-width:3.5ch">
+      {% if total > 0 %}{{ (done / total * 100)|int }}%{% else %}—{% endif %}
+    </div>
+  </div>
+  {% if status == 'done' and done == 0 %}
+  <div style="margin-top:0.75rem;padding:0.75rem 1rem;background:var(--warning-lt);border:1px solid #fcd34d;border-radius:var(--radius);font-size:0.85rem;color:var(--warning)">
+    <strong>Nothing to summarise.</strong> All non-TEST/GENERATED classes already have summaries.
+    To re-run anyway, use <em>Force regenerate</em> — or tick <em>Include TEST &amp; GENERATED classes</em> to cover those roles too.
+  </div>
+  {% endif %}
+  {% if status in ('done', 'error') %}
+  <div style="margin-top:0.75rem">
+    <a href="/classes{% if request.query_params.get('repo_id') %}?repo_id={{ request.query_params.get('repo_id') }}{% endif %}" class="btn {% if status == 'error' %}btn-ghost{% endif %}">
+      Back to Classes →
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <h2>Log</h2>
+  <div class="log-box" id="log-box">
+    {% for line in log %}
+    <div class="log-line {% if 'ERROR' in line %}error{% elif 'WARNING' in line or 'WARN' in line %}warning{% elif 'DEBUG' in line %}debug{% else %}info{% endif %}">{{ line }}</div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if status in ('running', 'starting') %}
+<script>
+const logBox = document.getElementById('log-box');
+const progBar = document.getElementById('prog-bar');
+const doneEl  = document.getElementById('done-count');
+const totalEl = document.getElementById('total-count');
+const pctEl   = document.getElementById('pct-label');
+const chip    = document.getElementById('status-chip');
+
+const es = new EventSource('/classes/summarise/{{ job_id }}/stream');
+
+function classifyLine(msg) {
+  if (msg.includes('ERROR'))   return 'error';
+  if (msg.includes('WARN'))    return 'warning';
+  if (msg.includes('DEBUG'))   return 'debug';
+  return 'info';
+}
+
+es.onmessage = function(e) {
+  const data = JSON.parse(e.data);
+  if (data.type === 'log') {
+    const div = document.createElement('div');
+    div.className = 'log-line ' + classifyLine(data.msg);
+    div.textContent = data.msg;
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+
+    if (data.total > 0) {
+      const pct = Math.round(data.done / data.total * 100);
+      progBar.style.width = pct + '%';
+      doneEl.textContent  = data.done;
+      totalEl.textContent = data.total;
+      pctEl.textContent   = pct + '%';
+    }
+  }
+  if (data.type === 'done') {
+    es.close();
+    chip.className = 'status-chip status-' + data.status;
+    chip.innerHTML = data.status;
+    if (data.total > 0) {
+      progBar.style.width = Math.round(data.done / data.total * 100) + '%';
+      doneEl.textContent  = data.done;
+      totalEl.textContent = data.total;
+      pctEl.textContent   = Math.round(data.done / data.total * 100) + '%';
+    }
+    if (data.status === 'done') {
+      const btn = document.createElement('div');
+      btn.style.marginTop = '0.75rem';
+      btn.innerHTML = '<a href="/classes" class="btn">Back to Classes →</a>';
+      document.querySelector('.progress-card').appendChild(btn);
+    }
+  }
+};
+
+es.onerror = function() {
+  es.close();
+};
+</script>
+{% endif %}
+
+{% endblock %}

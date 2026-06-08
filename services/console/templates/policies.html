@@ -1,18 +1,96 @@
 {% extends "base.html" %}
 {% block title %}Policies{% endblock %}
 {% block content %}
+<style>
+  .auto-badge {
+    font-size: 0.65rem; padding: 0.15rem 0.55rem; border-radius: 20px;
+    background: var(--success-lt); color: var(--success); font-weight: 600;
+    margin-left: 0.4rem; vertical-align: middle; border: 1px solid #86efac;
+  }
+  .violator-count { font-size: 0.8rem; color: var(--text-3); font-weight: 500; }
+  .sample-list { margin: 0; padding: 0.25rem 0 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .sample-list li {
+    font-size: 0.7rem; font-family: 'JetBrains Mono', monospace;
+    background: var(--primary-lt); color: var(--primary); padding: 0.1rem 0.45rem;
+    border-radius: 20px; border: 1px solid #c7d2fe;
+  }
+  details > summary { cursor: pointer; list-style: none; font-size: 0.72rem; color: var(--text-3); }
+  details > summary::-webkit-details-marker { display: none; }
+  .policy-row td { vertical-align: top; padding: 0.6rem 0.875rem; }
+</style>
+
 <h1>Architectural Policies</h1>
+
+{% set auto_policies = [] %}
+{% set manual_policies = [] %}
+{% for p in policies %}
+  {% set pol = p.ap if p.ap is defined else p %}
+  {% if pol.status == 'auto-draft' or pol.source == 'auto-scan' %}
+    {% set _ = auto_policies.append(p) %}
+  {% else %}
+    {% set _ = manual_policies.append(p) %}
+  {% endif %}
+{% endfor %}
+
+{# Auto-detected policies #}
+{% if auto_policies %}
+<div class="section">
+  <h2>Auto-detected Policies <span class="auto-badge">{{ auto_policies | length }} found</span></h2>
+  <p style="color:var(--text-3);font-size:0.85rem;margin-bottom:1rem;">
+    Detected automatically during the last scan. Review and activate the ones that matter for your team.
+  </p>
+  <div class="card" style="padding:0;">
+    <table>
+      <thead>
+        <tr>
+          <th>Policy</th>
+          <th>Severity</th>
+          <th>Violations</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in auto_policies %}
+        {% set pol = p.ap if p.ap is defined else p %}
+        <tr class="policy-row">
+          <td>
+            <a href="/policies/{{ pol.policy_id }}">{{ pol.title }}</a>
+            {% if pol.sample_violators %}
+            <details style="margin-top:0.35rem;">
+              <summary style="font-size:0.72rem;color:#4a5568;">▶ show examples</summary>
+              <ul class="sample-list">
+                {% for s in pol.sample_violators %}
+                <li title="{{ s }}">{{ s.split('.')[-1] if '.' in s else s }}</li>
+                {% endfor %}
+              </ul>
+            </details>
+            {% endif %}
+          </td>
+          <td><span class="badge badge-{{ pol.severity }}">{{ pol.severity }}</span></td>
+          <td class="violator-count">{{ pol.violator_count or '—' }}</td>
+          <td>
+            <form method="post" action="/policies/{{ pol.policy_id }}/activate" style="display:inline;">
+              <button class="btn btn-sm btn-success" type="submit">Activate</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 <div class="section grid grid-2">
 
   <div>
-    <h2>Existing Policies</h2>
+    <h2>Active &amp; Draft Policies</h2>
     <div class="card">
-      {% if policies %}
+      {% if manual_policies %}
       <table>
         <thead><tr><th>Title</th><th>Severity</th><th>Status</th></tr></thead>
         <tbody>
-          {% for p in policies %}
+          {% for p in manual_policies %}
           {% set pol = p.ap if p.ap is defined else p %}
           <tr>
             <td><a href="/policies/{{ pol.policy_id }}">{{ pol.title }}</a></td>
@@ -23,7 +101,7 @@
         </tbody>
       </table>
       {% else %}
-      <div class="empty">No policies yet.</div>
+      <div class="empty">No manually authored policies yet.</div>
       {% endif %}
     </div>
   </div>
@@ -31,12 +109,33 @@
   <div>
     <h2>New Policy</h2>
     <div class="card">
+      <p style="font-size:.78rem;color:var(--text-3);margin-bottom:1rem;line-height:1.6">
+        Describe your rule in plain English — AI will compile it to a runnable constraint.
+        Write rules about <strong>structure</strong> (what depends on what, what calls what)
+        rather than intent ("good code"). The rule text is also used as a guideline for Claude Code.
+      </p>
+
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1rem;font-size:.76rem">
+        <div style="font-weight:600;color:var(--text-2);margin-bottom:.5rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Examples that work well</div>
+        <div style="display:flex;flex-direction:column;gap:.4rem;color:var(--text-2)">
+          <div>✓ <em>"The payment module must not call the user module directly"</em></div>
+          <div>✓ <em>"Controller classes must not call repository classes without a service layer"</em></div>
+          <div>✓ <em>"All classes in the api module must not import from the console module"</em></div>
+          <div>✓ <em>"Service classes must not extend BaseController"</em></div>
+        </div>
+        <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--border);color:var(--text-3)">
+          <div>✗ <em>"Code should be clean"</em> — too vague, no structural signal</div>
+          <div>✗ <em>"Feature code should be in the API"</em> — intent-based, not detectable; describe the structural symptom instead</div>
+        </div>
+      </div>
+
       <form method="post" action="/policies">
         <label>Title
-          <input name="title" required placeholder="e.g. Payment module must not call User module directly">
+          <input name="title" required placeholder="e.g. Console module must not query Neo4j directly">
         </label>
-        <label>Natural Language Statement
-          <textarea name="natural_language" required placeholder="e.g. Services in the payment module must not directly call the user module"></textarea>
+        <label>Rule
+          <textarea name="natural_language" required rows="3"
+            placeholder="e.g. Classes in the console module must not import from neo4j or call the GraphDatabase driver — all KG queries must go through the API service"></textarea>
         </label>
         <label>Severity
           <select name="severity">
@@ -45,8 +144,8 @@
             <option value="info">Info</option>
           </select>
         </label>
-        <label>Target Modules (comma-separated)
-          <input name="module_targets" placeholder="e.g. payment, checkout">
+        <label>Target Modules (comma-separated, optional)
+          <input name="module_targets" placeholder="e.g. services/console, services/mcp">
         </label>
         <button type="submit">Compile &amp; Save as Draft</button>
       </form>

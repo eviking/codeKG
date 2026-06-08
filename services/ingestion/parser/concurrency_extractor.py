@@ -44,6 +44,8 @@ THREAD_SAFETY_ANNOTATIONS = {
 
 @dataclass
 class ThreadPoolDeclaration:
+    """Captures a discovered thread-pool declaration. Watch out for sizing fields here, because downstream analysis uses them to flag hidden concurrency hotspots."""
+
     class_fqn: str
     field_name: str
     pool_type: str
@@ -54,6 +56,8 @@ class ThreadPoolDeclaration:
 
 @dataclass
 class AsyncMethod:
+    """Captures a method that appears to run asynchronously. Watch out for heuristic detection here, because async behavior is often inferred from framework annotations rather than explicit syntax alone."""
+
     class_fqn: str
     method_name: str
     mechanism: str                  # @Async | CompletableFuture | Mono | Flux | synchronized
@@ -64,6 +68,8 @@ class AsyncMethod:
 
 @dataclass
 class ConcurrencyFact:
+    """Normalizes one concurrency-related signal before it is written to the graph. Watch out for confidence and source details here, because many of these facts are best-effort inferences."""
+
     class_fqn: str
     fact_type: str                  # thread_safe | not_thread_safe | guarded_by | synchronized_method | volatile_field
     detail: Optional[str] = None
@@ -76,6 +82,8 @@ def _text(node: Node, src: bytes) -> str:
 
 
 class ConcurrencyExtractor:
+    """Scans source trees for concurrency patterns and hazards. Watch out for framework bias here, because different languages expose async behavior through very different idioms."""
+
 
     def __init__(self):
         self._parser = Parser(JAVA_LANGUAGE)
@@ -83,7 +91,7 @@ class ConcurrencyExtractor:
     def extract_file(self, path: Path) -> tuple[list[ThreadPoolDeclaration], list[AsyncMethod], list[ConcurrencyFact]]:
         try:
             src = path.read_bytes()
-        except Exception:
+        except OSError:
             return [], [], []
         tree = self._parser.parse(src)
         pools: list[ThreadPoolDeclaration] = []

@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Classes{% endblock %}
+{% block content %}
+<style>
+  .filter-bar { display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; }
+  .filter-bar input { width:220px; }
+  .filter-bar button { padding:0.35rem 0.9rem; font-size:0.82rem; }
+  .filter-bar a.reset { font-size:0.78rem; color:var(--text-3); text-decoration:none; font-weight:500; }
+  .filter-bar a.reset:hover { color:var(--text-2); }
+
+  .toggle-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 0.3rem 0.85rem; cursor: pointer; color: var(--text-3); text-decoration: none;
+    font-weight: 500; transition: all 0.15s;
+  }
+  .toggle-pill:hover { border-color: var(--success); color: var(--success); text-decoration: none; }
+  .toggle-pill.active { background: var(--success-lt); border-color: #86efac; color: var(--success); }
+  .toggle-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  .summary-progress {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.6rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-2);
+    box-shadow: var(--shadow);
+  }
+  .summary-progress .prog-bar { flex: 1; height: 6px; background: var(--surface-2); border-radius: 3px; max-width: 200px; }
+  .summary-progress .prog-fill { height: 100%; border-radius: 3px; background: var(--success); }
+  .summary-progress strong { color: var(--success); }
+
+  .sort-tabs { display:flex; gap:0.4rem; margin-bottom:1rem; flex-wrap:wrap; }
+  .sort-tabs a {
+    font-size: 0.75rem; padding: 0.3rem 0.8rem; border-radius: 20px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-2);
+    text-decoration: none; font-weight: 500; transition: all 0.15s;
+  }
+  .sort-tabs a:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+  .sort-tabs a.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  .cls-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .cls-table th {
+    color: var(--text-3); font-weight: 600; text-transform: uppercase;
+    font-size: 0.65rem; letter-spacing: 0.07em; padding: 0.55rem 0.875rem;
+    border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap;
+    background: var(--bg);
+  }
+  .cls-table td { padding: 0.5rem 0.875rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cls-table tr:hover td { background: var(--primary-lt); }
+  .cls-table tr:hover .cls-name { color: var(--primary-h); }
+
+  .cls-name { color: var(--primary); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 500; }
+  .cls-pkg  { color: var(--text-3); font-size: 0.67rem; font-family: 'JetBrains Mono', monospace; }
+  .cls-mod  { font-size: 0.67rem; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
+  .cls-summary-preview { font-size: 0.73rem; color: var(--text-2); margin-top: 0.25rem; line-height: 1.4; max-width: 480px; }
+
+  .role {
+    display: inline-block; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; border-radius: 20px; padding: 0.15rem 0.55rem;
+  }
+  .role-TRANSPORT    { background: var(--info-lt);    color: var(--info);    border: 1px solid #bae6fd; }
+  .role-COMMAND      { background: var(--primary-lt); color: var(--primary); border: 1px solid #c7d2fe; }
+  .role-SERVICE      { background: var(--success-lt); color: var(--success); border: 1px solid #bbf7d0; }
+  .role-REPOSITORY   { background: var(--danger-lt);  color: var(--danger);  border: 1px solid #fca5a5; }
+  .role-FACTORY      { background: var(--purple-lt);  color: var(--purple);  border: 1px solid #ddd6fe; }
+  .role-VALUE_OBJECT { background: var(--surface-2);  color: var(--text-2);  border: 1px solid var(--border); }
+  .role-UTILITY      { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
+  .role-ABSTRACT_BASE{ background: var(--success-lt); color: #166534;        border: 1px solid #bbf7d0; }
+  .role-CONFIGURATION{ background: var(--warning-lt); color: var(--warning); border: 1px solid #fcd34d; }
+  .role-TEST         { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
+  .role-GENERATED    { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
+  .role-CLASS        { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
+
+  .coupling-wrap { display: flex; align-items: center; gap: 0.4rem; }
+  .coupling-bar  { height: 5px; border-radius: 3px; background: var(--surface-2); width: 60px; flex-shrink: 0; }
+  .coupling-fill { height: 100%; border-radius: 3px; }
+  .coupling-val  { font-size: 0.72rem; color: var(--text-3); min-width: 3ch; text-align: right; font-weight: 500; }
+
+  .blast-val { font-size: 0.8rem; color: var(--danger); font-weight: 700; }
+  .blast-val.low { color: var(--text-3); font-weight: 400; }
+
+  .warn-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); margin-right: 0.25rem; vertical-align: middle; }
+  .summary-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--success); margin-right: 0.25rem; vertical-align: middle; }
+
+  .pagination { display: flex; gap: 0.35rem; align-items: center; margin-top: 1.25rem; justify-content: flex-end; }
+  .pagination a, .pagination span {
+    font-size: 0.78rem; padding: 0.3rem 0.7rem; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-2); text-decoration: none;
+    font-weight: 500; transition: all 0.15s;
+  }
+  .pagination a:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+  .pagination span.current { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .pagination span.dots { border: none; background: transparent; color: var(--text-3); }
+</style>
+
+<div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:1rem;">
+  <h1>Classes</h1>
+  <span style="color:var(--text-3); font-size:0.85rem;">{{ total }} matching</span>
+</div>
+
+{# ── NL summary progress bar ── #}
+{% if class_total is defined and class_total > 0 %}
+{% set pct = [[((summary_total / class_total * 100) | int), 0] | max, 100] | min %}
+<div class="summary-progress">
+  <span>NL summaries{% if repo_id %} · {{ repo_id }}{% endif %}:</span>
+  <strong>{{ summary_total }} / {{ class_total }}</strong>
+  <div class="prog-bar" style="max-width:160px"><div class="prog-fill" style="width:{{ pct }}%"></div></div>
+  <span>{{ pct }}%</span>
+  {% if summary_total < class_total %}
+  <button type="button" onclick="document.getElementById('summarise-panel').style.display=document.getElementById('summarise-panel').style.display==='none'?'':'none'"
+    style="margin-left:auto;padding:0.2rem 0.75rem;font-size:0.75rem;border-radius:20px;background:var(--primary-lt);color:var(--primary);border:1px solid #c7d2fe;cursor:pointer;font-weight:600;font-family:inherit">
+    Run NL summaries ↓
+  </button>
+  {% endif %}
+  <a href="/classes?has_summary=true&sort=summary_ts&repo_id={{ repo_id }}"
+     style="{% if summary_total >= class_total %}margin-left:auto;{% endif %}font-size:0.75rem;color:var(--success);text-decoration:none;font-weight:500">
+    View all →
+  </a>
+</div>
+
+{# ── Run NL summaries panel ── #}
+<div id="summarise-panel" style="display:none;margin-bottom:1.25rem;">
+<div class="card" style="border-color:#c7d2fe;background:var(--primary-lt)">
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem">
+    <span style="font-size:1rem">🤖</span>
+    <h2 style="margin:0;color:var(--primary);text-transform:none;letter-spacing:0;font-size:0.95rem">Generate NL Summaries</h2>
+    <span style="font-size:0.75rem;color:var(--text-3);font-weight:400">Uses Ollama — must be running locally</span>
+  </div>
+  <form method="post" action="/classes/summarise" style="gap:0.75rem">
+    <input type="hidden" name="repo_id" value="{{ repo_id }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem">
+      <label>Ollama model
+        <input name="model" value="qwen2.5-coder:7b" placeholder="e.g. qwen2.5-coder:7b">
+      </label>
+      <label>Ollama URL
+        <input name="ollama_url" value="" placeholder="http://host.docker.internal:11434">
+        <span style="font-size:0.7rem;color:var(--text-3)">Leave blank for default</span>
+      </label>
+      <label>Filter by role (optional)
+        <select name="role">
+          <option value="">All roles</option>
+          {% for r in roles %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Limit (optional)
+        <input name="limit" type="number" min="1" placeholder="e.g. 50 — leave blank for all">
+        <span style="font-size:0.7rem;color:var(--text-3)">Classes to process this run</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.25rem">
+      <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer;font-weight:400">
+        <input type="checkbox" name="force" value="yes" style="width:auto">
+        <span>Force regenerate (overwrite existing summaries)</span>
+      </label>
+      <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer;font-weight:400">
+        <input type="checkbox" name="include_skip_roles" value="yes" style="width:auto">
+        <span>Include TEST &amp; GENERATED classes</span>
+      </label>
+      <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer;font-weight:400">
+        <input type="checkbox" name="include_modules" value="yes" style="width:auto">
+        <span>Include module-level nodes</span>
+      </label>
+    </div>
+    <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+      <button type="submit" style="background:var(--primary)">Start summarisation →</button>
+      <span style="font-size:0.75rem;color:var(--text-3)">
+        Skips already-summarised classes unless Force is checked. TEST &amp; GENERATED roles are excluded by default.
+      </span>
+    </div>
+  </form>
+</div>
+</div>
+{% endif %}
+
+{# ── filters ── #}
+<form method="get" action="/classes" class="filter-bar">
+  <input name="q" value="{{ q }}" placeholder="Search by name…">
+  <select name="role">
+    <option value="">All roles</option>
+    {% for r in roles %}
+    <option value="{{ r }}" {% if r == role %}selected{% endif %}>{{ r }}</option>
+    {% endfor %}
+  </select>
+  <input type="hidden" name="repo_id" value="{{ repo_id }}">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="has_summary" value="{{ 'true' if has_summary else 'false' }}">
+  <button type="submit">Filter</button>
+  <a class="reset" href="/classes?repo_id={{ repo_id }}">Reset</a>
+</form>
+
+{# ── sort + has-summary toggle on same row ── #}
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+  <div class="sort-tabs">
+    {% set hs = 'true' if has_summary else 'false' %}
+    {% for s, label in [('coupling','Highest coupling'), ('blast','Largest blast radius'), ('name','Name A–Z'), ('role','By role'), ('summary_ts','Recently summarised')] %}
+    <a href="/classes?q={{ q }}&role={{ role }}&repo_id={{ repo_id }}&has_summary={{ hs }}&sort={{ s }}"
+       class="{% if sort == s %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <a href="/classes?q={{ q }}&role={{ role }}&repo_id={{ repo_id }}&sort={{ sort }}&has_summary={{ 'false' if has_summary else 'true' }}"
+     class="toggle-pill {% if has_summary %}active{% endif %}">
+    <span class="dot"></span>
+    {% if has_summary %}Showing: with NL summary{% else %}Has NL summary{% endif %}
+  </a>
+</div>
+
+{# ── table ── #}
+<div class="section" style="padding:0; overflow:hidden;">
+  <table class="cls-table">
+    <thead>
+      <tr>
+        <th>Class</th>
+        <th>Role</th>
+        <th>Coupling</th>
+        <th style="text-align:right">Blast</th>
+        <th>Module</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for cls in classes %}
+    <tr onclick="window.location='/classes/{{ cls.fqn }}'" style="cursor:pointer">
+      <td>
+        <div>
+          {% if cls.warnings %}<span class="warn-dot" title="{{ cls.warnings | join(' · ') }}"></span>{% endif %}
+          {% if cls.summary %}<span class="summary-dot" title="Has NL summary"></span>{% endif %}
+          <span class="cls-name">{{ cls.name }}</span>
+        </div>
+        <div class="cls-pkg">{{ cls.fqn | replace(cls.name, '') | trim('.') }}</div>
+        {% if cls.module_id %}<div class="cls-mod">{{ cls.module_id }}</div>{% endif %}
+        {% if cls.summary %}
+        <div class="cls-summary-preview">{{ cls.summary[:140] }}{% if cls.summary | length > 140 %}…{% endif %}</div>
+        {% endif %}
+      </td>
+      <td><span class="role role-{{ cls.role }}">{{ cls.role }}</span></td>
+      <td>
+        <div class="coupling-wrap">
+          <div class="coupling-bar">
+            <div class="coupling-fill" style="width:{{ (cls.coupling * 100) | int }}%;
+              background:{% if cls.coupling > 0.7 %}#ef4444{% elif cls.coupling > 0.4 %}#f59e0b{% else %}#1d4ed8{% endif %}">
+            </div>
+          </div>
+          <span class="coupling-val">{{ '%.2f' | format(cls.coupling) }}</span>
+        </div>
+      </td>
+      <td style="text-align:right">
+        <span class="blast-val {% if cls.blast_size < 5 %}low{% endif %}">{{ cls.blast_size }}</span>
+      </td>
+      <td>
+        {% if cls.module_id %}
+        <a href="/modules/{{ cls.module_id }}" class="cls-mod" onclick="event.stopPropagation()"
+           style="text-decoration:none; color:#475569;">{{ cls.module_id }}</a>
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" style="text-align:center; color:#4a5568; padding:2rem;">No classes match these filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ── pagination ── #}
+{% if pages > 1 %}
+{% set hs = 'true' if has_summary else 'false' %}
+<div class="pagination">
+  {% if page > 1 %}
+    <a href="/classes?q={{ q }}&role={{ role }}&repo_id={{ repo_id }}&sort={{ sort }}&has_summary={{ hs }}&page={{ page - 1 }}">← Prev</a>
+  {% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == page %}
+      <span class="current">{{ p }}</span>
+    {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a href="/classes?q={{ q }}&role={{ role }}&repo_id={{ repo_id }}&sort={{ sort }}&has_summary={{ hs }}&page={{ p }}">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}
+      <span class="dots">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < pages %}
+    <a href="/classes?q={{ q }}&role={{ role }}&repo_id={{ repo_id }}&sort={{ sort }}&has_summary={{ hs }}&page={{ page + 1 }}">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

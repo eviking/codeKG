@@ -30,6 +30,8 @@ from neo4j import Driver
 
 @dataclass
 class ImpactedNode:
+    """Describes a graph node pulled into an impact-analysis result. Watch out for `hop_distance` and `reason`, because downstream ranking and explanations depend on both fields staying meaningful."""
+
     fqn: str
     name: str
     kind: str                       # class | method | interface | enum
@@ -42,6 +44,8 @@ class ImpactedNode:
 
 @dataclass
 class ImpactedEndpoint:
+    """Describes an API endpoint exposed by impacted code. Watch out for handler metadata here, because UI and MCP callers use it to connect HTTP surface area back to classes and methods."""
+
     endpoint_id: str
     http_method: str
     path: str
@@ -53,6 +57,8 @@ class ImpactedEndpoint:
 
 @dataclass
 class ImpactedPolicy:
+    """Captures a policy that becomes relevant to a change set. Watch out for `is_violated`, because callers use it to separate general blast radius from already-known architectural debt."""
+
     policy_id: str
     title: str
     natural_language: str
@@ -62,6 +68,8 @@ class ImpactedPolicy:
 
 @dataclass
 class SuggestedTest:
+    """Represents a test that probably covers impacted code. Watch out for the human-readable `reason`, because suggestions are heuristic and need enough context to be trusted."""
+
     fqn: str
     name: str
     file_path: Optional[str]
@@ -70,6 +78,8 @@ class SuggestedTest:
 
 @dataclass
 class ImpactReport:
+    """Aggregates the full deterministic blast-radius report for a change. Watch out for the summary totals here, because several endpoints serialize this object directly for UI and MCP clients."""
+
     repo_id: str
     changed_files: list[str]
     commit_sha: Optional[str]

@@ -1,11 +1,93 @@
+# ── Secrets & local config ─────────────────────────────────────────────────────
 .env
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# ── Databases ──────────────────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ── Runtime data (repos, neo4j, backups) ───────────────────────────────────────
 repos/
+neo4j/data/
+neo4j/logs/
+neo4j/import/
+neo4j/plugins/
 neo4j_data/
 neo4j_logs/
+backups/
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
 *.log
+logs/
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.venv/
+.venv-test/
+venv/
+env/
+pip-wheel-metadata/
+
+# ── Test & coverage artifacts ──────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.coveragerc
+
+# ── Temporary & editor files ───────────────────────────────────────────────────
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
 .DS_Store
+Thumbs.db
+
+# ── IDE & tool configs ─────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+.mypy_cache/
+.ruff_cache/
+
+# ── Docker volumes (if ever bind-mounted locally) ──────────────────────────────
+docker-volumes/
+
+# ── Misplaced pip install artifacts (=0.23, =8.0 in repo root) ─────────────────
+=*
+
+# ── scripts/ — only the five files required by the Makefile are tracked ────────
+scripts/*
+!scripts/healthcheck.py
+!scripts/log_pretty.py
+!scripts/register_repo.py
+!scripts/repo_backup.py
+!scripts/run_tests.sh
+
+# ── Claude Code local session state ───────────────────────────────────────────
+.claude/settings.local.json
+.claude/projects/
+.claude/memory/
+CC.json
+
+# ── MCP local config (contains server URLs/tokens) ────────────────────────────
+.mcp.json
+
+# ── Agent index (auto-generated on first scan — contains local file paths) ────
+.codekg/

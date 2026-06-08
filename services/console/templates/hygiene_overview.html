@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Code Hygiene{% endblock %}
+{% block content %}
+<style>
+  .page-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+  .page-header h1 { margin: 0; }
+  .page-header p { margin: 0; color: var(--text-3); font-size: .88rem; }
+
+  .repo-hygiene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px,1fr)); gap: 1.25rem; }
+
+  .hygiene-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: box-shadow .15s, border-color .15s;
+    text-decoration: none;
+    display: block;
+    color: inherit;
+  }
+  .hygiene-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
+  .grade-badge {
+    width: 56px; height: 56px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.75rem; font-weight: 800; flex-shrink: 0; line-height: 1;
+  }
+  .grade-A { background: #dcfce7; color: #15803d; }
+  .grade-B { background: #dbeafe; color: #1d4ed8; }
+  .grade-C { background: #fef9c3; color: #a16207; }
+  .grade-D { background: #ffedd5; color: #c2410c; }
+  .grade-F { background: #fee2e2; color: #b91c1c; }
+  .grade-unknown { background: var(--surface-2); color: var(--text-3); }
+
+  .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .2rem; }
+  .card-score { font-size: .82rem; color: var(--text-3); }
+  .score-num { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-right: .25rem; }
+
+  .score-bar-wrap { background: var(--surface-2); border-radius: 4px; height: 8px; margin-bottom: 1.25rem; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+  .bar-A { background: #22c55e; } .bar-B { background: #3b82f6; }
+  .bar-C { background: #eab308; } .bar-D { background: #f97316; } .bar-F { background: #ef4444; }
+
+  .hygiene-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; }
+  .hs { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .6rem; text-align: center; }
+  .hs .hv { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+  .hs .hl { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); margin-top: .15rem; }
+
+  .overhead-row { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: .8rem; color: var(--text-3); }
+  .overhead-val { font-weight: 700; font-size: .95rem; }
+  .overhead-A { color: var(--success); }
+  .overhead-B { color: var(--info); }
+  .overhead-C { color: var(--warning); }
+  .overhead-D, .overhead-F { color: var(--danger); }
+
+  .no-data { color: var(--text-3); font-style: italic; text-align: center; padding: 3rem; }
+
+  .section-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); margin-bottom: 1rem; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Code Hygiene</h1>
+    <p>AI token cost of technical debt — scored across all repositories</p>
+  </div>
+</div>
+
+{% if repos %}
+<div class="section-label">{{ repos|length }} repositor{{ 'y' if repos|length == 1 else 'ies' }} scored</div>
+<div class="repo-hygiene-grid">
+  {% for r in repos %}
+  {% set s = r.stats %}
+  {% set grade = r.grade if r.grade != '?' else 'unknown' %}
+  <a href="/hygiene/{{ r.repo_id }}" class="hygiene-card">
+    <div class="card-top">
+      <div class="grade-badge grade-{{ grade }}">{{ r.grade }}</div>
+      <div>
+        <div class="card-title">{{ r.repo_id }}</div>
+        <div class="card-score">
+          <span class="score-num">{{ r.score }}</span>/ 100 hygiene score
+        </div>
+      </div>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-bar-fill bar-{{ grade }}" style="width:{{ r.score }}%"></div>
+    </div>
+    <div class="hygiene-stats">
+      <div class="hs">
+        <div class="hv">{{ s.get('scored_classes', 0)|int }}</div>
+        <div class="hl">Classes</div>
+      </div>
+      <div class="hs">
+        <div class="hv" style="color:var(--danger)">{{ s.get('god_class_count', 0)|int }}</div>
+        <div class="hl">God classes</div>
+      </div>
+      <div class="hs">
+        <div class="hv" style="color:var(--success)">{{ s.get('realistic_savings_pct', 0)|int }}%</div>
+        <div class="hl">Est. savings</div>
+      </div>
+    </div>
+    {% if s and s.get('realistic_savings_pct', 0) > 0 %}
+    <div class="overhead-row">
+      <span>Refactor {{ s.get('cdf_class_count', 0)|int }} C/D/F classes → save est.</span>
+      <span class="overhead-val overhead-{{ grade }}">{{ s.get('realistic_savings_pct', 0)|int }}% AI tokens</span>
+    </div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="no-data">
+  No hygiene scores found. Run a full scan to compute hygiene scores.
+</div>
+{% endif %}
+
+<div style="margin-top:2.5rem; padding:1.25rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); font-size:.82rem; color:var(--text-3); max-width:680px;">
+  <strong style="color:var(--text)">How scores are calculated</strong><br><br>
+  Each class is scored 0–100 across four equally-weighted dimensions: class size (method count),
+  blast radius (transitive dependents), coupling, and documentation coverage.
+  The repo score is the mean across all non-test classes, with a penalty for god classes above 1% of total.
+  Token overhead estimates how many extra tokens an AI agent consumes working in this codebase
+  versus a clean baseline — based on a multiplier of 1× (score A) up to 15× (score F) applied per class.
+</div>
+{% endblock %}

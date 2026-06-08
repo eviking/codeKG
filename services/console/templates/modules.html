@@ -1,49 +1,213 @@
 {% extends "base.html" %}
 {% block title %}Modules{% endblock %}
 {% block content %}
-<h1>Logical Modules</h1>
+<style>
+  .mod-tree { font-size: 0.82rem; font-family: 'JetBrains Mono', monospace; }
+  .mod-row { display: flex; align-items: center; gap: 0; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  .mod-row:hover { background: var(--primary-lt); }
+  .mod-row.clickable { cursor: pointer; }
+  .mod-row.clickable:hover .mod-seg { color: var(--primary); }
+  .mod-indent { display: inline-block; width: 1.4rem; flex-shrink: 0; color: var(--border-2); text-align: center; }
+  .mod-seg { flex: 1; padding: 0.4rem 0.25rem 0.4rem 0; color: var(--text); }
+  .mod-seg.group { color: var(--text-3); font-style: italic; }
+  .mod-count-pill {
+    font-size: 0.65rem; background: var(--surface-2); color: var(--text-3);
+    border-radius: 20px; padding: 0.1rem 0.55rem; margin-right: 0.5rem;
+    white-space: nowrap; border: 1px solid var(--border); font-weight: 500;
+  }
+  .mod-count-pill.has-classes { background: var(--primary-lt); color: var(--primary); border-color: #c7d2fe; }
+  .tag-auto {
+    font-size: 0.6rem; background: var(--success-lt); color: var(--success);
+    border-radius: 20px; padding: 0.1rem 0.45rem; margin-left: 0.3rem;
+    border: 1px solid #bbf7d0; font-weight: 600;
+  }
+  .tree-connector { color: var(--border-2); }
 
-<div class="section grid grid-2">
+  #diagram-wrap {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    position: relative; overflow: hidden; height: 520px; margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+  }
+  #diagram-wrap svg { width: 100%; height: 100%; }
+  .node circle { cursor: pointer; }
+  .node text { font-size: 10px; fill: var(--text-2); pointer-events: none; font-family: 'Inter', sans-serif; }
+  .link { stroke: var(--border-2); stroke-opacity: 0.8; fill: none; }
+  .link.heavy { stroke: #a5b4fc; stroke-opacity: 0.9; }
+  #diagram-tip {
+    position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--text); pointer-events: none;
+    display: none; max-width: 240px; z-index: 10; box-shadow: var(--shadow-md); font-family: 'Inter', sans-serif;
+  }
+  .diagram-controls { position: absolute; top: 10px; right: 12px; display: flex; gap: 0.4rem; }
+  .diagram-controls button {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-2);
+    border-radius: var(--radius); padding: 0.25rem 0.7rem; font-size: 0.72rem; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-weight: 500; transition: all 0.15s;
+  }
+  .diagram-controls button:hover { color: var(--primary); border-color: var(--primary); }
+</style>
 
-  <div>
-    <h2>Defined Modules</h2>
-    <div class="card">
-      {% if modules %}
-      <table>
-        <thead><tr><th>Module</th><th>Description</th><th>Packages</th></tr></thead>
-        <tbody>
-          {% for m in modules %}
-          <tr>
-            <td><code>{{ m.module_id }}</code></td>
-            <td style="color:#94a3b8">{{ m.description or '—' }}</td>
-            <td style="font-size:0.75rem;color:#64748b">{{ m.packages | join(', ') or '—' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty">No modules defined yet.</div>
-      {% endif %}
+<h1>Modules</h1>
+
+{# ── Force-directed dependency diagram ── #}
+{% if edges %}
+<div class="section">
+  <h2>Module dependency graph</h2>
+  <p style="color:#64748b;font-size:0.8rem;margin-bottom:0.75rem">
+    Nodes sized by class count. Edges = cross-module import flows (thickness = volume). Click a node to open the module.
+  </p>
+  <div id="diagram-wrap">
+    <div class="diagram-controls">
+      <button onclick="resetZoom()">Reset</button>
+      <button onclick="toggleLabels()">Labels</button>
     </div>
+    <svg id="dep-svg"></svg>
+    <div id="diagram-tip"></div>
   </div>
-
-  <div>
-    <h2>Define a Module</h2>
-    <div class="card">
-      <form method="post" action="/modules">
-        <label>Module ID
-          <input name="module_id" required placeholder="e.g. payment">
-        </label>
-        <label>Description
-          <input name="description" placeholder="e.g. Handles all payment processing flows">
-        </label>
-        <label>Packages (comma-separated FQNs)
-          <textarea name="packages" placeholder="e.g. com.example.payment, com.example.payment.gateway"></textarea>
-        </label>
-        <button type="submit">Create Module</button>
-      </form>
-    </div>
-  </div>
-
 </div>
+{% endif %}
+
+{# ── Module tree ── #}
+<div class="section">
+  <h2>All modules ({{ modules | length }})</h2>
+  <div class="card" style="padding:0; overflow:hidden;">
+    <div class="mod-tree">
+      {% for row in module_tree %}
+        {% set m = row.data %}
+        {% set depth = row.depth %}
+        <div class="mod-row {% if m %}clickable{% endif %}"
+             {% if m %}onclick="window.location='/modules/{{ m.module_id }}'"{% endif %}>
+          {# indent guides #}
+          {% for i in range(depth) %}
+            <span class="mod-indent tree-connector">│</span>
+          {% endfor %}
+          {% if depth > 0 %}
+            <span class="mod-indent tree-connector">├─</span>
+          {% endif %}
+          <span class="mod-seg {% if not m %}group{% endif %}">
+            {{ row.key }}{% if m and m.auto %}<span class="tag-auto">auto</span>{% endif %}
+          </span>
+          {% if m %}
+            <span class="mod-count-pill {% if m.class_count %}has-classes{% endif %}">
+              {{ m.class_count or 0 }} classes
+            </span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── Define a module manually ── #}
+<div class="section">
+  <h2>Define a module manually</h2>
+  <div class="card" style="max-width:480px">
+    <form method="post" action="/modules">
+      <label>Module ID <input name="module_id" required placeholder="e.g. payment"></label>
+      <label>Description <input name="description" placeholder="e.g. Handles all payment flows"></label>
+      <label>Packages (comma-separated FQNs)
+        <textarea name="packages" placeholder="e.g. com.example.payment, com.example.checkout"></textarea>
+      </label>
+      <button type="submit">Create Module</button>
+    </form>
+  </div>
+</div>
+
+{% if edges %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+(function() {
+  const rawEdges = {{ edges | tojson }};
+  const modules  = {{ modules | tojson }};
+
+  // Build node map from modules that appear in edges or have classes
+  const classByMod = {};
+  modules.forEach(m => { classByMod[m.module_id] = m.class_count || 0; });
+
+  const nodeIds = new Set();
+  rawEdges.forEach(e => { nodeIds.add(e.source); nodeIds.add(e.target); });
+  // also include modules with classes even if no edges
+  modules.filter(m => m.class_count > 0).forEach(m => nodeIds.add(m.module_id));
+
+  const nodes = [...nodeIds].map(id => ({
+    id,
+    label: id.split('/').pop(),
+    classes: classByMod[id] || 0,
+  }));
+  const nodeIndex = {};
+  nodes.forEach((n,i) => nodeIndex[n.id] = i);
+
+  const links = rawEdges
+    .filter(e => nodeIndex[e.source] !== undefined && nodeIndex[e.target] !== undefined)
+    .map(e => ({ source: nodeIndex[e.source], target: nodeIndex[e.target], weight: e.weight }));
+
+  const maxW = Math.max(...links.map(l => l.weight), 1);
+  const maxC = Math.max(...nodes.map(n => n.classes), 1);
+  const r = n => 5 + Math.sqrt(n.classes / maxC) * 22;
+
+  const wrap = document.getElementById('diagram-wrap');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  const svg = d3.select('#dep-svg');
+  const tip = document.getElementById('diagram-tip');
+
+  const zoom = d3.zoom().scaleExtent([0.2, 4])
+    .on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoom);
+
+  const g = svg.append('g');
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).distance(d => 80 + (1 - d.weight/maxW)*120).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(-200))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide().radius(n => r(n) + 6));
+
+  const link = g.append('g').selectAll('line')
+    .data(links).join('line')
+    .attr('class', d => 'link' + (d.weight > maxW*0.3 ? ' heavy' : ''))
+    .attr('stroke-width', d => 0.5 + (d.weight / maxW) * 3.5)
+    .attr('stroke', d => d.weight > maxW * 0.5 ? '#6366f1' : '#cbd5e1');
+
+  const node = g.append('g').selectAll('g')
+    .data(nodes).join('g')
+    .attr('class', 'node')
+    .call(d3.drag()
+      .on('start', (e,d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e,d) => { if (!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; })
+    )
+    .on('click', (e,d) => { window.location='/modules/'+d.id; })
+    .on('mouseover', (e,d) => {
+      const outEdges = links.filter(l => l.source.id===d.id || l.source===nodes.indexOf(d));
+      tip.innerHTML = `<strong>${d.id}</strong><br>${d.classes} classes`;
+      tip.style.display='block';
+    })
+    .on('mousemove', e => {
+      tip.style.left = (e.offsetX+14)+'px';
+      tip.style.top  = (e.offsetY-10)+'px';
+    })
+    .on('mouseout', () => { tip.style.display='none'; });
+
+  node.append('circle')
+    .attr('r', r)
+    .attr('fill', d => d.classes > 50 ? '#4f46e5' : d.classes > 10 ? '#818cf8' : '#c7d2fe')
+    .attr('stroke', '#6366f1').attr('stroke-width', 1.5);
+
+  let labelsOn = true;
+  const labels = node.append('text')
+    .attr('dy', d => r(d) + 12)
+    .attr('text-anchor', 'middle')
+    .text(d => d.label);
+
+  sim.on('tick', () => {
+    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  window.resetZoom = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(0,0).scale(1));
+  window.toggleLabels = () => { labelsOn=!labelsOn; labels.style('display', labelsOn?null:'none'); };
+})();
+</script>
+{% endif %}
 {% endblock %}

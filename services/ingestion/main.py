@@ -1,61 +1,48 @@
 """
-Ingestion service — FastAPI app exposing endpoints for the watcher to trigger
-full scans and incremental updates.
+Ingestion service — minimal FastAPI stub.
+
+Scan jobs are now run as ephemeral Docker containers (run_scan.py).
+This service only exists for the claude-md/refresh endpoint which the
+console calls after a scan completes to regenerate CLAUDE.md.
 """
-import logging
 import os
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from shared.config import cfg
+from shared.logging.codekg_logger import get_logger
 from kg.writer import KGWriter
-from ingestion_engine import IngestionEngine
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+log = get_logger(__name__, service="ingestion")
 
 app = FastAPI(title="CodeKG Ingestion Service")
 
-NEO4J_URI = os.environ["NEO4J_URI"]
-NEO4J_USER = os.environ["NEO4J_USER"]
-NEO4J_PASSWORD = os.environ["NEO4J_PASSWORD"]
-
-writer = KGWriter(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
-engine = IngestionEngine(writer)
+writer = KGWriter(cfg.neo4j.uri, cfg.neo4j.user, cfg.neo4j.password)
 
 
 @app.on_event("startup")
 async def startup():
     writer.ensure_schema()
-    log.info("Schema ensured.")
+    log.info("Ingestion service ready")
 
 
-class FullScanRequest(BaseModel):
+class RepoRequest(BaseModel):
+    """Validates ingestion requests for a repository path and identifier. Watch out for trust boundaries here, because these values come from external callers and drive filesystem access."""
+
     repo_path: str
     repo_id: str
 
 
-class IncrementalRequest(BaseModel):
-    repo_path: str
-    repo_id: str
-    from_commit: str
-    to_commit: str
-
-
-@app.post("/scan/full")
-async def full_scan(req: FullScanRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(engine.full_scan, req.repo_path, req.repo_id)
-    return {"status": "started", "repo_id": req.repo_id}
-
-
-@app.post("/scan/incremental")
-async def incremental_scan(req: IncrementalRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(
-        engine.incremental_update,
-        req.repo_path, req.repo_id, req.from_commit, req.to_commit,
-    )
-    return {"status": "started", "repo_id": req.repo_id,
-            "from": req.from_commit, "to": req.to_commit}
+@app.post("/claude-md/refresh")
+async def refresh_claude_md(req: RepoRequest):
+    from claude_md_writer import write_claude_md
+    ok = write_claude_md(writer._driver, req.repo_id, req.repo_path)
+    if ok:
+        log.info("CLAUDE.md refreshed", repo_id=req.repo_id)
+        return {"status": "ok", "repo_id": req.repo_id}
+    return JSONResponse(status_code=500, content={"status": "error", "repo_id": req.repo_id})
 
 
 @app.get("/health")

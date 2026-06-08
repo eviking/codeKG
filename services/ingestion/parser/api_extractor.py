@@ -33,6 +33,8 @@ JAXRS_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 
 @dataclass
 class ApiEndpoint:
+    """Describes an HTTP endpoint inferred from source annotations or route declarations. Watch out for the handler fields here, because later graph edges rely on them to join endpoints back to code."""
+
     http_method: str                    # GET, POST, etc.
     path: str                           # full path (class prefix + method)
     handler_class: str                  # FQN of the controller class
@@ -68,6 +70,8 @@ def _extract_path_variables(path: str) -> list[str]:
 
 
 class ApiExtractor:
+    """Extracts API surface area from supported source trees. Watch out for framework-specific heuristics here, because false positives here become durable endpoint nodes in the graph."""
+
 
     def __init__(self):
         self._parser = Parser(JAVA_LANGUAGE)
@@ -75,7 +79,7 @@ class ApiExtractor:
     def extract_file(self, path: Path, repo_id: str) -> list[ApiEndpoint]:
         try:
             src = path.read_bytes()
-        except Exception:
+        except OSError:
             return []
         tree = self._parser.parse(src)
         endpoints: list[ApiEndpoint] = []

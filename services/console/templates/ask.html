@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+{% block title %}Ask the KG{% endblock %}
+
+{% block content %}
+<style>
+  .ask-wrap { width: 100%; }
+
+  .ask-textarea-wrap textarea {
+    font-size: 0.95rem;
+    padding: 0.85rem 1rem;
+    min-height: 180px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+
+  .ask-actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 0.75rem; }
+  .ask-actions button { white-space: nowrap; padding: 0.6rem 1.75rem; font-size: 0.9rem; }
+
+  .examples { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .examples h3 { font-size: 0.7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; font-weight: 600; }
+  .pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .pill {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 20px;
+    padding: 0.25rem 0.875rem; font-size: 0.78rem; color: var(--text-2);
+    cursor: pointer; transition: all 0.15s; font-weight: 500;
+  }
+  .pill:hover { background: var(--primary-lt); border-color: var(--primary); color: var(--primary); }
+
+  .spinner { display:none; width:15px; height:15px; border:2px solid var(--border);
+             border-top-color:var(--primary); border-radius:50%;
+             animation:spin 0.7s linear infinite; margin-left:0.5rem; vertical-align:middle; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1.25rem; width: 100%; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; width: 100%; box-shadow: var(--shadow); }
+  .panel-header {
+    padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.6rem; background: var(--bg);
+  }
+  .panel-header h2 { font-size: 0.72rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin: 0; }
+  .panel-header .icon { font-size: 1rem; }
+  .panel-body { padding: 1.25rem; }
+
+  .answer-body { color: var(--text); font-size: 0.9rem; line-height: 1.75; }
+  .answer-body h2, .answer-body h3 { color: var(--primary); margin: 1.25rem 0 0.5rem; font-size: 1rem; font-weight: 600; }
+  .answer-body h2:first-child, .answer-body h3:first-child { margin-top: 0; }
+  .answer-body p { margin: 0 0 0.75rem; }
+  .answer-body p:last-child { margin-bottom: 0; }
+  .answer-body ul, .answer-body ol { padding-left: 1.5rem; margin: 0 0 0.75rem; }
+  .answer-body li { margin-bottom: 0.3rem; }
+  .answer-body strong { color: var(--text); font-weight: 600; }
+  .answer-body table { margin: 0.75rem 0; font-size: 0.85rem; }
+  .answer-body th { color: var(--primary); }
+
+  .risk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+  .risk-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+  .risk-card .value { font-size: 1.75rem; font-weight: 700; color: var(--primary); line-height: 1; letter-spacing: -0.03em; }
+  .risk-card .label { font-size: 0.7rem; color: var(--text-3); margin-top: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+  .risk-card .sub   { font-size: 0.78rem; color: var(--text-2); margin-top: 0.25rem; }
+  .risk-card.warn   { border-color: #fcd34d; background: var(--warning-lt); }
+  .risk-card.warn .value { color: var(--warning); }
+  .risk-card.good   { border-color: #86efac; background: var(--success-lt); }
+  .risk-card.good .value { color: var(--success); }
+  .risk-card.bad    { border-color: #fca5a5; background: var(--danger-lt); }
+  .risk-card.bad .value { color: var(--danger); }
+
+  .heatmap { display: flex; flex-direction: column; gap: 0.5rem; }
+  .heat-row { display: flex; align-items: center; gap: 0.75rem; }
+  .heat-bar-wrap { flex: 1; background: var(--surface-2); border-radius: 4px; height: 20px; overflow: hidden; }
+  .heat-bar { height: 100%; border-radius: 4px; display: flex; align-items: center;
+              padding: 0 0.5rem; font-size: 0.73rem; color: #fff; font-weight: 600;
+              transition: width 0.3s; min-width: 2px; }
+  .heat-label { width: 260px; font-size: 0.76rem; color: var(--text-2); font-family: 'JetBrains Mono', monospace;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .heat-count { width: 60px; text-align: right; font-size: 0.78rem; color: var(--text-3); flex-shrink: 0; font-weight: 500; }
+  .heat-relations { display: flex; gap: 0.25rem; flex-shrink: 0; }
+  .rel-badge { font-size: 0.62rem; padding: 0.1rem 0.4rem; border-radius: 20px; font-weight: 600; }
+  .rel-IMPORTS    { background: var(--info-lt);    color: var(--info);    border: 1px solid #bae6fd; }
+  .rel-EXTENDS    { background: var(--purple-lt);  color: var(--purple);  border: 1px solid #ddd6fe; }
+  .rel-IMPLEMENTS { background: var(--success-lt); color: var(--success); border: 1px solid #bbf7d0; }
+
+  .test-list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .test-row { display: flex; align-items: center; gap: 0.75rem;
+              padding: 0.45rem 0.75rem; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); }
+  .test-fqn { font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--text); flex: 1;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .test-type { font-size: 0.65rem; padding: 0.15rem 0.45rem; border-radius: 20px; flex-shrink: 0; font-weight: 600; }
+  .type-direct_import { background: var(--info-lt); color: var(--info); border: 1px solid #bae6fd; }
+  .type-same_package  { background: var(--surface-2); color: var(--text-3); border: 1px solid var(--border); }
+  .no-tests { color: var(--text-3); font-size: 0.875rem; padding: 0.5rem 0; }
+
+  .evidence-toggle {
+    width: 100%; background: none; border: none; color: var(--text-3);
+    font-size: 0.8rem; padding: 0.875rem 1.25rem; text-align: left;
+    cursor: pointer; display: flex; align-items: center; gap: 0.5rem;
+    font-family: inherit; font-weight: 500;
+  }
+  .evidence-toggle:hover { color: var(--text-2); background: var(--bg); }
+  .evidence-body { padding: 0 1.25rem 1.25rem; display: none; }
+  .evidence-body.open { display: block; }
+
+  .diff-file { margin-bottom: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .diff-file-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem;
+                      background: var(--bg); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .diff-filepath { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--primary); flex: 1;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .diff-commit-meta { font-size: 0.72rem; color: var(--text-3); white-space: nowrap; }
+  .diff-commit-sha { font-family: 'JetBrains Mono', monospace; color: var(--text-2); background: var(--surface-2);
+                     padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.72rem; }
+  .diff-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .diff-tab { padding: 0.4rem 1rem; font-size: 0.78rem; color: var(--text-3); cursor: pointer;
+              border-bottom: 2px solid transparent; font-weight: 500; transition: color 0.15s; }
+  .diff-tab:hover { color: var(--text-2); }
+  .diff-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .diff-panel { display: none; }
+  .diff-panel.active { display: block; }
+  .diff-source { margin: 0; max-height: 500px; overflow-y: auto; border-radius: 0; padding: 0; font-size: 0.78rem; }
+  .diff-source code { background: none; border: none; padding: 0; font-family: 'JetBrains Mono', monospace; }
+  .diff-hunk { border-top: 1px solid #313244; }
+  .diff-hunk:first-child { border-top: none; }
+  .diff-hunk-header { background: #1e1e2e; color: #6272a4; font-size: 0.72rem; padding: 0.25rem 0.75rem; font-family: 'JetBrains Mono', monospace; }
+  .diff-line { display: flex; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.5; }
+  .diff-line:hover { filter: brightness(0.97); }
+  .diff-gutter { width: 2rem; text-align: right; padding: 0 0.5rem; font-size: 0.7rem; color: #6272a4; flex-shrink: 0; user-select: none; }
+  .diff-sign { width: 1rem; padding: 0 0.15rem; flex-shrink: 0; user-select: none; }
+  .diff-text { flex: 1; padding: 0 0.5rem; white-space: pre; overflow-x: auto; }
+  .diff-line.added   { background: #1a2e1a; }
+  .diff-line.added .diff-gutter   { background: #162416; color: #6a9f6a; }
+  .diff-line.added .diff-sign     { color: #50fa7b; }
+  .diff-line.added .diff-text     { color: #a6e3a1; }
+  .diff-line.removed { background: #2e1a1a; }
+  .diff-line.removed .diff-gutter { background: #241616; color: #9f6a6a; }
+  .diff-line.removed .diff-sign   { color: #ff5555; }
+  .diff-line.removed .diff-text   { color: #f38ba8; }
+  .diff-line.context .diff-gutter { background: #1e1e2e; }
+  .diff-line.context .diff-sign   { color: #45475a; }
+  .diff-line.context .diff-text   { color: #6272a4; }
+  .diff-no-changes { padding: 1rem; color: var(--text-3); font-size: 0.8rem; font-style: italic; }
+
+  .token-grid { display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .token-col { flex: 1; min-width: 180px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+  .bad-col   { border-color: #fca5a5; background: var(--danger-lt); }
+  .good-col  { border-color: #86efac; background: var(--success-lt); }
+  .savings-col { border-color: #bae6fd; background: var(--info-lt); }
+  .token-col-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-bottom: 0.75rem; font-weight: 600; }
+  .token-stat { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .token-value { font-size: 1.5rem; font-weight: 700; line-height: 1; color: var(--primary); letter-spacing: -0.03em; }
+  .token-value.good    { color: var(--success); }
+  .token-value.bad     { color: var(--danger); }
+  .token-value.neutral { color: var(--text-2); }
+  .token-label { font-size: 0.73rem; color: var(--text-3); font-weight: 500; }
+  .token-note  { font-size: 0.73rem; color: var(--text-2); margin-top: 0.6rem; line-height: 1.4; }
+  .token-arrow { font-size: 1.5rem; color: var(--text-3); align-self: center; flex: 0; }
+  .token-bar-wrap { margin-top: 0.75rem; }
+  .token-bar-track { background: var(--surface-2); border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 0.35rem; }
+  .token-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+  .token-bar-fill.good { background: var(--success); }
+  .token-bar-fill.warn { background: var(--warning); }
+  .token-bar-label { font-size: 0.75rem; color: var(--text-2); font-weight: 600; }
+
+  .error-box { background: var(--danger-lt); border: 1px solid #fca5a5; border-radius: var(--radius); padding: 1rem 1.25rem; color: var(--danger); font-size: 0.875rem; }
+</style>
+
+<div class="ask-wrap">
+  <h1>Ask the Knowledge Graph</h1>
+
+  <div class="card">
+    <form method="post" action="/ask" id="ask-form">
+      <input type="hidden" name="repo_id" value="{{ selected_repo or '' }}">
+      <div class="ask-textarea-wrap">
+        <textarea name="question" id="q" required autocomplete="off"
+                  placeholder="Ask anything about the codebase — e.g. &quot;Tell me how to fix this bug and the impact/risk of doing so&quot;, &quot;Which classes have the largest blast radius?&quot;, &quot;Show me all Django models in the auth module&quot;…">{{ question or '' }}</textarea>
+      </div>
+      <div class="ask-actions">
+        <button type="submit" id="submit-btn">
+          Ask{% if selected_repo %} ({{ selected_repo }}){% endif %} <span class="spinner" id="spinner"></span>
+        </button>
+        <span style="font-size:0.8rem; color:var(--text-3);">
+          {% if selected_repo %}Scoped to <strong style="color:var(--text-2);">{{ selected_repo }}</strong> — change repo in the top-right selector{% else %}No repo selected — querying all repos{% endif %}
+        </span>
+      </div>
+    </form>
+
+    <div class="examples">
+      <h3>Risk &amp; Impact</h3>
+      <div class="pills">
+        <span class="pill" onclick="setQ('Which classes have the largest blast radius? Show the top 10 most dangerous to change.')">Largest blast radius</span>
+        <span class="pill" onclick="setQ('Show the most highly coupled classes — what is most risky to change?')">Highest coupling</span>
+        <span class="pill" onclick="setQ('Which SERVICE classes have a blast radius over 50?')">High-risk services</span>
+        <span class="pill" onclick="setQ('List all active architecture policy violations')">Policy violations</span>
+      </div>
+      <h3 style="margin-top:0.75rem">Architecture</h3>
+      <div class="pills">
+        <span class="pill" onclick="setQ('Show me the call chains — how do TRANSPORT classes flow through SERVICE to REPOSITORY?')">Call chains</span>
+        <span class="pill" onclick="setQ('Which REPOSITORY classes does JobManager depend on?')">Repository dependencies</span>
+        <span class="pill" onclick="setQ('Show all SERVICE classes in the ml module')">ML services</span>
+        <span class="pill" onclick="setQ('Find all classes annotated with @Component or @Service')">Spring components</span>
+        <span class="pill" onclick="setQ('Show all TRANSPORT entry-point classes')">Entry points</span>
+      </div>
+      <h3 style="margin-top:0.75rem">Explore</h3>
+      <div class="pills">
+        <span class="pill" onclick="setQ('Which classes have natural language summaries?')">Classes with summaries</span>
+        <span class="pill" onclick="setQ('Which classes have docstrings from the original source? Show me the ones with the most informative descriptions.')">Classes with docstrings</span>
+        <span class="pill" onclick="setQ('Show all classes that extend AbstractLifecycleComponent')">AbstractLifecycleComponent subclasses</span>
+        <span class="pill" onclick="setQ('Which packages have the most classes?')">Busiest packages</span>
+        <span class="pill" onclick="setQ('Find classes with more than 30 methods that are not test classes')">Large classes</span>
+        <span class="pill" onclick="setQ('What architectural patterns have been detected in this codebase?')">Detected patterns</span>
+      </div>
+    </div>
+  </div>
+
+  {% if result %}
+  <div class="results">
+
+    {% if result.error %}
+    <div class="error-box"><strong>Error:</strong> {{ result.error }}</div>
+
+    {% else %}
+
+    {# ── Answer ────────────────────────────────────────────────── #}
+    {% if result.summary_html %}
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">💡</span>
+        <h2>Analysis</h2>
+      </div>
+      <div class="panel-body answer-body">{{ result.summary_html | safe }}</div>
+    </div>
+    {% endif %}
+
+    {# ── Risk ──────────────────────────────────────────────────── #}
+    {% if result.risk %}
+    {% set risk = result.risk %}
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">⚠️</span>
+        <h2>Risk Analysis</h2>
+      </div>
+      <div class="panel-body">
+        <div class="risk-grid">
+
+          <div class="risk-card {% if risk.dependants == 0 %}good{% elif risk.dependants < 10 %}warn{% else %}bad{% endif %}">
+            <div class="value">{{ risk.dependants }}</div>
+            <div class="label">Direct dependants</div>
+            <div class="sub">Classes that import or extend the affected code</div>
+          </div>
+
+          <div class="risk-card {% if risk.test_coverage == 'good' %}good{% elif risk.test_coverage == 'partial' %}warn{% else %}bad{% endif %}">
+            <div class="value">{{ risk.test_count }}</div>
+            <div class="label">Test classes</div>
+            <div class="sub">Coverage: {{ risk.test_coverage }}</div>
+          </div>
+
+          {% if risk.sibling_variants > 0 %}
+          <div class="risk-card warn">
+            <div class="value">{{ risk.sibling_variants }}</div>
+            <div class="label">Sibling variants</div>
+            <div class="sub">Same bug may exist in related evaluators</div>
+          </div>
+          {% endif %}
+
+          <div class="risk-card {% if risk.is_generated %}warn{% endif %}">
+            <div class="value">{% if risk.is_generated %}Yes{% else %}No{% endif %}</div>
+            <div class="label">Generated code</div>
+            <div class="sub">{% if risk.is_generated %}Edit the template, not this file{% else %}Edit directly{% endif %}</div>
+          </div>
+
+          {% if risk.method_count %}
+          <div class="risk-card {% if risk.method_count > 20 %}warn{% else %}good{% endif %}">
+            <div class="value">{{ risk.method_count }}</div>
+            <div class="label">Methods</div>
+            <div class="sub">In affected classes</div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Impact heatmap ────────────────────────────────────────── #}
+    {% if result.impact %}
+    {% set max_count = result.impact | map(attribute='class_count') | max %}
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">🔥</span>
+        <h2>Impact Heatmap — {{ result.impact | sum(attribute='class_count') }} dependent classes across {{ result.impact | length }} packages</h2>
+      </div>
+      <div class="panel-body">
+        <div class="heatmap">
+          {% for pkg in result.impact %}
+          {% set pct = (pkg.class_count / max_count * 100) | int %}
+          {% set color = '#ef4444' if pct > 66 else ('#f59e0b' if pct > 33 else '#3b82f6') %}
+          <div class="heat-row">
+            <div class="heat-label" title="{{ pkg.package }}">{{ pkg.package }}</div>
+            <div class="heat-bar-wrap">
+              <div class="heat-bar" style="width:{{ [pct, 4] | max }}%; background:{{ color }};">
+                {% if pct > 15 %}{{ pkg.class_count }}{% endif %}
+              </div>
+            </div>
+            <div class="heat-count">{% if pct <= 15 %}{{ pkg.class_count }}{% endif %}</div>
+            <div class="heat-relations">
+              {% for rel in pkg.relations %}
+              <span class="rel-badge rel-{{ rel }}">{{ rel }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Test scope ────────────────────────────────────────────── #}
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">🧪</span>
+        <h2>Testing Scope — {{ result.test_scope | length }} test class(es) to run</h2>
+      </div>
+      <div class="panel-body">
+        {% if result.test_scope %}
+        <div class="test-list">
+          {% for t in result.test_scope %}
+          <div class="test-row">
+            <span class="test-fqn" title="{{ t.fqn }}">{{ t.fqn }}</span>
+            <span class="test-type type-{{ t.coverage_type }}">
+              {{ 'direct' if t.coverage_type == 'direct_import' else 'same pkg' }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-tests">No test classes found that directly cover this code. Consider adding tests before making this change.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── KG Efficiency ─────────────────────────────────────────── #}
+    {% if result.kg_efficiency and result.tokens_with_kg %}
+    {% set eff = result.kg_efficiency %}
+    {% set kg_tokens = result.tokens_with_kg.input %}
+    {% set scan_tokens = eff.estimated_scan_tokens %}
+    {% set ratio = eff.token_ratio %}
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">📊</span>
+        <h2>KG Token Efficiency — vs scanning the repo directly</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="token-grid">
+
+          {# Without KG — what an agent would actually do #}
+          <div class="token-col bad-col">
+            <div class="token-col-header">Without KG — agent scans repo</div>
+            <div class="token-stat">
+              <span class="token-value bad">{{ "{:,}".format(scan_tokens) }}</span>
+              <span class="token-label">estimated input tokens</span>
+            </div>
+            <div class="token-stat">
+              <span class="token-value neutral">{{ eff.files_agent_would_scan }}</span>
+              <span class="token-label">files to read</span>
+            </div>
+            <div class="token-stat">
+              <span class="token-value neutral">~{{ eff.estimated_round_trips }}</span>
+              <span class="token-label">tool call round trips</span>
+            </div>
+            <div class="token-note">
+              {{ eff.files_in_packages }} files in affected packages
+              + {{ eff.files_dependants }} dependant files —
+              all must be read to find and understand the relevant code
+            </div>
+          </div>
+
+          <div class="token-arrow">→</div>
+
+          {# With KG #}
+          <div class="token-col good-col">
+            <div class="token-col-header">With KG — pre-computed context</div>
+            <div class="token-stat">
+              <span class="token-value good">{{ "{:,}".format(kg_tokens) }}</span>
+              <span class="token-label">actual input tokens</span>
+            </div>
+            <div class="token-stat">
+              <span class="token-value neutral">{{ eff.files_kg_read }}</span>
+              <span class="token-label">files read (targeted)</span>
+            </div>
+            <div class="token-stat">
+              <span class="token-value neutral">1</span>
+              <span class="token-label">round trip</span>
+            </div>
+            <div class="token-note">
+              KG structural context: ~{{ "{:,}".format(eff.kg_structural_tokens) }} tokens<br>
+              Source files (targeted): ~{{ "{:,}".format(eff.source_tokens) }} tokens
+            </div>
+          </div>
+
+          <div class="token-arrow">→</div>
+
+          {# Savings #}
+          <div class="token-col savings-col">
+            <div class="token-col-header">Savings</div>
+            <div class="token-stat">
+              <span class="token-value good">{{ ratio }}×</span>
+              <span class="token-label">fewer tokens</span>
+            </div>
+            <div class="token-stat">
+              <span class="token-value good">{{ eff.files_agent_would_scan - eff.files_kg_read }}</span>
+              <span class="token-label">fewer files read</span>
+            </div>
+            <div class="token-stat">
+              <span class="token-value good">~{{ [eff.estimated_round_trips - 1, 0] | max }}</span>
+              <span class="token-label">round trips eliminated</span>
+            </div>
+            <div class="token-bar-wrap" style="margin-top:0.75rem;">
+              <div class="token-bar-track">
+                <div class="token-bar-fill good"
+                     style="width: {{ [((scan_tokens - kg_tokens) / scan_tokens * 100) | int, 0] | max }}%">
+                </div>
+              </div>
+              <div class="token-bar-label">
+                {{ [((scan_tokens - kg_tokens) / scan_tokens * 100) | int, 0] | max }}% input token reduction
+              </div>
+            </div>
+            <div class="token-note">
+              KG pre-computes relationships across {{ eff.files_agent_would_scan }} files at index time,
+              so the LLM gets precise context in one shot instead of exploring the repo iteratively.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Evidence (collapsed) ──────────────────────────────────── #}
+    <div class="panel">
+      <button class="evidence-toggle" onclick="toggleEvidence(this)">
+        <span>▶</span> Evidence — Cypher query &amp; source files read
+      </button>
+      <div class="evidence-body" id="evidence">
+
+        {% if result.cypher %}
+        <h2 style="margin-bottom:0.5rem;">Generated Cypher</h2>
+        <pre><code>{{ result.cypher }}</code></pre>
+        {% endif %}
+
+        {% if result.sources %}
+        <h2 style="margin:1rem 0 0.5rem;">Source files ({{ result.sources | length }})</h2>
+        {% for src in result.sources %}
+        {% set loop_idx = loop.index %}
+        <div class="diff-file">
+          <div class="diff-file-header">
+            <span class="diff-filepath" title="{{ src.path }}">{{ src.path.split('/')[-1] }} <span style="color:#4a5568;font-weight:400">{{ src.path }}</span></span>
+            {% if src.diff %}
+            <span class="diff-commit-sha">{{ src.diff.commit_sha }}</span>
+            <span class="diff-commit-meta">{{ src.diff.commit_date }} · {{ src.diff.commit_author.split('<')[0].strip() }}</span>
+            {% endif %}
+          </div>
+          <div class="diff-tabs">
+            <div class="diff-tab active" onclick="switchTab(this, 'diff-{{ loop_idx }}')">Changes</div>
+            <div class="diff-tab" onclick="switchTab(this, 'src-{{ loop_idx }}')">Source</div>
+          </div>
+          {# Changes tab #}
+          <div class="diff-panel active" id="diff-{{ loop_idx }}">
+            {% if src.diff and src.diff.hunks %}
+            {% set added_count = src.diff.hunks | sum(attribute='lines') | selectattr('type','equalto','added') | list | length %}
+            {% for hunk in src.diff.hunks %}
+            <div class="diff-hunk">
+              <div class="diff-hunk-header">{{ hunk.header }}</div>
+              {% for line in hunk.lines %}
+              <div class="diff-line {{ line.type }}">
+                <span class="diff-gutter"></span>
+                <span class="diff-sign">{{ '+' if line.type == 'added' else ('-' if line.type == 'removed' else ' ') }}</span>
+                <span class="diff-text">{{ line.text }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endfor %}
+            <div style="padding:0.5rem 1rem; background:#0a0e17; font-size:0.72rem; color:#4a5568; border-top:1px solid #2d3748;">
+              Last modified: {{ src.diff.commit_message }}
+            </div>
+            {% else %}
+            <div class="diff-no-changes">No recent git changes found for this file.</div>
+            {% endif %}
+          </div>
+          {# Source tab #}
+          <div class="diff-panel" id="src-{{ loop_idx }}">
+            <pre class="diff-source"><code>{{ src.content }}</code></pre>
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+      </div>
+    </div>
+
+    {% endif %}{# end if result.error #}
+  </div>
+  {% endif %}{# end if result #}
+</div>
+
+<script>
+  function setQ(t) {
+    document.getElementById('q').value = t;
+    document.getElementById('q').focus();
+  }
+  document.getElementById('ask-form').addEventListener('submit', function() {
+    document.getElementById('spinner').style.display = 'inline-block';
+    document.getElementById('submit-btn').disabled = true;
+  });
+  function toggleEvidence(btn) {
+    const body = document.getElementById('evidence');
+    const open = body.classList.toggle('open');
+    btn.querySelector('span').textContent = open ? '▼' : '▶';
+  }
+  function switchTab(tab, panelId) {
+    const file = tab.closest('.diff-file');
+    file.querySelectorAll('.diff-tab').forEach(t => t.classList.remove('active'));
+    file.querySelectorAll('.diff-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(panelId).classList.add('active');
+  }
+</script>
+{% endblock %}

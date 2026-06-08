@@ -17,6 +17,8 @@ SKIP_DIRS = {
 
 
 class ProjectIdentity:
+    """Describes the high-level identity of a scanned project. Watch out for naming stability here, because several downstream artifacts use this object to label generated summaries."""
+
     def __init__(self):
         self.name: Optional[str] = None
         self.group_id: Optional[str] = None
@@ -30,6 +32,8 @@ class ProjectIdentity:
 
 
 class DirectoryEntry:
+    """Represents one directory discovered while classifying repository structure. Watch out for recursive expansion here, because callers use these entries to decide what parts of a repo deserve deeper parsing."""
+
     def __init__(self, path: str, description: str, package_roots: list[str]):
         self.path = path
         self.description = description
@@ -49,12 +53,33 @@ def extract_project_identity(repo_path: str) -> ProjectIdentity:
     if pom.exists():
         identity.build_tool = "maven"
         _parse_pom(pom, identity)
+        identity.primary_language = "java"
     elif gradle.exists() or gradle_kts.exists():
         identity.build_tool = "gradle"
         gf = gradle_kts if gradle_kts.exists() else gradle
         _parse_gradle(gf, identity)
+        identity.primary_language = "java"
+    else:
+        identity.primary_language = _detect_language(root)
 
     return identity
+
+
+def _detect_language(root: Path) -> str:
+    """Detect primary language by counting source files."""
+    counts: dict[str, int] = {"java": 0, "python": 0, "cpp": 0}
+    for p in root.rglob("*"):
+        if not p.is_file():
+            continue
+        s = p.suffix.lower()
+        if s == ".java":
+            counts["java"] += 1
+        elif s == ".py":
+            counts["python"] += 1
+        elif s in {".cpp", ".cc", ".cxx", ".c++", ".h", ".hpp", ".hh", ".hxx"}:
+            counts["cpp"] += 1
+    # Return whichever language has the most files; default java if all zero
+    return max(counts, key=lambda k: counts[k]) if any(counts.values()) else "java"
 
 
 def extract_repo_map(repo_path: str) -> list[DirectoryEntry]:
@@ -108,7 +133,7 @@ def _parse_pom(pom_path: Path, identity: ProjectIdentity):
                 if "java.version" in tag or "maven.compiler.source" in tag:
                     identity.java_version = el.text.strip() if el.text else None
                     break
-    except Exception:
+    except (OSError, ET.ParseError):
         pass
 
 
@@ -135,7 +160,7 @@ def _parse_gradle(gradle_path: Path, identity: ProjectIdentity):
         m = re.search(r"""JavaVersion\.VERSION_(\d+)""", text)
         if m:
             identity.java_version = m.group(1)
-    except Exception:
+    except OSError:
         pass
 
 
@@ -206,7 +231,7 @@ def _infer_directory_purpose(path: Path) -> str:
             first_line = readme.read_text(errors="replace").split("\n")[0].strip("# ").strip()
             if first_line and len(first_line) < 120:
                 return first_line
-        except Exception:
+        except OSError:
             pass
 
     if has_main_java and has_test_java:
@@ -236,7 +261,7 @@ def _find_package_roots(path: Path) -> list[str]:
                 parts = pkg.split(".")
                 top = ".".join(parts[:2]) if len(parts) >= 2 else pkg
                 packages.add(top)
-        except Exception:
+        except OSError:
             pass
         if len(packages) >= 5:  # cap to avoid reading entire tree
             break

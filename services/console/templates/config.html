@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+<style>
+  /* ── Page header ── */
+  .cfg-page-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 1.75rem; gap: 1.5rem;
+  }
+  .cfg-page-header h1 { margin: 0; font-size: 1.2rem; font-weight: 700; }
+  .cfg-page-header p  { margin: .3rem 0 0; color: var(--text-3); font-size: .83rem; max-width: 520px; }
+
+  .file-status {
+    display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
+    padding: .45rem .9rem; border-radius: var(--radius);
+    font-size: .75rem; font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-3);
+  }
+  .file-status.active {
+    border-color: #86efac; background: var(--success-lt); color: var(--success);
+  }
+  .file-status-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0;
+  }
+
+  /* ── Section layout ── */
+  .cfg-section { margin-bottom: 2rem; }
+  .cfg-section-head {
+    display: flex; align-items: center; gap: .55rem; margin-bottom: .85rem;
+  }
+  .cfg-section-head svg { color: var(--text-3); flex-shrink: 0; }
+  .cfg-section-title {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--text-3);
+  }
+  .cfg-section-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Setting cards ── */
+  .cfg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: .75rem;
+  }
+
+  .cfg-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: .875rem 1rem;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; gap: .5rem;
+    transition: border-color .15s;
+  }
+  .cfg-card:hover { border-color: var(--border-2); }
+  .cfg-card.is-set { border-left: 3px solid var(--primary); padding-left: calc(1rem - 2px); }
+  .cfg-card.is-file { border-left: 3px solid var(--success); padding-left: calc(1rem - 2px); }
+
+  /* Card top row: label + source badge */
+  .cfg-card-top {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem;
+  }
+  .cfg-label { font-size: .84rem; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .cfg-desc  { font-size: .74rem; color: var(--text-3); line-height: 1.5; }
+
+  /* Env var chip */
+  .cfg-key {
+    display: inline-flex; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: .69rem;
+    color: var(--text-3); background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: .1rem .4rem; max-width: 100%; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Current value display */
+  .cfg-value-row {
+    display: flex; align-items: center; gap: .5rem;
+    min-height: 28px;
+  }
+  .cfg-value {
+    font-family: 'JetBrains Mono', monospace; font-size: .78rem;
+    color: var(--text); flex: 1; word-break: break-all;
+  }
+  .cfg-value.empty { color: var(--text-3); font-style: italic; font-size: .76rem; font-family: inherit; }
+  .cfg-value.secret { letter-spacing: .15em; color: var(--text-2); }
+
+  /* Source badge */
+  .src-badge {
+    display: inline-flex; align-items: center; gap: .25rem;
+    padding: .12rem .45rem; border-radius: 20px;
+    font-size: .63rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;
+  }
+  .src-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .src-file    { background: var(--success-lt); color: var(--success); border: 1px solid #86efac; }
+  .src-env     { background: var(--info-lt);    color: var(--info);    border: 1px solid #7dd3fc; }
+  .src-default { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
+
+  /* Card actions */
+  .cfg-card-actions { display: flex; gap: .4rem; margin-top: .1rem; }
+  .cfg-edit-btn {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .3rem .65rem; border-radius: var(--radius);
+    font-size: .74rem; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text-2); transition: all .15s; line-height: 1;
+  }
+  .cfg-edit-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-lt); }
+  .cfg-edit-btn svg { flex-shrink: 0; }
+
+  .cfg-reset-btn {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .3rem .65rem; border-radius: var(--radius);
+    font-size: .74rem; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text-3); transition: all .15s; line-height: 1;
+  }
+  .cfg-reset-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-lt); }
+
+  /* ── Inline edit panel ── */
+  .cfg-edit-panel {
+    display: none; margin-top: .35rem;
+    background: var(--primary-lt); border: 1px solid #bbf7d0;
+    border-radius: var(--radius); padding: .75rem;
+  }
+  .cfg-edit-panel.open { display: block; }
+  .cfg-edit-panel input[type=text],
+  .cfg-edit-panel input[type=password],
+  .cfg-edit-panel input[type=number],
+  .cfg-edit-panel select {
+    width: 100%; font-family: 'JetBrains Mono', monospace; font-size: .8rem;
+    padding: .4rem .65rem; border: 1px solid var(--border-2); border-radius: var(--radius);
+    background: var(--surface); color: var(--text); margin-bottom: .55rem;
+  }
+  .cfg-edit-panel input:focus,
+  .cfg-edit-panel select:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px #bbf7d0;
+  }
+  .cfg-edit-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .restart-note {
+    font-size: .7rem; color: var(--warning);
+    display: flex; align-items: center; gap: .25rem; margin-left: auto;
+  }
+
+  /* ── Footer note ── */
+  .cfg-footer {
+    margin-top: 1.5rem; padding: 1rem 1.25rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); font-size: .78rem; color: var(--text-3); line-height: 1.75;
+  }
+  .cfg-footer strong { color: var(--text-2); }
+  .cfg-footer code { font-size: .75rem; background: var(--surface-2); padding: .05rem .3rem; border-radius: 3px; }
+
+  /* ── Model picker ── */
+  .model-picker { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .5rem; }
+  .mp-providers { display: flex; gap: .3rem; flex-wrap: wrap; }
+  .mp-tab {
+    padding: .25rem .65rem; border-radius: var(--radius); font-size: .73rem; font-weight: 500;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-3);
+    cursor: pointer; transition: all .15s;
+  }
+  .mp-tab:hover { border-color: var(--primary); color: var(--primary); }
+  .mp-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .mp-tab.error  { border-color: var(--danger); color: var(--danger); }
+  .mp-select-row { display: flex; gap: .4rem; align-items: center; }
+  .mp-select {
+    flex: 1; font-family: 'JetBrains Mono', monospace; font-size: .78rem;
+    padding: .4rem .6rem; border: 1px solid var(--border-2); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+  }
+  .mp-select:focus { outline: none; border-color: var(--primary); }
+  .mp-refresh {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-3);
+    cursor: pointer; transition: all .15s; flex-shrink: 0;
+  }
+  .mp-refresh:hover { border-color: var(--primary); color: var(--primary); }
+  .mp-status { font-size: .71rem; color: var(--text-3); min-height: 1rem; }
+  .mp-status.err { color: var(--warning); }
+
+  /* ── Toast ── */
+  #cfg-toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999;
+    background: var(--success); color: #fff; padding: .65rem 1.25rem;
+    border-radius: var(--radius); font-size: .84rem; font-weight: 500;
+    box-shadow: var(--shadow-md); opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  #cfg-toast.show { opacity: 1; }
+  #cfg-toast.err  { background: var(--danger); }
+</style>
+
+<!-- ── Page header ── -->
+<div class="cfg-page-header">
+  <div>
+    <h1>Configuration</h1>
+    <p>Manage all codeKG settings. Changes are written to a persistent file on the <code>/repos</code> volume and survive container rebuilds. All settings require a service restart to take effect.</p>
+  </div>
+  <div class="file-status {{ 'active' if env_file_exists else '' }}">
+    <span class="file-status-dot"></span>
+    {% if env_file_exists %}Overrides active · {{ env_file_path }}{% else %}No overrides file · defaults in use{% endif %}
+  </div>
+</div>
+
+<!-- ── Sections ── -->
+{% for section_name, items in sections.items() %}
+<div class="cfg-section">
+
+  <div class="cfg-section-head">
+    {% if items[0].get('section_icon') == 'db' %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><ellipse cx="8" cy="4" rx="6" ry="2.5"/><path d="M2 4v4c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V4"/><path d="M2 8v4c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V8"/></svg>
+    {% elif items[0].get('section_icon') == 'brain' %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 3C4 3 2.5 4.5 2.5 6.5c0 1 .5 2 1.5 2.5-.5.5-.5 1.5.5 2 0 1.5 1 2.5 2.5 2.5"/><path d="M10 3c2 0 3.5 1.5 3.5 3.5 0 1-.5 2-1.5 2.5.5.5.5 1.5-.5 2 0 1.5-1 2.5-2.5 2.5"/><path d="M6 13.5h4M8 3v10.5"/></svg>
+    {% elif items[0].get('section_icon') == 'scan' %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 5V3h2M14 5V3h-2M2 11v2h2M14 11v2h-2M1 8h14"/></svg>
+    {% elif items[0].get('section_icon') == 'index' %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4h10M3 8h7M3 12h4"/><circle cx="13" cy="11" r="2.5"/><path d="M15 13.5l1.5 1.5"/></svg>
+    {% elif items[0].get('section_icon') == 'auth' %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 1L2 4v5c0 3 2.5 5.5 6 6 3.5-.5 6-3 6-6V4L8 1z"/><path d="M5.5 8l2 2 3-3"/></svg>
+    {% elif items[0].get('section_icon') == 'mcp' %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="4" width="12" height="8" rx="1.5"/><path d="M5 8h2M9 8h2"/></svg>
+    {% else %}
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.8 3.8l.7.7M11.5 11.5l.7.7M3.8 12.2l.7-.7M11.5 4.5l.7-.7"/></svg>
+    {% endif %}
+    <span class="cfg-section-title">{{ section_name }}</span>
+  </div>
+
+  <div class="cfg-grid">
+    {% for item in items %}
+    <div class="cfg-card {% if item.source == 'file' %}is-file{% elif item.is_set %}is-set{% endif %}" id="card-{{ item.key }}">
+
+      <!-- Top: label + source badge -->
+      <div class="cfg-card-top">
+        <span class="cfg-label">{{ item.label }}</span>
+        <span class="src-badge src-{{ item.source }}">
+          {% if item.source == 'file' %}file{% elif item.source == 'env' %}env{% else %}default{% endif %}
+        </span>
+      </div>
+
+      <!-- Env var name -->
+      <span class="cfg-key">{{ item.key }}</span>
+
+      <!-- Current value -->
+      <div class="cfg-value-row">
+        {% if item.type == 'password' %}
+          {% if item.is_set %}
+          <span class="cfg-value secret">••••••••</span>
+          {% else %}
+          <span class="cfg-value empty">not set</span>
+          {% endif %}
+        {% else %}
+          {% if item.display_value %}
+          <span class="cfg-value">{{ item.display_value }}</span>
+          {% else %}
+          <span class="cfg-value empty">{{ item.default }}</span>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <!-- Description -->
+      <p class="cfg-desc">{{ item.description }}</p>
+
+      <!-- Actions -->
+      <div class="cfg-card-actions">
+        <button class="cfg-edit-btn" onclick="toggleEdit('{{ item.key }}')">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11.5 2.5a1.41 1.41 0 012 2L5 13H2v-3L11.5 2.5z"/>
+          </svg>
+          Edit
+        </button>
+        {% if item.source == 'file' %}
+        <button class="cfg-reset-btn" onclick="resetKey('{{ item.key }}')" title="Remove file override — restores env var or default">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M4 8a4 4 0 107 2.83"/><path d="M2 6l2 2 2-2"/>
+          </svg>
+          Reset
+        </button>
+        {% endif %}
+      </div>
+
+      <!-- Inline edit panel -->
+      <div class="cfg-edit-panel" id="edit-{{ item.key }}">
+        {% if item.type == 'model' %}
+        <!-- Live model picker: provider tabs + model dropdown -->
+        <div class="model-picker" data-key="{{ item.key }}" data-current="{{ item.value or item.default }}">
+          <div class="mp-providers" id="mp-tabs-{{ item.key }}">
+            <button class="mp-tab active" data-provider="anthropic" onclick="loadModels('{{ item.key }}','anthropic',this)">Anthropic</button>
+            <button class="mp-tab" data-provider="openai" onclick="loadModels('{{ item.key }}','openai',this)">OpenAI</button>
+            <button class="mp-tab" data-provider="ollama" onclick="loadModels('{{ item.key }}','ollama',this)">Ollama</button>
+          </div>
+          <div class="mp-select-row">
+            <select id="input-{{ item.key }}" class="mp-select">
+              <option value="{{ item.value or item.default }}">{{ item.value or item.default }} (current)</option>
+            </select>
+            <button class="mp-refresh" title="Refresh model list" onclick="refreshModels('{{ item.key }}')">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8a4 4 0 107 2.83"/><path d="M2 6l2 2 2-2"/></svg>
+            </button>
+          </div>
+          <div class="mp-status" id="mp-status-{{ item.key }}"></div>
+        </div>
+        {% elif item.type == 'select' %}
+        <select id="input-{{ item.key }}">
+          {% for opt in item.options %}
+          <option value="{{ opt }}" {{ 'selected' if opt == item.value else '' }}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+        {% elif item.type == 'password' %}
+        <input type="password" id="input-{{ item.key }}"
+               placeholder="Enter new value (leave blank to keep current)"
+               autocomplete="new-password">
+        {% elif item.type == 'number' %}
+        <input type="number" id="input-{{ item.key }}" value="{{ item.value or item.default }}" min="0">
+        {% else %}
+        <input type="text" id="input-{{ item.key }}" value="{{ item.value or item.default }}">
+        {% endif %}
+        <div class="cfg-edit-row">
+          <button class="btn btn-sm" onclick="saveKey('{{ item.key }}', '{{ item.type }}')">Save</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleEdit('{{ item.key }}')">Cancel</button>
+          <span class="restart-note">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1.5"/></svg>
+            Restart required
+          </span>
+        </div>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endfor %}
+
+<!-- ── Footer ── -->
+<div class="cfg-footer">
+  <strong>How it works</strong> — settings load in priority order:
+  <span class="src-badge src-env" style="vertical-align:middle;margin:0 .2rem">env</span> process environment (<code>.env</code> / <code>docker-compose.yml</code>)
+  beats
+  <span class="src-badge src-file" style="vertical-align:middle;margin:0 .2rem">file</span> this page's persistent file (<code>{{ env_file_path }}</code>)
+  beats
+  <span class="src-badge src-default" style="vertical-align:middle;margin:0 .2rem">default</span> compiled-in defaults.
+  Saved changes take effect after <code>docker compose restart api console</code>.
+</div>
+
+<div id="cfg-toast"></div>
+
+<script>
+function toast(msg, ok=true) {
+  const el = document.getElementById('cfg-toast');
+  el.textContent = msg;
+  el.className = ok ? 'show' : 'show err';
+  setTimeout(() => el.className = '', 3000);
+}
+
+// toggleEdit is defined below in the model-picker section (handles both model and plain fields)
+
+async function saveKey(key, type) {
+  const inp = document.getElementById('input-' + key);
+  const value = inp.value;
+
+  if (type === 'password' && value.trim() === '') {
+    toggleEdit(key);
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/config/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({[key]: value}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Saved — restart service to apply');
+      setTimeout(() => location.reload(), 1100);
+    } else {
+      toast(d.detail || 'Error saving', false);
+    }
+  } catch(e) { toast('Request failed', false); }
+}
+
+async function resetKey(key) {
+  if (!confirm(`Remove the file override for ${key}?\nValue will revert to environment variable or built-in default.`)) return;
+  try {
+    const r = await fetch('/api/config/reset', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({key}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Override removed');
+      setTimeout(() => location.reload(), 800);
+    } else { toast(d.detail || 'Error', false); }
+  } catch(e) { toast('Request failed', false); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape')
+    document.querySelectorAll('.cfg-edit-panel.open').forEach(p => p.classList.remove('open'));
+});
+
+// ── Model picker ─────────────────────────────────────────────────────────────
+
+// Cache: provider → {models, error, ts}
+const _modelCache = {};
+
+function toggleEdit(key) {
+  const panel = document.getElementById('edit-' + key);
+  const isOpen = panel.classList.contains('open');
+  document.querySelectorAll('.cfg-edit-panel.open').forEach(p => p.classList.remove('open'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    // Auto-load models for model-picker fields
+    const picker = panel.querySelector('.model-picker');
+    if (picker) {
+      const activeTab = panel.querySelector('.mp-tab.active');
+      const provider  = activeTab ? activeTab.dataset.provider : 'anthropic';
+      loadModels(key, provider, activeTab);
+    } else {
+      const inp = document.getElementById('input-' + key);
+      if (inp) setTimeout(() => { inp.focus(); inp.select?.(); }, 40);
+    }
+  }
+}
+
+async function loadModels(key, provider, tabEl) {
+  // Update active tab
+  const panel = document.getElementById('edit-' + key);
+  panel.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active', 'error'));
+  if (tabEl) tabEl.classList.add('active');
+
+  const sel    = document.getElementById('input-' + key);
+  const status = document.getElementById('mp-status-' + key);
+  const picker = panel.querySelector('.model-picker');
+  const current = picker ? picker.dataset.current : '';
+
+  // Use cache if fresh (< 60s)
+  const cacheKey = provider;
+  const cached   = _modelCache[cacheKey];
+  if (cached && (Date.now() - cached.ts) < 60_000) {
+    _populateModelSelect(sel, cached.models, current, cached.error, status);
+    return;
+  }
+
+  status.className = 'mp-status';
+  status.textContent = `Loading ${provider} models…`;
+  sel.disabled = true;
+
+  try {
+    const r = await fetch(`/api/llm/models/${provider}`);
+    const d = await r.json();
+    _modelCache[cacheKey] = {models: d.models || [], error: d.error || null, ts: Date.now()};
+    _populateModelSelect(sel, d.models || [], current, d.error, status);
+    if (d.error && tabEl) tabEl.classList.add('error');
+  } catch(e) {
+    const err = `Request failed: ${e.message}`;
+    _modelCache[cacheKey] = {models: [], error: err, ts: Date.now()};
+    _populateModelSelect(sel, [], current, err, status);
+    if (tabEl) tabEl.classList.add('error');
+  } finally {
+    sel.disabled = false;
+  }
+}
+
+function _populateModelSelect(sel, models, current, error, statusEl) {
+  sel.innerHTML = '';
+  if (error) {
+    statusEl.className = 'mp-status err';
+    statusEl.textContent = error;
+    // Still show current value as a fallback option
+    const opt = document.createElement('option');
+    opt.value = current; opt.textContent = current + ' (current — provider unavailable)';
+    sel.appendChild(opt);
+    return;
+  }
+  statusEl.className = 'mp-status';
+  statusEl.textContent = `${models.length} model${models.length !== 1 ? 's' : ''} available`;
+
+  // Always include current value even if not in list
+  const allModels = models.includes(current) || !current
+    ? models
+    : [current, ...models];
+
+  allModels.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m + (m === current ? ' ✓' : '');
+    if (m === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+async function refreshModels(key) {
+  const panel = document.getElementById('edit-' + key);
+  const activeTab = panel.querySelector('.mp-tab.active');
+  const provider  = activeTab ? activeTab.dataset.provider : 'anthropic';
+  // Bust cache for this provider
+  delete _modelCache[provider];
+  await loadModels(key, provider, activeTab);
+}
+</script>
+{% endblock %}

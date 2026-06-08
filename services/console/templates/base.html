@@ -4,75 +4,763 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CodeKG — {% block title %}Architecture Console{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /* ── Reset ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
-    a { color: #60a5fa; text-decoration: none; }
+
+    /* ── Tokens ── */
+    :root {
+      --bg:          #f8f9fb;
+      --surface:     #ffffff;
+      --surface-2:   #f1f4f8;
+      --border:      #e2e7ef;
+      --border-2:    #d0d7e3;
+      --text:        #0f172a;
+      --text-2:      #475569;
+      --text-3:      #94a3b8;
+      --primary:     #16a34a;
+      --primary-h:   #15803d;
+      --primary-lt:  #f0fdf4;
+      --success:     #16a34a;
+      --success-lt:  #f0fdf4;
+      --warning:     #d97706;
+      --warning-lt:  #fffbeb;
+      --danger:      #dc2626;
+      --danger-lt:   #fef2f2;
+      --info:        #0284c7;
+      --info-lt:     #f0f9ff;
+      --purple:      #7c3aed;
+      --purple-lt:   #f5f3ff;
+      --radius:      8px;
+      --radius-lg:   12px;
+      --shadow:      0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.05);
+      --shadow-md:   0 4px 12px rgba(15,23,42,.08), 0 2px 4px rgba(15,23,42,.05);
+
+      --sidebar-w:        220px;
+      --sidebar-collapsed: 52px;
+      --topbar-h:         52px;
+    }
+
+    /* ── Base ── */
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: var(--primary); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    nav { background: #1a1f2e; border-bottom: 1px solid #2d3748; padding: 0 2rem; display: flex; align-items: center; gap: 2rem; height: 56px; }
-    nav .brand { font-weight: 700; font-size: 1.1rem; color: #f8fafc; letter-spacing: 0.05em; }
-    nav .brand span { color: #60a5fa; }
-    nav a { color: #94a3b8; font-size: 0.9rem; }
-    nav a:hover, nav a.active { color: #f8fafc; text-decoration: none; }
-    nav .nav-highlight { color: #60a5fa !important; }
+    /* ══════════════════════════════════════════
+       TOP BAR — brand + repo selector only
+    ══════════════════════════════════════════ */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--topbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1rem 0 0;
+      z-index: 200;
+      box-shadow: 0 1px 0 var(--border), 0 2px 8px rgba(15,23,42,.04);
+    }
 
-    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
-    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #94a3b8; }
+    /* Toggle button — lives in topbar, aligns with sidebar width */
+    .sidebar-toggle {
+      width: var(--sidebar-collapsed);
+      height: var(--topbar-h);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-3);
+      transition: color 0.15s;
+      padding: 0;
+    }
+    .sidebar-toggle:hover { color: var(--text); }
+    .sidebar-toggle svg { width: 18px; height: 18px; }
 
-    .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; padding: 1.25rem; }
+    .topbar-brand {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding-left: 0.25rem;
+    }
+    .topbar-brand::before {
+      content: '';
+      display: inline-block;
+      width: 22px; height: 22px;
+      background: linear-gradient(135deg, var(--primary) 0%, #4ade80 100%);
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .topbar-brand span { color: var(--primary); }
+
+    /* Repo selector — lives in topbar, always visible regardless of sidebar state */
+    .topbar-repo {
+      margin-left: 1.25rem; flex-shrink: 0;
+    }
+    .topbar-repo select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      border-radius: var(--radius); padding: .3rem .5rem .3rem .6rem;
+      font-size: .78rem; font-family: inherit; cursor: pointer;
+      max-width: 200px; transition: border-color .15s;
+    }
+    .topbar-repo select:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22,163,74,.12);
+    }
+    .topbar-repo select:hover { border-color: var(--border-2); }
+
+    .topbar-user { display:flex; align-items:center; gap:.5rem; margin-left:auto; padding-right:.5rem; flex-shrink:0; }
+    .user-avatar { width:26px; height:26px; border-radius:50%; border:1px solid var(--border); }
+    .user-login { font-size:.76rem; color:var(--text-2); font-weight:500; }
+    .user-logout { display:flex; align-items:center; color:var(--text-3); padding:.25rem; border-radius:6px; transition:color .15s; }
+    .user-logout:hover { color:var(--danger); text-decoration:none; }
+
+
+    /* ══════════════════════════════════════════
+       SIDEBAR
+    ══════════════════════════════════════════ */
+    .sidebar {
+      position: fixed;
+      top: var(--topbar-h);
+      left: 0;
+      bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 150;
+      transition: width 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+
+    body.nav-collapsed .sidebar { width: var(--sidebar-collapsed); }
+
+    /* ── Group ── */
+    .nav-group { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .nav-group:last-child { border-bottom: none; }
+
+    .nav-group-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+      white-space: nowrap;
+      overflow: hidden;
+      user-select: none;
+    }
+    .nav-group-label .group-icon {
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+    /* Hide label text when collapsed */
+    body.nav-collapsed .nav-group-label .group-label-text { opacity: 0; }
+
+    /* ── Nav item ── */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.45rem 0.75rem;
+      color: var(--text-2);
+      font-size: 0.82rem;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background 0.12s, color 0.12s;
+      position: relative;
+    }
+    .nav-item:hover {
+      background: var(--primary-lt);
+      color: var(--primary);
+      text-decoration: none;
+    }
+    .nav-item.active {
+      background: var(--primary-lt);
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--primary);
+      border-radius: 0 2px 2px 0;
+    }
+    .nav-item .nav-icon {
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .nav-item.active .nav-icon,
+    .nav-item:hover .nav-icon { opacity: 1; }
+
+    .nav-item .nav-label {
+      transition: opacity 0.15s;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    body.nav-collapsed .nav-item .nav-label { opacity: 0; pointer-events: none; }
+
+    /* Tooltip when collapsed */
+    body.nav-collapsed .nav-item {
+      justify-content: center;
+      padding: 0.5rem;
+    }
+    body.nav-collapsed .nav-group-label {
+      justify-content: center;
+      padding: 0.35rem 0;
+    }
+
+    /* ── Dashboard special item (top, no group) ── */
+    .nav-home {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ══════════════════════════════════════════
+       MAIN CONTENT
+    ══════════════════════════════════════════ */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding-top: var(--topbar-h);
+      padding-left: var(--sidebar-w);
+      transition: padding-left 0.2s ease;
+    }
+    body.nav-collapsed .app-shell { padding-left: var(--sidebar-collapsed); }
+
+    main {
+      width: 100%;
+      padding: 2rem 1.75rem;
+      max-width: 1440px;
+      flex: 1;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 1.5rem; letter-spacing: -0.02em; color: var(--text); }
+    h2 { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.875rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── Grid ── */
     .grid { display: grid; gap: 1rem; }
     .grid-3 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
     .grid-2 { grid-template-columns: 1fr 1fr; }
 
+    /* ── Stat ── */
     .stat { text-align: center; }
-    .stat .value { font-size: 2.5rem; font-weight: 700; color: #60a5fa; }
-    .stat .label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat .value { font-size: 2.25rem; font-weight: 700; color: var(--primary); letter-spacing: -0.03em; }
+    .stat .label { font-size: 0.72rem; color: var(--text-3); margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-    th { text-align: left; padding: 0.5rem 0.75rem; color: #64748b; font-weight: 500; border-bottom: 1px solid #2d3748; }
-    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e2533; }
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    th {
+      text-align: left;
+      padding: 0.55rem 0.875rem;
+      color: var(--text-3);
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    td { padding: 0.55rem 0.875rem; border-bottom: 1px solid var(--border); color: var(--text); }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #1e2533; }
+    tr:hover td { background: var(--primary-lt); }
 
-    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
-    .badge-error { background: #3f1717; color: #f87171; }
-    .badge-warning { background: #3f2f0a; color: #fbbf24; }
-    .badge-info { background: #0f2a3f; color: #38bdf8; }
-    .badge-active { background: #0f2a1f; color: #4ade80; }
-    .badge-draft { background: #2d3748; color: #94a3b8; }
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.55rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge-error   { background: var(--danger-lt);  color: var(--danger);  border: 1px solid #fca5a5; }
+    .badge-warning { background: var(--warning-lt); color: var(--warning); border: 1px solid #fcd34d; }
+    .badge-info    { background: var(--info-lt);    color: var(--info);    border: 1px solid #7dd3fc; }
+    .badge-active  { background: var(--success-lt); color: var(--success); border: 1px solid #86efac; }
+    .badge-draft   { background: var(--surface-2);  color: var(--text-3);  border: 1px solid var(--border); }
 
+    /* ── Forms ── */
     form { display: flex; flex-direction: column; gap: 1rem; }
-    label { font-size: 0.875rem; color: #94a3b8; display: flex; flex-direction: column; gap: 0.35rem; }
-    input, select, textarea { background: #0f1117; border: 1px solid #2d3748; color: #e2e8f0; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem; font-family: inherit; width: 100%; }
+    label { font-size: 0.84rem; color: var(--text-2); font-weight: 500; display: flex; flex-direction: column; gap: 0.35rem; }
+    input, select, textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.84rem;
+      font-family: inherit;
+      width: 100%;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
     textarea { resize: vertical; min-height: 80px; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: #60a5fa; }
-    button, .btn { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.25rem; font-size: 0.875rem; cursor: pointer; font-weight: 500; }
-    button:hover, .btn:hover { background: #1d4ed8; }
-    .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; }
-    .btn-ghost { background: transparent; border: 1px solid #2d3748; color: #94a3b8; }
-    .btn-ghost:hover { background: #1a1f2e; color: #e2e8f0; }
-    .btn-success { background: #16a34a; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22,163,74,.12);
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-3); }
+
+    /* ── Buttons ── */
+    button, .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.5rem 1.25rem;
+      font-size: 0.84rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: inherit;
+      transition: background 0.15s, box-shadow 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    button:hover, .btn:hover { background: var(--primary-h); box-shadow: var(--shadow-md); }
+    .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.76rem; }
+    .btn-ghost {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+    }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--text); box-shadow: var(--shadow); }
+    .btn-success { background: var(--success); }
     .btn-success:hover { background: #15803d; }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #b91c1c; }
 
-    code { font-family: 'Fira Code', monospace; font-size: 0.8rem; background: #0f1117; border: 1px solid #2d3748; border-radius: 4px; padding: 0.1rem 0.35rem; }
-    pre { background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; font-family: 'Fira Code', monospace; }
+    /* ── Code ── */
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      color: var(--primary);
+    }
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border: 1px solid #313244;
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      line-height: 1.6;
+    }
+    pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
 
+    /* ── Utilities ── */
     .section { margin-bottom: 2rem; }
-    .empty { color: #4a5568; font-size: 0.875rem; padding: 1.5rem; text-align: center; }
+    .empty {
+      color: var(--text-3);
+      font-size: 0.84rem;
+      padding: 2rem;
+      text-align: center;
+    }
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .page-header h1 { margin-bottom: 0; }
+    .page-header .subtitle { color: var(--text-3); font-size: 0.84rem; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+    /* ── Modal (shared across all pages) ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,.45);
+      backdrop-filter: blur(2px);
+      z-index: 500;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      width: 100%; max-width: 680px;
+      max-height: 88vh;
+      display: flex; flex-direction: column;
+    }
+    .modal-head {
+      display: flex; align-items: center; gap: .75rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-head h2 {
+      font-size: .95rem; font-weight: 700; color: var(--text);
+      margin: 0; flex: 1;
+      text-transform: none; letter-spacing: normal;
+    }
+    .modal-close {
+      background: none; border: none; color: var(--text-3);
+      cursor: pointer; font-size: 1rem; padding: .1rem .3rem;
+      border-radius: 4px; line-height: 1; font-family: inherit;
+      transition: background .12s, color .12s;
+    }
+    .modal-close:hover { background: var(--surface-2); color: var(--text); }
+    .modal-body { flex: 1; overflow-y: auto; padding: 1.25rem; }
+    .modal-foot {
+      display: flex; gap: .75rem; justify-content: flex-end;
+      padding: .875rem 1.25rem;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
   </style>
 </head>
 <body>
-  <nav>
-    <span class="brand">Code<span>KG</span></span>
-    <a href="/">Dashboard</a>
-    <a href="/repos" class="nav-highlight">Repositories</a>
-    <a href="/policies">Policies</a>
-    <a href="/modules">Modules</a>
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle navigation" title="Toggle navigation">
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+        <line x1="2" y1="5" x2="16" y2="5"/>
+        <line x1="2" y1="9" x2="16" y2="9"/>
+        <line x1="2" y1="13" x2="16" y2="13"/>
+      </svg>
+    </button>
+    <div class="topbar-brand">Code<span>KG</span></div>
+    {% if all_repos %}
+    <div class="topbar-repo">
+      <select id="nav-repo-select" onchange="selectRepo(this.value)" title="Switch repository">
+        <option value="">— all repos —</option>
+        {% for r in all_repos %}
+        <option value="{{ r }}" {{ 'selected' if r == selected_repo else '' }}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if current_user %}
+    <div class="topbar-user">
+      {% if current_user.avatar %}
+      <img class="user-avatar" src="{{ current_user.avatar }}" alt="{{ current_user.login }}" title="{{ current_user.name }}">
+      {% endif %}
+      <span class="user-login">{{ current_user.login }}</span>
+      <a href="/auth/logout" class="user-logout" title="Sign out">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3"/>
+          <path d="M11 11l3-3-3-3"/>
+          <path d="M14 8H6"/>
+        </svg>
+      </span>
+    </div>
+    {% endif %}
+  </header>
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar" id="sidebar">
+
+    <!-- Dashboard -->
+    <div class="nav-home">
+      <a href="/" class="nav-item {{ 'active' if current_path == '/' else '' }}" title="Dashboard">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="1" width="6" height="6" rx="1.5"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.5"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.5"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+        </svg>
+        <span class="nav-label">Dashboard</span>
+      </a>
+    </div>
+
+    <!-- Codebase -->
+    <div class="nav-group">
+      <div class="nav-group-label">
+        <svg class="group-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4l4-3 4 3 4-3v11l-4 3-4-3-4 3V4z"/>
+        </svg>
+        <span class="group-label-text">Codebase</span>
+      </div>
+      <a href="/repos" class="nav-item {{ 'active' if current_path.startswith('/repos') else '' }}" title="Repositories">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 00-2 2v9.5"/>
+          <path d="M4 13.5A1.5 1.5 0 005.5 15H14V2"/>
+          <path d="M8 6h3M8 9h3"/>
+        </svg>
+        <span class="nav-label">Repositories</span>
+      </a>
+      <a href="/modules" class="nav-item {{ 'active' if current_path.startswith('/modules') else '' }}" title="Modules">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <path d="M9 11.5h5M11.5 9v5"/>
+        </svg>
+        <span class="nav-label">Modules</span>
+      </a>
+      <a href="/classes" class="nav-item {{ 'active' if current_path.startswith('/classes') else '' }}" title="Classes">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 2L2 5v6l6 3 6-3V5L8 2z"/>
+          <path d="M2 5l6 3 6-3M8 8v8"/>
+        </svg>
+        <span class="nav-label">Classes</span>
+      </a>
+      <a href="{{ '/hygiene/' + selected_repo if selected_repo else '/hygiene' }}" class="nav-item {{ 'active' if current_path.startswith('/hygiene') else '' }}" title="Hygiene">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="8" r="6"/>
+          <path d="M5 8.5l2 2 4-4"/>
+        </svg>
+        <span class="nav-label">Hygiene</span>
+      </a>
+      <a href="/insights" class="nav-item {{ 'active' if current_path.startswith('/insights') else '' }}" title="Insights">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 1a5 5 0 015 5c0 2-1.2 3.5-2.5 4.5V12H5.5v-1.5C4.2 9.5 3 8 3 6a5 5 0 015-5z"/>
+          <path d="M6 14h4"/>
+        </svg>
+        <span class="nav-label">Insights</span>
+      </a>
+      <a href="/agent-index" class="nav-item {{ 'active' if current_path.startswith('/agent-index') else '' }}" title="Agent Indexing">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 4h10M3 8h7M3 12h4"/>
+          <circle cx="13" cy="11" r="2.5"/>
+          <path d="M15 13.5l1.5 1.5"/>
+        </svg>
+        <span class="nav-label">Agent Indexing</span>
+      </a>
+    </div>
+
+    <!-- Architecture -->
+    <div class="nav-group">
+      <div class="nav-group-label">
+        <svg class="group-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 2v4M4 6v4M12 6v4M2 10h4M10 10h4M6 14h4"/>
+          <circle cx="8" cy="2" r="1"/>
+          <circle cx="4" cy="10" r="1"/>
+          <circle cx="12" cy="10" r="1"/>
+          <circle cx="8" cy="14" r="1"/>
+        </svg>
+        <span class="group-label-text">Architecture</span>
+      </div>
+      <a href="/patterns" class="nav-item {{ 'active' if current_path.startswith('/pattern') else '' }}" title="Patterns">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="4" cy="4" r="2"/>
+          <circle cx="12" cy="4" r="2"/>
+          <circle cx="4" cy="12" r="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M6 4h4M4 6v4M12 6v4M6 12h4"/>
+        </svg>
+        <span class="nav-label">Patterns</span>
+      </a>
+      <a href="/policies" class="nav-item {{ 'active' if current_path.startswith('/policies') else '' }}" title="Policies">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 1L2 4v5c0 3 2.5 5.5 6 6 3.5-.5 6-3 6-6V4L8 1z"/>
+          <path d="M5.5 8l2 2 3-3"/>
+        </svg>
+        <span class="nav-label">Policies</span>
+      </a>
+      <a href="/ask" class="nav-item {{ 'active' if current_path.startswith('/ask') else '' }}" title="Ask">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 10c0 1.1-.9 2-2 2H5l-3 3V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v6z"/>
+          <path d="M6.5 6a1.5 1.5 0 112.5 1.1c-.4.3-.5.6-.5 1"/>
+          <circle cx="8.5" cy="9.5" r=".5" fill="currentColor"/>
+        </svg>
+        <span class="nav-label">Ask</span>
+      </a>
+    </div>
+
+    <!-- Observability -->
+    <div class="nav-group">
+      <div class="nav-group-label">
+        <svg class="group-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 11l3-5 3 3 3-6 3 4 2-2"/>
+        </svg>
+        <span class="group-label-text">Observability</span>
+      </div>
+      <a href="/audit" class="nav-item {{ 'active' if current_path.startswith('/audit') else '' }}" title="LLM Audit">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h12v10H2zM5 7h6M5 10h4"/>
+          <path d="M8 3V1"/>
+        </svg>
+        <span class="nav-label">LLM Audit</span>
+      </a>
+      <a href="/mcp-audit" class="nav-item {{ 'active' if current_path.startswith('/mcp-audit') else '' }}" title="MCP Audit">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="12" height="8" rx="1.5"/>
+          <path d="M5 8h2M9 8h2M5 10.5h6"/>
+          <path d="M6 4V2.5a.5.5 0 011 0V4M9 4V2.5a.5.5 0 011 0V4"/>
+        </svg>
+        <span class="nav-label">MCP Audit</span>
+      </a>
+      <a href="/telemetry" class="nav-item {{ 'active' if current_path.startswith('/telemetry') else '' }}" title="Telemetry">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="8" r="6"/>
+          <path d="M8 5v3l2 2"/>
+        </svg>
+        <span class="nav-label">Telemetry</span>
+      </a>
+      <a href="/system-health" class="nav-item {{ 'active' if current_path.startswith('/system-health') else '' }}" title="Health">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 8h3l2-5 2 10 2-7 2 4 1-2h2"/>
+        </svg>
+        <span class="nav-label">Health</span>
+      </a>
+      <a href="/config" class="nav-item {{ 'active' if current_path.startswith('/config') else '' }}" title="Configuration">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="8" r="2.5"/>
+          <path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.8 3.8l.7.7M11.5 11.5l.7.7M3.8 12.2l.7-.7M11.5 4.5l.7-.7"/>
+        </svg>
+        <span class="nav-label">Configuration</span>
+      </a>
+    </div>
+
   </nav>
-  <main>
-    {% block content %}{% endblock %}
-  </main>
+
+  <!-- ── App shell ── -->
+  <div class="app-shell">
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    function selectRepo(repo_id) {
+      document.cookie = 'selected_repo=' + encodeURIComponent(repo_id) + '; path=/; max-age=86400';
+      // Repo-scoped pages embed the repo_id in the path (e.g. /hygiene/codeKG).
+      // Staying on those pages after a repo switch would show the old repo's data,
+      // so redirect to the dashboard which is always safe.
+      const repoScopedPaths = ['/hygiene/', '/modules/', '/repos/'];
+      const path = window.location.pathname;
+      const isRepoScoped = repoScopedPaths.some(p => path.startsWith(p));
+      if (isRepoScoped) {
+        window.location.href = repo_id ? '/?repo_id=' + encodeURIComponent(repo_id) : '/';
+        return;
+      }
+      const url = new URL(window.location.href);
+      if (repo_id) { url.searchParams.set('repo_id', repo_id); }
+      else { url.searchParams.delete('repo_id'); }
+      window.location.href = url.toString();
+    }
+
+    (function() {
+      const PREF_KEY = 'kg_nav_collapsed';
+      const body     = document.body;
+      const toggle   = document.getElementById('sidebar-toggle');
+
+      // Restore saved state immediately (before paint) to avoid flash
+      if (localStorage.getItem(PREF_KEY) === '1') {
+        body.classList.add('nav-collapsed');
+      }
+
+      toggle.addEventListener('click', function() {
+        const collapsed = body.classList.toggle('nav-collapsed');
+        localStorage.setItem(PREF_KEY, collapsed ? '1' : '0');
+      });
+    })();
+  </script>
+
+  <!-- ── Global confirm modal ── -->
+  <div class="modal-backdrop" id="_app-confirm" onclick="if(event.target===this)_confirmReject()">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-head">
+        <h2 id="_app-confirm-title">Confirm</h2>
+        <button class="modal-close" onclick="_confirmReject()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="_app-confirm-msg" style="font-size:.88rem;color:var(--text-2);line-height:1.6"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost btn-sm" onclick="_confirmReject()">Cancel</button>
+        <button class="btn btn-sm" id="_app-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  let _confirmResolve = null;
+
+  function appConfirm(msg, title) {
+    document.getElementById('_app-confirm-msg').textContent = msg;
+    document.getElementById('_app-confirm-title').textContent = title || 'Confirm';
+    document.getElementById('_app-confirm').classList.add('open');
+    return new Promise(resolve => {
+      _confirmResolve = resolve;
+      document.getElementById('_app-confirm-ok').onclick = () => { _confirmClose(true); };
+    });
+  }
+
+  function _confirmReject() { _confirmClose(false); }
+
+  function _confirmClose(result) {
+    document.getElementById('_app-confirm').classList.remove('open');
+    if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') _confirmClose(false);
+    if (e.key === 'Enter' && document.getElementById('_app-confirm').classList.contains('open')) _confirmClose(true);
+  });
+
+  // Global toast helper — pages that have their own toast can override this
+  function appToast(msg, ok) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.background = ok === false ? 'var(--danger)' : 'var(--success)';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+  </script>
 </body>
 </html>

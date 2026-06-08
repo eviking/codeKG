@@ -26,22 +26,22 @@
               <a href="/repos/{{ r.repo_id }}"><code>{{ r.repo_id }}</code></a>
               {% if r.get('orphaned') %}<span class="badge badge-warning" style="margin-left:4px">orphaned</span>{% endif %}
             </td>
-            <td style="color:#64748b;font-size:0.8rem"><code>{{ r.path }}</code></td>
+            <td style="color:var(--text-3);font-size:0.8rem"><code>{{ r.path }}</code></td>
             <td>
               {% if r.git and not r.git.get('error') %}
                 <code style="font-size:0.75rem">{{ r.git.last_commit }}</code>
-                <span style="color:#64748b;font-size:0.75rem"> on {{ r.git.branch }}</span>
+                <span style="color:var(--text-3);font-size:0.75rem"> on {{ r.git.branch }}</span>
               {% elif r.git.get('error') %}
-                <span style="color:#f87171;font-size:0.75rem">{{ r.git.error }}</span>
+                <span style="color:var(--danger);font-size:0.75rem">{{ r.git.error }}</span>
               {% else %}
-                <span style="color:#4a5568">—</span>
+                <span style="color:var(--text-3)">—</span>
               {% endif %}
             </td>
             <td>
               {% if r.kg and r.kg.get('last_commit') %}
                 <code style="font-size:0.75rem">{{ r.kg.last_commit[:12] }}</code>
               {% else %}
-                <span style="color:#4a5568;font-size:0.75rem">not indexed</span>
+                <span style="color:var(--text-3);font-size:0.75rem">not indexed</span>
               {% endif %}
             </td>
             <td style="white-space:nowrap">
@@ -49,8 +49,9 @@
                 <button class="btn btn-sm btn-ghost">Scan</button>
               </form>
               {% if not r.get('orphaned') %}
-              <form method="post" action="/repos/{{ r.repo_id }}/remove" style="display:inline" onsubmit="return confirm('Remove {{ r.repo_id }} from registry?')">
-                <button class="btn btn-sm" style="background:#7f1d1d;margin-left:4px">Remove</button>
+              <form method="post" action="/repos/{{ r.repo_id }}/remove" style="display:inline" id="rm-{{ r.repo_id | replace('/', '_') }}">
+                <button type="button" class="btn btn-sm btn-danger" style="margin-left:4px"
+                  onclick="confirmRemove('{{ r.repo_id }}', 'rm-{{ r.repo_id | replace('/', '_') }}')">Remove</button>
               </form>
               {% endif %}
             </td>
@@ -67,35 +68,89 @@
   <div>
     <h2>Add Repository</h2>
     <div class="card">
-      <p style="font-size:0.8rem;color:#64748b;margin-bottom:1rem">
-        Repos must be accessible inside the Docker container at the path you specify.
-        Mount your repo under <code>{{ repos_path }}</code> on the host — e.g.
-        <code>docker-compose.yml</code> <code>REPOS_PATH=/path/to/your/repos</code>.
-      </p>
-      <form method="post" action="/repos">
-        <label>Repo ID
-          <input name="repo_id" required placeholder="e.g. org/my-service"
-                 pattern="[a-zA-Z0-9_./-]+" title="Use letters, numbers, /, - or _">
-        </label>
-        <label>Path inside container
-          <input name="repo_path" required placeholder="e.g. /repos/my-service">
-          <span style="font-size:0.72rem;color:#4a5568;margin-top:2px">
-            Must contain a <code>.git</code> directory.
-          </span>
-        </label>
-        <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
-          <input type="checkbox" name="trigger_scan" value="yes" checked style="width:auto">
-          <span>Trigger full scan immediately</span>
-        </label>
-        <button type="submit">Register Repository</button>
-      </form>
+
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:0;margin-bottom:1.25rem;border-bottom:1px solid var(--border);">
+        <button id="tab-local" onclick="switchTab('local')"
+          style="padding:0.4rem 1rem;font-size:0.8rem;border:none;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);background:transparent;font-weight:600">
+          Local Directory
+        </button>
+        <button id="tab-clone" onclick="switchTab('clone')"
+          style="padding:0.4rem 1rem;font-size:0.8rem;border:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3);background:transparent">
+          Clone from GitHub
+        </button>
+      </div>
+
+      <!-- Local directory form -->
+      <div id="panel-local">
+        <p style="font-size:0.8rem;color:var(--text-3);margin-bottom:1rem">
+          Register a repo already on disk and accessible inside the container.
+        </p>
+        <form method="post" action="/repos">
+          <label>Repo ID
+            <input name="repo_id" required placeholder="e.g. django"
+                   pattern="[a-zA-Z0-9_./-]+" title="Use letters, numbers, /, - or _">
+          </label>
+          <label>Path inside container
+            <input name="repo_path" required placeholder="e.g. /host-home/Documents/GitHub/django">
+            <span style="font-size:0.72rem;color:var(--text-3);margin-top:2px">
+              Must contain a <code>.git</code> directory.
+            </span>
+          </label>
+          <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
+            <input type="checkbox" name="trigger_scan" value="yes" checked style="width:auto">
+            <span>Trigger full scan immediately</span>
+          </label>
+          <button type="submit">Register Repository</button>
+        </form>
+      </div>
+
+      <!-- Clone from GitHub form -->
+      <div id="panel-clone" style="display:none">
+        <p style="font-size:0.8rem;color:var(--text-3);margin-bottom:1rem">
+          Clone a public GitHub repo into your repos directory and register it automatically.
+        </p>
+        <div id="clone-form">
+          <label>Repo ID
+            <input id="clone-repo-id" placeholder="e.g. django"
+                   pattern="[a-zA-Z0-9_./-]+" title="Use letters, numbers, /, - or _">
+          </label>
+          <label>GitHub URL
+            <input id="clone-url" placeholder="https://github.com/django/django">
+            <span style="font-size:0.72rem;color:var(--text-3);margin-top:2px">
+              Public repos only (no auth). Uses <code>--depth=1</code> (shallow clone).
+            </span>
+          </label>
+          <label>Clone destination (container path)
+            <input id="clone-dest" placeholder="e.g. /repos/django">
+            <span style="font-size:0.72rem;color:var(--text-3);margin-top:2px">
+              Where to clone to inside the container.
+            </span>
+          </label>
+          <label style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
+            <input type="checkbox" id="clone-scan" checked style="width:auto">
+            <span>Trigger full scan after clone</span>
+          </label>
+          <button onclick="startClone()" id="clone-btn">Clone &amp; Register</button>
+        </div>
+
+        <!-- Progress indicator -->
+        <div id="clone-progress" style="display:none;margin-top:1rem">
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <div style="width:16px;height:16px;border:2px solid var(--primary);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+            <span id="clone-msg" style="font-size:0.85rem;color:var(--text-2)">Cloning…</span>
+          </div>
+        </div>
+        <div id="clone-error" style="display:none;margin-top:1rem;color:var(--danger);font-size:0.85rem;font-weight:500"></div>
+        <div id="clone-success" style="display:none;margin-top:1rem;color:var(--success);font-size:0.85rem;font-weight:500"></div>
+      </div>
     </div>
 
     <div class="card" style="margin-top:1rem">
       <h2>Host Setup</h2>
-      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem">
+      <p style="font-size:0.8rem;color:var(--text-3);margin-bottom:0.75rem">
         Set <code>REPOS_PATH</code> in your <code>.env</code> to the directory on your host
-        that contains the repos you want to index. Each subdirectory becomes a mountable path.
+        that contains the repos you want to index.
       </p>
       <pre># .env
 REPOS_PATH=/Users/yourname/code
@@ -104,6 +159,103 @@ REPOS_PATH=/Users/yourname/code
 # /repos/my-service   (from /Users/yourname/code/my-service)</pre>
     </div>
   </div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+function switchTab(tab) {
+  document.getElementById('panel-local').style.display  = tab === 'local'  ? '' : 'none';
+  document.getElementById('panel-clone').style.display  = tab === 'clone'  ? '' : 'none';
+  const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+  const muted = getComputedStyle(document.documentElement).getPropertyValue('--text-3').trim();
+  document.getElementById('tab-local').style.borderBottomColor = tab === 'local'  ? primary : 'transparent';
+  document.getElementById('tab-clone').style.borderBottomColor = tab === 'clone'  ? primary : 'transparent';
+  document.getElementById('tab-local').style.color = tab === 'local'  ? primary : muted;
+  document.getElementById('tab-clone').style.color = tab === 'clone'  ? primary : muted;
+  document.getElementById('tab-local').style.fontWeight = tab === 'local'  ? '600' : 'normal';
+  document.getElementById('tab-clone').style.fontWeight = tab === 'clone'  ? '600' : 'normal';
+}
+
+// Auto-fill repo ID from GitHub URL
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('clone-url').addEventListener('input', function() {
+    const url = this.value.trim();
+    const match = url.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+    if (match) {
+      const name = match[2].replace(/\.git$/, '');
+      if (!document.getElementById('clone-repo-id').value)
+        document.getElementById('clone-repo-id').value = name;
+      if (!document.getElementById('clone-dest').value)
+        document.getElementById('clone-dest').value = `/repos/${name}`;
+    }
+  });
+});
+
+async function startClone() {
+  const repoId  = document.getElementById('clone-repo-id').value.trim();
+  const url     = document.getElementById('clone-url').value.trim();
+  const dest    = document.getElementById('clone-dest').value.trim();
+  const scan    = document.getElementById('clone-scan').checked ? 'yes' : 'no';
+
+  if (!repoId || !url || !dest) { appToast('Fill in all fields', false); return; }
+
+  document.getElementById('clone-btn').disabled = true;
+  document.getElementById('clone-error').style.display   = 'none';
+  document.getElementById('clone-success').style.display = 'none';
+  document.getElementById('clone-progress').style.display = '';
+  document.getElementById('clone-msg').textContent = 'Cloning… (may take a minute)';
+
+  const form = new FormData();
+  form.append('repo_id', repoId);
+  form.append('github_url', url);
+  form.append('clone_path', dest);
+  form.append('trigger_scan', scan);
+
+  let jobId;
+  try {
+    const resp = await fetch('/repos/clone', { method: 'POST', body: form });
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || 'Clone request failed');
+    }
+    jobId = (await resp.json()).job_id;
+  } catch (e) {
+    showError(e.message); return;
+  }
+
+  // Poll for completion
+  const poll = setInterval(async () => {
+    try {
+      const s = await (await fetch(`/repos/clone/status/${jobId}`)).json();
+      document.getElementById('clone-msg').textContent = s.message;
+      if (s.status === 'done') {
+        clearInterval(poll);
+        document.getElementById('clone-progress').style.display = 'none';
+        document.getElementById('clone-success').style.display = '';
+        document.getElementById('clone-success').textContent = `✓ ${s.message} — redirecting…`;
+        setTimeout(() => window.location.href = `/repos/${repoId}`, 1500);
+      } else if (s.status === 'error') {
+        clearInterval(poll);
+        showError(s.message);
+      }
+    } catch(e) { /* transient, keep polling */ }
+  }, 1500);
+}
+
+function showError(msg) {
+  document.getElementById('clone-progress').style.display = 'none';
+  document.getElementById('clone-error').style.display = '';
+  document.getElementById('clone-error').textContent = '✗ ' + msg;
+  document.getElementById('clone-btn').disabled = false;
+}
+
+async function confirmRemove(repoId, formId) {
+  const ok = await appConfirm(`"${repoId}" will be removed from the registry. The source files are not deleted.`, 'Remove repository?');
+  if (ok) document.getElementById(formId).submit();
+}
+</script>
 
 </div>
 {% endblock %}

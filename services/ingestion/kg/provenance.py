@@ -70,5 +70,5 @@ def is_stale(freshness_ts: str, max_age_minutes: int = 60) -> bool:
         ts = datetime.strptime(freshness_ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         age = (datetime.now(timezone.utc) - ts).total_seconds() / 60
         return age > max_age_minutes
-    except Exception:
+    except (ValueError, TypeError):
         return True

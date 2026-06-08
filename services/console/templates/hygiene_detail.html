@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% block title %}Hygiene — {{ repo_id }}{% endblock %}
+{% block content %}
+<style>
+  .page-header { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; }
+  .back-link { font-size: .82rem; color: var(--primary); text-decoration: none; margin-bottom: 1rem; display: inline-block; }
+  .back-link:hover { text-decoration: underline; }
+
+  /* Score hero */
+  .score-hero { display: flex; align-items: center; gap: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 2rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); flex-wrap: wrap; }
+  .grade-big { width: 80px; height: 80px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; flex-shrink: 0; }
+  .grade-A { background: #dcfce7; color: #15803d; } .grade-B { background: #dbeafe; color: #1d4ed8; }
+  .grade-C { background: #fef9c3; color: #a16207; } .grade-D { background: #ffedd5; color: #c2410c; }
+  .grade-F { background: #fee2e2; color: #b91c1c; } .grade-unknown { background: var(--surface-2); color: var(--text-3); }
+
+  .score-text h2 { margin: 0 0 .2rem; font-size: 1.5rem; }
+  .score-sub { color: var(--text-3); font-size: .85rem; }
+
+  .hero-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-left: auto; }
+  .hstat { text-align: center; }
+  .hstat .hv { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; }
+  .hstat .hl { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); margin-top: .2rem; }
+  .hstat .hv.danger { color: var(--danger); } .hstat .hv.warn { color: var(--warning); }
+
+  /* Tier breakdown */
+  .tier-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: .75rem; margin-bottom: 1.5rem; }
+  @media(max-width:700px){ .tier-grid { grid-template-columns: repeat(3,1fr); } }
+  .tier-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .9rem 1rem; box-shadow: var(--shadow); }
+  .tier-card .tc-name { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600; margin-bottom: .4rem; }
+  .tier-card .tc-count { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1; }
+  .tier-card .tc-tokens { font-size: .72rem; color: var(--text-3); margin-top: .3rem; }
+  .tier-god .tc-count { color: var(--danger); }
+  .tier-large .tc-count { color: var(--warning); }
+  .tier-medium .tc-count { color: #f59e0b; }
+  .tier-small .tc-count { color: var(--info); }
+  .tier-tiny .tc-count { color: var(--success); }
+
+  /* Grade distribution bar */
+  .grade-bar-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+  .grade-bar-section h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600; margin-bottom: .9rem; }
+  .grade-dist { display: flex; gap: .5rem; align-items: flex-end; height: 80px; margin-bottom: .5rem; }
+  .grade-col { display: flex; flex-direction: column; align-items: center; gap: .2rem; flex: 1; cursor: pointer; border-radius: var(--radius); padding: .25rem .1rem; transition: background .15s; min-width: 0; }
+  .grade-col-count { font-size: .65rem; color: var(--text-3); white-space: nowrap; }
+  .grade-col:hover { background: var(--surface-2); }
+  .grade-col.active { background: var(--primary-lt); outline: 2px solid var(--primary); outline-offset: 1px; }
+  .grade-col-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; transition: opacity .15s; }
+  .grade-col:not(.active):not(:hover) .grade-col-bar { opacity: .75; }
+  .grade-col-label { font-size: .72rem; font-weight: 700; }
+  .grade-col-count { font-size: .65rem; color: var(--text-3); }
+  .gc-A { background: #22c55e; } .gc-B { background: #3b82f6; }
+  .gc-C { background: #eab308; } .gc-D { background: #f97316; } .gc-F { background: #ef4444; }
+  .grade-bar-hint { font-size: .68rem; color: var(--text-3); margin-top: .25rem; }
+
+  /* Filters */
+  .filters { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+  .filters input, .filters select { border-radius: var(--radius); height: 32px; padding: .3rem .65rem; font-size: .8rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  .filter-label { font-size: .72rem; color: var(--text-3); font-weight: 500; }
+
+  /* Classes table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  .data-table th { text-align: left; padding: .5rem .75rem; color: var(--text-3); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; border-bottom: 2px solid var(--border); background: var(--bg); cursor: pointer; white-space: nowrap; user-select: none; }
+  .data-table th:hover { color: var(--text); }
+  .data-table th .sort-icon { opacity: .4; margin-left: .2rem; }
+  .data-table th.sorted .sort-icon { opacity: 1; }
+  .data-table td { padding: .45rem .75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .data-table tr:hover td { background: var(--primary-lt); }
+  .data-table tr:last-child td { border: none; }
+
+  .grade-pill { display: inline-block; width: 24px; height: 24px; border-radius: 6px; text-align: center; line-height: 24px; font-size: .72rem; font-weight: 800; }
+  .gp-A { background: #dcfce7; color: #15803d; } .gp-B { background: #dbeafe; color: #1d4ed8; }
+  .gp-C { background: #fef9c3; color: #a16207; } .gp-D { background: #ffedd5; color: #c2410c; }
+  .gp-F { background: #fee2e2; color: #b91c1c; }
+
+  .score-mini-bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-left: .4rem; opacity: .7; }
+  .tier-tag { display: inline-block; font-size: .65rem; font-weight: 600; padding: .1rem .4rem; border-radius: 10px; }
+  .tt-god   { background: #fee2e2; color: #b91c1c; }
+  .tt-large { background: #ffedd5; color: #c2410c; }
+  .tt-medium{ background: #fef9c3; color: #a16207; }
+  .tt-small { background: #dbeafe; color: #1d4ed8; }
+  .tt-tiny  { background: #f1f5f9; color: #64748b; }
+
+  .doc-icon { font-size: .8rem; }
+  .fqn-cell { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+  .name-link { color: var(--primary); text-decoration: none; font-weight: 600; }
+  .name-link:hover { text-decoration: underline; }
+
+  .table-meta { font-size: .78rem; color: var(--text-3); margin-bottom: .5rem; }
+  #row-count { font-weight: 600; color: var(--text); }
+
+  .overhead-callout { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: .85rem; }
+  .overhead-callout strong { display: block; margin-bottom: .3rem; }
+</style>
+
+<a href="/hygiene" class="back-link">← All repos</a>
+
+{% if repo_score is none %}
+<div style="color:var(--text-3);padding:3rem;text-align:center">
+  No hygiene data for <strong>{{ repo_id }}</strong>. Run a full scan to compute scores.
+</div>
+{% else %}
+
+{% set grade = repo_grade if repo_grade != '?' else 'unknown' %}
+
+<!-- Score hero -->
+<div class="score-hero">
+  <div class="grade-big grade-{{ grade }}">{{ repo_grade }}</div>
+  <div class="score-text">
+    <h2>{{ repo_id }} — {{ repo_score }}/100</h2>
+    <div class="score-sub">Code hygiene score · {{ stats.get('scored_classes', 0)|int }} classes scored</div>
+  </div>
+  <div class="hero-stats">
+    <div class="hstat">
+      <div class="hv{% if stats.get('god_class_count',0) > 0 %} danger{% endif %}">{{ stats.get('god_class_count', 0)|int }}</div>
+      <div class="hl">God classes</div>
+    </div>
+    <div class="hstat">
+      <div class="hv" style="color:var(--success)">{{ stats.get('realistic_savings_pct', 0)|int }}%</div>
+      <div class="hl">Est. savings</div>
+    </div>
+    <div class="hstat">
+      <div class="hv" style="color:var(--info)">{{ stats.get('full_savings_pct', 0)|int }}%</div>
+      <div class="hl">Full cleanup savings</div>
+    </div>
+    <div class="hstat">
+      <div class="hv">{{ stats.get('df_class_count', 0)|int }}</div>
+      <div class="hl">D/F classes</div>
+    </div>
+  </div>
+</div>
+
+{% if stats.get('realistic_savings_pct', 0) > 5 %}
+<div class="overhead-callout">
+  <strong>💡 Refactoring the {{ stats.get('cdf_class_count', 0)|int }} C/D/F-grade classes to B could save an estimated {{ stats.get('realistic_savings_pct', 0)|int }}% in AI tokens</strong>
+  Splitting god classes, adding docstrings, and reducing coupling brings each class from 3–15× token cost down to ~1.8×.
+  Full cleanup of the entire codebase could save up to <strong>{{ stats.get('full_savings_pct', 0)|int }}%</strong>.
+  <div style="margin-top:.75rem">
+    <a href="/hygiene/{{ repo_id }}/refactor" class="btn btn-sm" style="text-decoration:none">
+      View refactoring plan →
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Score explanation -->
+{% set ex = stats.get('score_explanation', {}) %}
+{% set dims = ex.get('dims', []) %}
+{% if dims %}
+<div class="metric-block" style="margin-bottom:1.5rem">
+  <h3>Why this score</h3>
+  <p style="font-size:.82rem;color:var(--text-3);margin:0 0 1rem">
+    Score = average of four dimensions (25 pts each) across {{ stats.get('scored_classes',0)|int }} non-test classes{% if ex.get('penalty', 0) > 0 %}, minus {{ ex.get('penalty')|int }} pt god-class penalty{% endif %}.
+    The table below shows how many points each dimension contributes on average and what's dragging it down.
+  </p>
+
+  <!-- Dimension breakdown -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem">
+    {% for dim in dims %}
+    {% set pct_of_max = (dim.avg / 25 * 100)|round(1) %}
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem .9rem">
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600;margin-bottom:.5rem">{{ dim.name }}</div>
+      <div style="display:flex;align-items:baseline;gap:.3rem;margin-bottom:.4rem">
+        <span style="font-size:1.4rem;font-weight:700;color:{% if dim.avg >= 20 %}var(--success){% elif dim.avg >= 14 %}var(--info){% elif dim.avg >= 8 %}var(--warning){% else %}var(--danger){% endif %}">{{ dim.avg }}</span>
+        <span style="font-size:.75rem;color:var(--text-3)">/ 25</span>
+        {% if dim.lost > 0 %}
+        <span style="font-size:.72rem;color:var(--danger);margin-left:auto">−{{ dim.lost }} pts lost</span>
+        {% endif %}
+      </div>
+      <div class="bar-wrap" style="margin-bottom:.5rem">
+        <div class="bar-fill {% if pct_of_max >= 80 %}bar-green{% elif pct_of_max >= 56 %}bar-blue{% elif pct_of_max >= 32 %}bar-amber{% else %}bar-red{% endif %}" style="width:{{ pct_of_max }}%"></div>
+      </div>
+      {% if dim.name == 'Documentation' %}
+      <div style="font-size:.72rem;color:var(--text-3);display:flex;flex-direction:column;gap:.2rem;margin-top:.1rem">
+        <span>Has docstring: <strong style="color:var(--success)">{{ (stats.get('scored_classes',0) - dim.get('missing_raw_doc',0))|int }}</strong></span>
+        <span>Missing docstring: <strong style="color:var(--danger)">{{ dim.get('missing_raw_doc',0)|int }}</strong></span>
+      </div>
+      {% else %}
+      <div style="font-size:.72rem;color:var(--text-3)">{{ dim.what }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Penalty row if applicable -->
+  {% if ex.get('penalty', 0) > 0 %}
+  <div style="background:var(--danger-lt);border:1px solid #fca5a5;border-radius:var(--radius);padding:.65rem .9rem;font-size:.82rem;color:var(--danger)">
+    <strong>God-class penalty: −{{ ex.get('penalty')|int }} pts</strong> —
+    {{ stats.get('god_class_count',0)|int }} god classes exceed 1% of total
+    (threshold: {{ (stats.get('total_classes',0) * 0.01)|round|int }}).
+    Each excess god class deducts 2 pts from the repo score, capped at 20.
+  </div>
+  {% endif %}
+
+  <!-- Score formula -->
+  <div style="margin-top:1rem;font-size:.78rem;color:var(--text-3);font-family:'JetBrains Mono',monospace;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .9rem;line-height:1.8">
+    raw = (size {{ ex.get('dim_size_avg',0) }} + blast {{ ex.get('dim_blast_avg',0) }} + coupling {{ ex.get('dim_coupling_avg',0) }} + docs {{ ex.get('dim_doc_avg',0) }}) = {{ ex.get('raw_score',0) }}<br>
+    {% if ex.get('penalty', 0) > 0 %}
+    final = {{ ex.get('raw_score',0) }} − {{ ex.get('penalty')|int }} (god-class penalty) = <strong>{{ stats.get('repo_score') }}</strong>
+    {% else %}
+    final = <strong>{{ stats.get('repo_score') }}</strong>
+    {% endif %}
+  </div>
+
+  <!-- AI summary footnote -->
+  {% if ex.get('ai_score') and ex.get('ai_score') != stats.get('repo_score') %}
+  {% set summary_only_count = ex.get('classes_with_summary_only', 0)|int %}
+  <div style="margin-top:.75rem;font-size:.78rem;color:var(--text-3);border-top:1px solid var(--border);padding-top:.75rem">
+    <span style="font-weight:600;color:var(--text)">* With AI-generated summaries included:</span>
+    score would be <strong style="color:var(--primary)">{{ ex.get('ai_score') }}</strong>
+    (<span class="grade-pill gp-{{ ex.get('ai_grade','?') }}" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:.65rem">{{ ex.get('ai_grade') }}</span>)
+    — {{ summary_only_count }} classes have an AI-generated NL summary but no source docstring,
+    contributing {{ ex.get('ai_doc_avg',0) }}/25 vs {{ ex.get('dim_doc_avg',0) }}/25 on the docs dimension.
+    The score above uses source docstrings only as the authoritative documentation signal.
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Grade distribution -->
+{% set tc = stats.get('tier_counts', {}) %}
+{% set total_graded = (tc.get('A',0) + tc.get('B',0) + tc.get('C',0) + tc.get('D',0) + tc.get('F',0)) %}
+{% if total_graded > 0 %}
+<div class="grade-bar-section">
+  <h3>Grade distribution</h3>
+  <div class="grade-dist" id="grade-dist-bars">
+    {% for g in ['A','B','C','D','F'] %}
+    {% set cnt = tc.get(g, 0)|int %}
+    {% set pct = (cnt / total_graded * 100)|round(1) if total_graded > 0 else 0 %}
+    <div class="grade-col" data-grade="{{ g }}" onclick="filterByGrade('{{ g }}')" title="Click to filter by grade {{ g }}">
+      <div class="grade-col-count">{{ cnt }}</div>
+      <div class="grade-col-bar gc-{{ g }}" style="height:{{ [pct, 4]|max }}px"></div>
+      <div class="grade-col-label" style="color:{% if g=='A' %}#15803d{% elif g=='B' %}#1d4ed8{% elif g=='C' %}#a16207{% elif g=='D' %}#c2410c{% else %}#b91c1c{% endif %}">{{ g }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="grade-bar-hint">Click a bar to filter · click again to clear</div>
+</div>
+{% endif %}
+
+<!-- Class table -->
+{% if classes %}
+<div class="table-meta">Showing <span id="row-count">{{ classes|length }}</span> classes · click column headers to sort</div>
+
+<div class="filters">
+  <span class="filter-label">Filter:</span>
+  <input id="f-name" placeholder="class name…" style="width:160px" oninput="applyFilters()">
+  <select id="f-grade" onchange="applyFilters()">
+    <option value="">All grades</option>
+    <option>A</option><option>B</option><option>C</option><option>D</option><option>F</option>
+  </select>
+  <select id="f-tier" onchange="applyFilters()">
+    <option value="">All tiers</option>
+    <option value="god">God</option>
+    <option value="large">Large</option>
+    <option value="medium">Medium</option>
+    <option value="small">Small</option>
+    <option value="tiny">Tiny</option>
+  </select>
+  <select id="f-doc" onchange="applyFilters()">
+    <option value="">All doc status</option>
+    <option value="0">Missing docs</option>
+    <option value="1">Has docs</option>
+  </select>
+</div>
+
+<div style="overflow-x:auto">
+<table class="data-table" id="hygiene-table">
+  <thead>
+    <tr>
+      <th onclick="sortTable('grade')" data-col="grade">Grade <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('score')" data-col="score">Score <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('name')" data-col="name">Class <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('tier')" data-col="tier">Tier <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('method_count')" data-col="method_count">Methods <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('blast_size')" data-col="blast_size">Blast radius <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('coupling')" data-col="coupling">Coupling <span class="sort-icon">↕</span></th>
+      <th onclick="sortTable('has_doc')" data-col="has_doc">Docs <span class="sort-icon">↕</span></th>
+      <th>Role</th>
+      <th>Package</th>
+    </tr>
+  </thead>
+  <tbody id="hygiene-tbody">
+  {% for c in classes %}
+  <tr
+    data-name="{{ c.name|lower }}"
+    data-grade="{{ c.grade }}"
+    data-tier="{{ c.tier }}"
+    data-doc="{{ '1' if c.has_doc else '0' }}"
+    data-score="{{ c.score }}"
+    data-methods="{{ c.method_count }}"
+    data-blast="{{ c.blast_size }}"
+    data-coupling="{{ c.coupling }}"
+    data-fqn="{{ c.fqn }}"
+  >
+    <td><span class="grade-pill gp-{{ c.grade }}">{{ c.grade }}</span></td>
+    <td>
+      <span style="font-weight:600;font-family:monospace">{{ c.score }}</span>
+      <span class="score-mini-bar" style="width:{{ c.score * 0.6 }}px; background:{% if c.score >= 80 %}#22c55e{% elif c.score >= 65 %}#3b82f6{% elif c.score >= 50 %}#eab308{% elif c.score >= 35 %}#f97316{% else %}#ef4444{% endif %}"></span>
+    </td>
+    <td>
+      <a href="/classes/{{ c.fqn }}" class="name-link">{{ c.name }}</a>
+      {% if c.module_id %}<span style="font-size:.7rem;color:var(--text-3);margin-left:.4rem">· <a href="/modules/{{ c.module_id }}" style="color:var(--primary);text-decoration:none">{{ c.module_id }}</a></span>{% endif %}
+    </td>
+    <td><span class="tier-tag tt-{{ c.tier }}">{{ c.tier }}</span></td>
+    <td style="font-family:monospace">{{ c.method_count }}</td>
+    <td style="font-family:monospace{% if c.blast_size > 50 %};color:var(--danger);font-weight:600{% elif c.blast_size > 20 %};color:var(--warning){% endif %}">{{ c.blast_size }}</td>
+    <td style="font-family:monospace{% if c.coupling > 0.35 %};color:var(--warning){% endif %}">{{ "%.3f"|format(c.coupling) }}</td>
+    <td class="doc-icon">{% if c.has_doc %}<span title="Has docstring" style="color:var(--success)">✓</span>{% else %}<span title="No docstring" style="color:var(--danger)">✗</span>{% endif %}</td>
+    <td style="font-size:.72rem;color:var(--text-3)">{{ c.role }}</td>
+    <td style="font-size:.72rem;color:var(--text-3);font-family:monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ c.package }}">{{ c.package.split('.')[-1] if c.package else '—' }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div style="color:var(--text-3);text-align:center;padding:2rem">No class hygiene data found.</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+let _sortCol = 'score';
+let _sortAsc = true;
+
+const TIER_ORDER = {god:0, large:1, medium:2, small:3, tiny:4};
+const GRADE_ORDER = {F:0, D:1, C:2, B:3, A:4};
+
+function getVal(row, col) {
+  switch(col) {
+    case 'score':        return parseFloat(row.dataset.score)||0;
+    case 'grade':        return GRADE_ORDER[row.dataset.grade]??0;
+    case 'tier':         return TIER_ORDER[row.dataset.tier]??99;
+    case 'name':         return row.dataset.name;
+    case 'method_count': return parseInt(row.dataset.methods)||0;
+    case 'blast_size':   return parseInt(row.dataset.blast)||0;
+    case 'coupling':     return parseFloat(row.dataset.coupling)||0;
+    case 'has_doc':      return parseInt(row.dataset.doc)||0;
+    default:             return 0;
+  }
+}
+
+function sortTable(col) {
+  if (_sortCol === col) _sortAsc = !_sortAsc;
+  else { _sortCol = col; _sortAsc = col === 'name'; }
+
+  document.querySelectorAll('.data-table th').forEach(th => {
+    th.classList.remove('sorted');
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = '↕';
+  });
+  const active = document.querySelector(`th[data-col="${col}"]`);
+  if (active) {
+    active.classList.add('sorted');
+    const icon = active.querySelector('.sort-icon');
+    if (icon) icon.textContent = _sortAsc ? '↑' : '↓';
+  }
+
+  const tbody = document.getElementById('hygiene-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a,b) => {
+    const av = getVal(a, col), bv = getVal(b, col);
+    const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+    return _sortAsc ? cmp : -cmp;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+function applyFilters() {
+  const name  = document.getElementById('f-name').value.toLowerCase();
+  const grade = document.getElementById('f-grade').value;
+  const tier  = document.getElementById('f-tier').value;
+  const doc   = document.getElementById('f-doc').value;
+
+  let visible = 0;
+  document.querySelectorAll('#hygiene-tbody tr').forEach(row => {
+    const show = (!name  || row.dataset.name.includes(name))
+              && (!grade || row.dataset.grade === grade)
+              && (!tier  || row.dataset.tier  === tier)
+              && (!doc   || row.dataset.doc   === doc);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('row-count').textContent = visible;
+}
+
+function filterByGrade(grade) {
+  const select = document.getElementById('f-grade');
+  // Toggle: clicking the active grade clears the filter
+  const newVal = select.value === grade ? '' : grade;
+  select.value = newVal;
+
+  // Update bar active state
+  document.querySelectorAll('.grade-col').forEach(col => {
+    col.classList.toggle('active', col.dataset.grade === newVal && newVal !== '');
+  });
+
+  applyFilters();
+}
+
+// Default sort: score ascending (worst first)
+sortTable('score');
+</script>
+{% endblock %}

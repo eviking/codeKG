@@ -24,6 +24,8 @@ JAVA_LANGUAGE = Language(tsjava.language())
 
 @dataclass
 class BuildInfo:
+    """Summarizes the build and test stack discovered for a repository. Watch out for default values here, because downstream prompts assume these fields are always populated sensibly."""
+
     build_tool: str                         # maven | gradle
     java_version: Optional[str] = None
     test_framework: str = "junit5"          # junit4 | junit5 | testng
@@ -34,6 +36,8 @@ class BuildInfo:
 
 @dataclass
 class TestCategory:
+    """Groups tests by annotation or base-class signal. Watch out for the description text here, because it is surfaced directly in generated onboarding material."""
+
     annotation: str                         # e.g. @SpringBootTest, @DataJpaTest
     base_class: Optional[str]               # e.g. AbstractIntegrationTest
     description: str
@@ -88,6 +92,8 @@ def _text(node: Node, src: bytes) -> str:
 
 
 class BuildExtractor:
+    """Inspects repository build files and test layouts to infer tooling. Watch out for mixed-language repos here, because this extractor is optimized for Java conventions and falls back heuristically elsewhere."""
+
 
     def __init__(self):
         self._parser = Parser(JAVA_LANGUAGE)
@@ -163,7 +169,7 @@ class BuildExtractor:
             elif "testng" in all_deps_text:
                 info.test_framework = "testng"
 
-        except Exception:
+        except (OSError, ET.ParseError):
             pass
         return info
 
@@ -202,7 +208,7 @@ class BuildExtractor:
             elif "testng" in text.lower():
                 info.test_framework = "testng"
 
-        except Exception:
+        except OSError:
             pass
         return info
 
@@ -215,7 +221,7 @@ class BuildExtractor:
                 continue
             try:
                 src = java_file.read_bytes()
-            except Exception:
+            except OSError:
                 continue
 
             tree = self._parser.parse(src)
@@ -269,3 +275,213 @@ class BuildExtractor:
                     # Update base class if consistent
                     if base_class and cat.base_class is None:
                         cat.base_class = base_class
+
+
+# ---------------------------------------------------------------------------
+# Module discovery — top-level function
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ModuleInfo:
+    """Represents one discovered module or service directory. Watch out for name and path normalization here, because later index generation uses this object to build stable file names."""
+
+    module_id: str           # e.g. "x-pack/plugin/ml"
+    name: str                # human label, e.g. "ml"
+    path: str                # absolute path to submodule root
+    pkg_prefix: str          # best-guess package prefix (derived from path)
+    build_tool: str          # maven | gradle
+
+
+def extract_modules(repo_path: str) -> list[ModuleInfo]:
+    """
+    Auto-discover build submodules from:
+      - settings.gradle / settings.gradle.kts  (Gradle multi-project)
+      - root pom.xml <modules> section           (Maven multi-module)
+
+    Returns one ModuleInfo per discovered submodule.
+    """
+    root = Path(repo_path)
+    modules: list[ModuleInfo] = []
+
+    # ---- Gradle: settings.gradle or settings.gradle.kts ----
+    for settings_file in ("settings.gradle", "settings.gradle.kts"):
+        sf = root / settings_file
+        if sf.exists():
+            try:
+                text = sf.read_text(errors="replace")
+                seen: set[str] = set()
+
+                def _add_gradle_module(raw: str):
+                    rel = raw.replace(":", "/").lstrip("/")
+                    if rel in seen:
+                        return
+                    seen.add(rel)
+                    modules.append(ModuleInfo(
+                        module_id=rel,
+                        name=rel.split("/")[-1],
+                        path=str(root / rel),
+                        pkg_prefix=_path_to_pkg_prefix(rel),
+                        build_tool="gradle",
+                    ))
+
+                # Style 1: include(':x-pack:plugin:ml') or include("server")
+                for m in re.finditer(r"""include\s*\(\s*['"]([^'"]+)['"]\s*\)""", text):
+                    _add_gradle_module(m.group(1))
+
+                # Style 2: include 'x-pack:plugin:ml'  (no parens — common in ES)
+                for m in re.finditer(r"""^include\s+['"]([^'"]+)['"]""", text, re.MULTILINE):
+                    _add_gradle_module(m.group(1))
+
+                # Style 3: ES pattern — a List/def variable holding project paths,
+                # then `include varName.toArray(...)` or `include(*varName)`
+                # Find list-literal blocks: [ 'a:b', 'c:d', ... ] that precede an include
+                # We look for any quoted string containing a colon (Gradle project separator)
+                # within 5000 chars before an "include projects" / "include(*" call
+                if re.search(r"include\s+\w+", text):
+                    for block_match in re.finditer(
+                        r"\[([^\]]{10,5000})\]", text, re.DOTALL
+                    ):
+                        block = block_match.group(1)
+                        # Only process blocks that look like project lists
+                        # (majority of items must have colons or slashes)
+                        candidates = re.findall(r"""['"]([^'"]{3,80})['"]""", block)
+                        colon_count = sum(1 for c in candidates if ":" in c or "/" in c)
+                        if candidates and colon_count / len(candidates) >= 0.5:
+                            for c in candidates:
+                                if ":" in c or "/" in c:
+                                    _add_gradle_module(c)
+
+            except OSError:
+                pass
+            break  # only one settings file
+
+    # ---- Maven: root pom.xml <modules> ----
+    pom = root / "pom.xml"
+    if not modules and pom.exists():
+        try:
+            tree = ET.parse(pom)
+            ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+            for mod_el in (tree.getroot().findall(".//m:modules/m:module", ns) +
+                           tree.getroot().findall(".//modules/module")):
+                if mod_el.text:
+                    rel = mod_el.text.strip()
+                    sub_path = root / rel
+                    name = rel.split("/")[-1]
+                    pkg_prefix = _path_to_pkg_prefix(rel)
+                    modules.append(ModuleInfo(
+                        module_id=rel,
+                        name=name,
+                        path=str(sub_path),
+                        pkg_prefix=pkg_prefix,
+                        build_tool="maven",
+                    ))
+        except (OSError, ET.ParseError):
+            pass
+
+    # ---- Filesystem fallback ----
+    # For repos like ES that use dynamic helpers (addSubProjects) we can't
+    # parse module paths from settings.gradle.  Walk the filesystem and treat
+    # every directory that has its own build.gradle/pom.xml as a submodule.
+    # Skip directories that are already covered by the parsed list above.
+    existing_paths = {m.path for m in modules}
+    build_files = ("build.gradle", "build.gradle.kts", "pom.xml")
+
+    # Determine build tool from root
+    fs_build_tool = "gradle"
+    if (root / "pom.xml").exists() and not any(
+        (root / f).exists() for f in ("build.gradle", "build.gradle.kts")
+    ):
+        fs_build_tool = "maven"
+
+    seen_paths = {m.path for m in modules}
+    for bf in root.rglob("build.gradle"):
+        subdir = bf.parent
+        if subdir == root:
+            continue
+        # Skip hidden dirs, build output dirs, and already-covered paths
+        parts = subdir.parts
+        if any(p.startswith(".") or p in ("build", "out", "target", ".gradle") for p in parts):
+            continue
+        sub_str = str(subdir)
+        if sub_str in seen_paths:
+            continue
+        seen_paths.add(sub_str)
+        rel = str(subdir.relative_to(root))
+        modules.append(ModuleInfo(
+            module_id=rel,
+            name=subdir.name,
+            path=sub_str,
+            pkg_prefix=_path_to_pkg_prefix(rel),
+            build_tool=fs_build_tool,
+        ))
+
+    # ---- Python fallback: top-level packages ----
+    # If no build-tool modules found, discover Python packages as modules.
+    # Walk one level deep looking for directories with __init__.py.
+    # For a repo like Django, this gives: django/db, django/http, django/contrib, etc.
+    if not modules:
+        skip_dirs = {"build", "dist", "node_modules", ".git", "__pycache__",
+                     ".tox", ".venv", "venv", "env", ".eggs", "docs", "tests"}
+
+        def _has_python_files(d: Path) -> bool:
+            return any(d.rglob("*.py"))
+
+        def _add_package(top: Path, name: str, pkg_prefix: str):
+            rel = str(top.relative_to(root))
+            modules.append(ModuleInfo(
+                module_id=rel,
+                name=name,
+                path=str(top),
+                pkg_prefix=pkg_prefix,
+                build_tool="python",
+            ))
+
+        for top in sorted(root.iterdir()):
+            if not top.is_dir() or top.name.startswith(".") or top.name in skip_dirs:
+                continue
+            # Standard Python package: has __init__.py (e.g. django/)
+            if (top / "__init__.py").exists():
+                _add_package(top, top.name, top.name)
+                # Second level sub-packages (e.g. django/db, django/contrib)
+                for sub in sorted(top.iterdir()):
+                    if not sub.is_dir() or sub.name.startswith("_") or sub.name in skip_dirs:
+                        continue
+                    if (sub / "__init__.py").exists():
+                        _add_package(sub, f"{top.name}/{sub.name}", f"{top.name}.{sub.name}")
+
+        # ---- Service-layout fallback ----
+        # For microservice repos (e.g. services/ingestion/, services/api/) where
+        # the top-level grouping dir has no __init__.py but its children contain
+        # Python source.  Treat each named service subdirectory as a module.
+        if not modules:
+            SERVICE_ROOTS = {"services", "src", "apps", "packages", "libs", "modules"}
+            for top in sorted(root.iterdir()):
+                if not top.is_dir() or top.name not in SERVICE_ROOTS:
+                    continue
+                for svc in sorted(top.iterdir()):
+                    if not svc.is_dir() or svc.name.startswith(".") or svc.name in skip_dirs:
+                        continue
+                    if _has_python_files(svc):
+                        _add_package(svc, f"{top.name}/{svc.name}", svc.name)
+
+        # ---- Shared/common directory fallback ----
+        # Treat top-level non-service dirs that contain Python (but no __init__.py)
+        # as logical modules if they have Python content and a meaningful name.
+        if not modules:
+            LOGICAL_DIRS = {"shared", "common", "lib", "core", "utils", "tools"}
+            for top in sorted(root.iterdir()):
+                if not top.is_dir() or top.name not in LOGICAL_DIRS:
+                    continue
+                if _has_python_files(top):
+                    _add_package(top, top.name, top.name)
+
+    return modules
+
+
+def _path_to_pkg_prefix(rel_path: str) -> str:
+    """
+    Heuristic: convert a submodule path like 'x-pack/plugin/ml'
+    into a likely package prefix like 'ml'.
+    Returns the last path segment with hyphens removed.
+    """
+    return rel_path.split("/")[-1].replace("-", "").replace("_", "")

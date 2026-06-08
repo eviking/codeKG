@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ── Tests ────────────────────────────────────────────────────────────────────
+  test-api:
+    name: Test · API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -q \
+            pytest>=8.0 pytest-asyncio>=0.23 \
+            "fastapi>=0.111.0" "neo4j>=5.20.0" \
+            "pydantic>=2.7.2" "pydantic-settings>=2.3.4" \
+            "gitpython>=3.1.43" "anthropic>=0.25.0" \
+            "openai>=1.30.0" "requests>=2.32.0"
+      - name: Run API tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: test
+          AGENT_INDEX_DB: ":memory:"
+        run: |
+          PYTHONPATH=services/api:shared:. pytest services/api/tests/ -v --tb=short
+
+  test-console:
+    name: Test · Console
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -q \
+            pytest>=8.0 pytest-asyncio>=0.23 httpx \
+            "fastapi>=0.111.0,<0.116.0" "starlette>=0.37.0,<0.47.0" \
+            "neo4j>=5.20.0" "pydantic>=2.7.2" "jinja2>=3.1.4" \
+            "gitpython>=3.1.43" "python-multipart>=0.0.9" \
+            "requests>=2.32.0" "anthropic>=0.25.0" "openai>=1.30.0" \
+            "markdown>=3.6" "docker>=7.0.0" "itsdangerous>=2.1.2"
+      - name: Run Console tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: test
+          AGENT_INDEX_DB: ":memory:"
+          ANTHROPIC_API_KEY: "not-set"
+        run: |
+          PYTHONPATH=services/console:services/api:shared:. pytest services/console/tests/ -v --tb=short
+
+  test-ingestion:
+    name: Test · Ingestion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -q \
+            pytest>=8.0 \
+            "tree-sitter>=0.22.3" "tree-sitter-java>=0.21.0" \
+            "tree-sitter-python>=0.23.0" "tree-sitter-cpp>=0.23.0" \
+            "neo4j>=5.20.0" "pydantic>=2.7.2" "pydantic-settings>=2.3.4" \
+            "gitpython>=3.1.43"
+      - name: Run Ingestion tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: test
+        run: |
+          PYTHONPATH=services/ingestion:shared:. pytest services/ingestion/tests/ -v --tb=short
+
+  test-mcp:
+    name: Test · MCP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -q \
+            pytest>=8.0 pytest-asyncio>=0.23 \
+            "mcp>=1.3.0" "httpx>=0.27.0" \
+            "pydantic>=2.7.2" "starlette>=0.37.0"
+      - name: Run MCP tests
+        env:
+          API_URL: http://localhost:8000
+        run: |
+          PYTHONPATH=services/mcp:shared:. pytest services/mcp/tests/ -v --tb=short
+
+  test-watcher:
+    name: Test · Watcher
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -q \
+            pytest>=8.0 \
+            "gitpython>=3.1.43" "httpx>=0.27.0" \
+            "pydantic-settings>=2.3.4" "docker>=7.0.0"
+      - name: Run Watcher tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: test
+          API_URL: http://localhost:8000
+        run: |
+          PYTHONPATH=services/watcher:shared:. pytest services/watcher/tests/ -v --tb=short
+
+  # ── Lint ─────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install ruff
+        run: pip install -q ruff
+      - name: Run ruff
+        run: ruff check services/ shared/

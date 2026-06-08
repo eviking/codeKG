@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}LLM Audit Log{% endblock %}
+{% block content %}
+
+<style>
+  .audit-stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:0.75rem; margin-bottom:1.5rem; }
+  .audit-stat  { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.9rem 1rem; }
+  .audit-stat .val { font-size:1.5rem; font-weight:700; color:var(--primary); }
+  .audit-stat .lbl { font-size:0.7rem; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em; margin-top:0.2rem; }
+
+  .model-haiku  { color:var(--success); }
+  .model-sonnet { color:var(--primary); }
+  .model-opus   { color:#f472b6; }
+
+  .calls-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .calls-table th { padding:0.4rem 0.75rem; color:var(--text-3); font-weight:500; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+  .calls-table td { padding:0.4rem 0.75rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  .calls-table tr:hover td { background:var(--border); }
+
+  .source-tag { display:inline-block; background:var(--info-lt); color:var(--primary); border-radius:4px; padding:0.1rem 0.4rem; font-size:0.7rem; font-family:monospace; white-space:nowrap; }
+  .cost-val { font-family:monospace; color:var(--warning); }
+  .token-val { font-family:monospace; color:var(--text-3); }
+  .err-row td { background:var(--danger-lt) !important; }
+
+  .expand-btn { background:none; border:none; color:var(--primary); cursor:pointer; padding:0; font-size:0.75rem; }
+  .expand-btn:hover { text-decoration:underline; }
+
+  .detail-row { display:none; }
+  .detail-row.open { display:table-row; }
+  .detail-cell { padding:0 !important; }
+  .detail-inner { padding:1rem 1.25rem; background:var(--bg); border-bottom:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .detail-inner h4 { font-size:0.7rem; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem; }
+  .detail-inner pre { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.75rem; font-size:0.72rem; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; color:var(--text); margin:0; }
+
+  .filter-bar { display:flex; gap:0.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap; }
+  .filter-bar input, .filter-bar select { width:auto; }
+  .filter-bar label { flex-direction:row; align-items:center; gap:0.4rem; white-space:nowrap; }
+  .filter-bar form { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; }
+
+  .by-model-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .by-model-table th { padding:0.4rem 0.75rem; color:var(--text-3); font-weight:500; border-bottom:1px solid var(--border); text-align:left; }
+  .by-model-table td { padding:0.4rem 0.75rem; border-bottom:1px solid var(--border); font-family:monospace; }
+
+  .ts-cell { color:var(--text-3); font-size:0.72rem; white-space:nowrap; }
+</style>
+
+<h1>LLM Audit Log</h1>
+
+<!-- ── Summary stats ── -->
+<div class="audit-stats">
+  <div class="audit-stat">
+    <div class="val">{{ stats.totals.calls or 0 }}</div>
+    <div class="lbl">Total calls</div>
+  </div>
+  <div class="audit-stat">
+    <div class="val">${{ "%.4f"|format(stats.totals.cost_usd or 0) }}</div>
+    <div class="lbl">Total cost</div>
+  </div>
+  <div class="audit-stat">
+    <div class="val">{{ "{:,}".format((stats.totals.net_input_tokens or 0)|int) }}</div>
+    <div class="lbl">Input tokens (billed)</div>
+  </div>
+  <div class="audit-stat">
+    <div class="val">{{ "{:,}".format((stats.totals.output_tokens or 0)|int) }}</div>
+    <div class="lbl">Output tokens</div>
+  </div>
+  <div class="audit-stat">
+    <div class="val">{{ "{:.0f}".format((stats.totals.cache_ratio or 0) * 100) }}%</div>
+    <div class="lbl">Cache hit ratio</div>
+  </div>
+</div>
+
+<!-- ── Per-model breakdown ── -->
+{% if stats.by_model %}
+<div class="card" style="margin-bottom:1.5rem">
+  <h2>By Model</h2>
+  <table class="by-model-table">
+    <thead>
+      <tr>
+        <th>Model</th><th>Calls</th><th>Input tokens (billed)</th><th>Output tokens</th>
+        <th>Cache read</th><th>Cache %</th><th>Cost (USD)</th><th>Avg latency</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for m in stats.by_model %}
+    <tr>
+      <td class="{{ 'model-haiku' if 'haiku' in m.model else 'model-sonnet' if 'sonnet' in m.model else 'model-opus' }}">{{ m.model }}</td>
+      <td>{{ m.calls }}</td>
+      <td>{{ "{:,}".format((m.net_input_tokens or 0)|int) }}</td>
+      <td>{{ "{:,}".format((m.output_tokens or 0)|int) }}</td>
+      <td>{{ "{:,}".format((m.cache_read_tokens or 0)|int) }}</td>
+      <td>{{ "{:.0f}".format(((m.cache_read_tokens or 0) / (m.input_tokens or 1)) * 100) }}%</td>
+      <td class="cost-val">${{ "%.5f"|format(m.cost_usd or 0) }}</td>
+      <td>{{ ((m.avg_ms or 0)|int) }}ms</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ── Filter bar ── -->
+<div class="filter-bar">
+  <form method="get" action="/audit">
+    <label>Time window
+      <select name="hours">
+        {% for h, lbl in [(1,'Last 1 h'),(6,'Last 6 h'),(24,'Last 24 h'),(72,'Last 3 d'),(168,'Last 7 d'),(0,'All time')] %}
+        <option value="{{ h }}" {{ 'selected' if h == hours else '' }}>{{ lbl }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Source filter
+      <input name="source" value="{{ source_filter }}" placeholder="e.g. nl_query" style="width:180px">
+    </label>
+    <label>Show
+      <select name="limit">
+        {% for n in [50, 100, 200, 500] %}
+        <option value="{{ n }}" {{ 'selected' if n == limit else '' }}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Filter</button>
+    {% if source_filter %}
+    <a href="/audit" style="font-size:0.8rem;color:var(--text-3)">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- ── Calls table ── -->
+<div class="card" style="padding:0;overflow:hidden">
+{% if calls %}
+<table class="calls-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Time</th>
+      <th>Source</th>
+      <th>Model</th>
+      <th>In</th>
+      <th>Out</th>
+      <th>Cache</th>
+      <th>Cost</th>
+      <th>Latency</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in calls %}
+  <tr class="{{ 'err-row' if c.error else '' }}" id="row-{{ c.id }}">
+    <td style="color:var(--text-3);font-size:0.7rem">{{ c.id }}</td>
+    <td class="ts-cell">{{ c.ts[:19].replace('T',' ') }}</td>
+    <td><span class="source-tag">{{ c.source }}</span></td>
+    <td class="{{ 'model-haiku' if 'haiku' in (c.model or '') else 'model-sonnet' if 'sonnet' in (c.model or '') else 'model-opus' }}" style="font-size:0.75rem">
+      {{ (c.model or '').replace('claude-','') }}
+    </td>
+    <td class="token-val">{{ "{:,}".format((c.input_tokens or 0) - (c.cache_read_tokens or 0)) }}</td>
+    <td class="token-val">{{ "{:,}".format(c.output_tokens or 0) }}</td>
+    <td class="token-val" style="color:var(--primary)">{{ "{:,}".format(c.cache_read_tokens or 0) if c.cache_read_tokens else '—' }}</td>
+    <td class="cost-val">${{ "%.5f"|format(c.cost_usd or 0) }}</td>
+    <td style="color:var(--text-3);font-family:monospace">{{ c.elapsed_ms or '—' }}ms</td>
+    <td>
+      {% if c.input_text or c.output_text or c.error %}
+      <button class="expand-btn" onclick="toggleDetail({{ c.id }})">expand</button>
+      {% endif %}
+    </td>
+  </tr>
+  <tr class="detail-row" id="detail-{{ c.id }}">
+    <td colspan="10" class="detail-cell">
+      <div class="detail-inner">
+        <div>
+          <h4>Input{% if c.input_tokens %} · {{ "{:,}".format(c.input_tokens - (c.cache_read_tokens or 0)) }} billed{% if c.cache_read_tokens %} + {{ "{:,}".format(c.cache_read_tokens) }} cached{% endif %}{% endif %}</h4>
+          <pre>{{ c.input_text or '—' }}</pre>
+        </div>
+        <div>
+          <h4>Output{% if c.output_tokens %} · {{ "{:,}".format(c.output_tokens) }} tokens{% endif %}{% if c.error %} · <span style="color:var(--danger)">ERROR</span>{% endif %}</h4>
+          <pre>{% if c.error %}<span style="color:var(--danger)">{{ c.error }}</span>
+{% endif %}{{ c.output_text or '—' }}</pre>
+        </div>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">No API calls logged yet. Make an Ask query to see entries here.</div>
+{% endif %}
+</div>
+
+<script>
+function toggleDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  const btn = document.querySelector('#row-' + id + ' .expand-btn');
+  const open = row.classList.toggle('open');
+  btn.textContent = open ? 'collapse' : 'expand';
+}
+</script>
+
+{% endblock %}

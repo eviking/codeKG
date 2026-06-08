@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block title %}{{ om.name or fqn }}{% endblock %}
+{% block content %}
+<style>
+  /* ── role badge ── */
+  .role { display:inline-block; font-size:0.65rem; font-weight:700; letter-spacing:0.05em;
+    text-transform:uppercase; border-radius:4px; padding:0.15rem 0.5rem; }
+  .role-TRANSPORT  { background:var(--info-lt); color:var(--primary); }
+  .role-COMMAND    { background:var(--info-lt); color:var(--purple); }
+  .role-SERVICE    { background:var(--success-lt); color:var(--success); }
+  .role-REPOSITORY { background:var(--danger-lt); color:var(--danger); }
+  .role-FACTORY    { background:var(--purple-lt); color:var(--purple); }
+  .role-VALUE_OBJECT { background:var(--surface-2); color:var(--text-3); }
+  .role-UTILITY    { background:var(--surface-2); color:var(--text-3); border:1px solid var(--border); }
+  .role-ABSTRACT_BASE { background:var(--success-lt); color:#166534; border:1px solid #bbf7d0; }
+  .role-CONFIGURATION { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .role-TEST       { background:var(--surface-2); color:var(--text-3); border:1px solid var(--border); }
+  .role-GENERATED  { background:var(--surface-2); color:var(--text-3); border:1px solid var(--border); }
+  .role-CLASS      { background:var(--surface-2); color:var(--text-3); }
+
+  /* ── stat chips ── */
+  .stat-bar { display:flex; gap:0.75rem; flex-wrap:wrap; margin:1rem 0 1.5rem; }
+  .stat-chip { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:0.55rem 1rem; min-width:90px; }
+  .stat-chip .val { font-size:1.4rem; font-weight:700; color:var(--text); }
+  .stat-chip .lbl { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-3); margin-top:0.1rem; }
+  .stat-chip.warn { border-color:#fcd34d; }
+  .stat-chip.warn .val { color:var(--warning); }
+
+  /* ── coupling meter ── */
+  .coupling-meter { display:flex; align-items:center; gap:0.75rem; }
+  .coupling-track { flex:1; height:8px; background:var(--surface-2); border-radius:4px; max-width:200px; }
+  .coupling-fill { height:100%; border-radius:4px; }
+  .coupling-num { font-size:1.1rem; font-weight:700; }
+
+  /* ── call chain ── */
+  .chain-flow { display:flex; align-items:center; flex-wrap:wrap; gap:0; margin-bottom:0.75rem; }
+  .chain-step { background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    padding:0.35rem 0.65rem; font-size:0.75rem; }
+  .chain-step .step-name { color:var(--primary); font-family:monospace; }
+  .chain-step .step-role { font-size:0.6rem; color:var(--text-3); text-transform:uppercase;
+    letter-spacing:0.05em; display:block; margin-top:0.1rem; }
+  .chain-step .step-via { font-size:0.6rem; color:var(--text-3); margin-top:0.05rem; }
+  .chain-arrow { color:var(--border); padding:0 0.3rem; font-size:0.9rem; }
+  .chain-siblings { font-size:0.65rem; color:var(--text-3); margin-left:0.5rem; font-style:italic; }
+
+  /* ── blast table ── */
+  .mini-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .mini-table th { color:var(--text-3); font-size:0.62rem; text-transform:uppercase;
+    letter-spacing:0.06em; padding:0.35rem 0.5rem; border-bottom:1px solid var(--surface-2); text-align:left; }
+  .mini-table td { padding:0.35rem 0.5rem; border-bottom:1px solid var(--bg); }
+  .mini-table tr:hover td { background:var(--primary-lt); }
+  .mini-table a { color:var(--primary); font-family:monospace; font-size:0.75rem; }
+
+  /* ── method/field lists ── */
+  .method-list { list-style:none; padding:0; margin:0; }
+  .method-list li { padding:0.3rem 0; border-bottom:1px solid var(--bg); font-size:0.78rem;
+    font-family:monospace; color:var(--text-3); }
+  .method-list li .vis { color:var(--text-3); font-size:0.7rem; margin-right:0.4rem; }
+  .method-list li.pub .name { color:var(--text); }
+
+  /* ── warnings ── */
+  .warn-list { list-style:none; padding:0; margin:0; }
+  .warn-list li { display:flex; gap:0.5rem; align-items:flex-start;
+    padding:0.4rem 0; border-bottom:1px solid var(--bg); font-size:0.8rem; color:var(--warning); }
+  .warn-list li::before { content:"⚠"; font-size:0.7rem; margin-top:0.1rem; flex-shrink:0; }
+
+  /* ── sections ── */
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+  @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
+
+  /* ── appears-in ── */
+  .appears-chip { display:inline-flex; align-items:center; gap:0.3rem; background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:0.2rem 0.55rem;
+    font-size:0.72rem; font-family:monospace; color:var(--text-3); text-decoration:none; margin:0.2rem; }
+  .appears-chip:hover { border-color:var(--text-3); color:var(--text); }
+</style>
+
+{# ── breadcrumb + title ── #}
+<div style="margin-bottom:0.5rem;">
+  <a href="/classes" style="font-size:0.8rem; color:var(--text-3);">← All classes</a>
+  {% if om.module_id %}
+  · <a href="/modules/{{ om.module_id }}" style="font-size:0.8rem; color:var(--text-3);">{{ om.module_id }}</a>
+  {% endif %}
+</div>
+
+<div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
+  <h1 style="margin:0;">{{ om.name or fqn.split('.')[-1] }}</h1>
+  <span class="role role-{{ om.role or 'CLASS' }}">{{ om.role or 'CLASS' }}</span>
+  {% if om.kind and om.kind != 'class' %}
+  <span style="font-size:0.72rem; color:var(--text-3); background:var(--surface-2); padding:0.1rem 0.45rem; border-radius:4px;">{{ om.kind }}</span>
+  {% endif %}
+</div>
+<div style="font-size:0.78rem; color:var(--text-3); font-family:monospace; margin-bottom:0.5rem;">{{ fqn }}</div>
+{% if om.annotations %}
+<div style="margin-bottom:0.75rem;">
+  {% for ann in om.annotations %}
+  <span style="font-size:0.7rem; background:var(--surface-2); color:var(--purple); border-radius:3px; padding:0.1rem 0.4rem; margin-right:0.3rem;">{{ ann }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── Docstring (source truth) ── #}
+{% if c.javadoc %}
+<div class="section" style="border-left:3px solid #2563eb; padding-left:1.25rem; margin-bottom:1.25rem;">
+  <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+    <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--primary); background:var(--info-lt); border-radius:4px; padding:0.1rem 0.45rem;">Docstring</span>
+    <span style="font-size:0.68rem; color:var(--text-3);">from source</span>
+  </div>
+  <p style="font-size:0.85rem; color:var(--text-3); line-height:1.6; margin:0; font-style:italic;">{{ c.javadoc }}</p>
+</div>
+{% endif %}
+
+{# ── NL summary ── #}
+{% if c.summary %}
+<div class="section" style="border-left:3px solid var(--success); padding-left:1.25rem; margin-bottom:1.25rem;">
+  <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem;">
+    <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--success); background:var(--success-lt); border-radius:4px; padding:0.1rem 0.45rem;">AI Summary</span>
+    {% if c.summary_model %}<span style="font-size:0.68rem; color:var(--text-3);">{{ c.summary_model }}</span>{% endif %}
+    {% if c.summary_ts %}<span style="font-size:0.68rem; color:var(--text-3);">· {{ c.summary_ts[:16] | replace("T"," ") }}</span>{% endif %}
+  </div>
+  <p style="font-size:0.9rem; color:var(--text); line-height:1.65; margin:0;">{{ c.summary }}</p>
+</div>
+{% else %}
+<div style="border:1px dashed var(--surface-2); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1.25rem; font-size:0.78rem; color:var(--text-3);">
+  No AI summary yet.
+</div>
+{% endif %}
+
+{# ── warnings ── #}
+{% if om.warnings %}
+<div class="card" style="border-color:#7c3d0f; margin-bottom:1.25rem; padding:0.75rem 1rem;">
+  <ul class="warn-list">
+    {% for w in om.warnings %}
+    <li>{{ w }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{# ── stat bar ── #}
+<div class="stat-bar">
+  <div class="stat-chip">
+    <div class="val">{{ om.method_count or 0 }}</div>
+    <div class="lbl">Methods</div>
+  </div>
+  <div class="stat-chip">
+    <div class="val">{{ (om.fields or []) | length }}</div>
+    <div class="lbl">Fields</div>
+  </div>
+  <div class="stat-chip">
+    <div class="val">{{ (om.dependencies or []) | length }}</div>
+    <div class="lbl">Imports</div>
+  </div>
+  <div class="stat-chip">
+    <div class="val">{{ (om.dependents or []) | length }}</div>
+    <div class="lbl">Depended on by</div>
+  </div>
+  <div class="stat-chip {% if om.blast_size > 20 %}warn{% endif %}">
+    <div class="val">{{ om.blast_size or 0 }}</div>
+    <div class="lbl">Blast radius</div>
+  </div>
+  <div class="stat-chip">
+    <div class="val">{{ (om.test_classes or []) | length }}</div>
+    <div class="lbl">Test classes</div>
+  </div>
+  {% if om.line_count %}
+  <div class="stat-chip">
+    <div class="val">{{ om.line_count }}</div>
+    <div class="lbl">Lines</div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── coupling score ── #}
+<div class="section">
+  <h2>Coupling score</h2>
+  {% set cp = om.coupling or 0 %}
+  {% set cp_color = 'var(--danger)' if cp > 0.7 else 'var(--warning)' if cp > 0.4 else '#1d4ed8' %}
+  <div class="coupling-meter">
+    <div class="coupling-track">
+      <div class="coupling-fill" style="width:{{ (cp * 100)|int }}%; background:{{ cp_color }};"></div>
+    </div>
+    <span class="coupling-num" style="color:{{ cp_color }}">{{ '%.3f' | format(cp) }}</span>
+    <span style="font-size:0.78rem; color:var(--text-3); margin-left:0.5rem;">
+      {% if cp > 0.7 %}High risk — many classes depend on this{% elif cp > 0.4 %}Moderate coupling{% else %}Low coupling{% endif %}
+    </span>
+  </div>
+  <p style="font-size:0.75rem; color:var(--text-3); margin-top:0.75rem;">
+    Coupling = fan-in (50%) + fan-out (25%) + method count (25%), normalised to repo max.
+    Fan-in: who imports this class. Fan-out: what this class imports.
+  </p>
+</div>
+
+{# ── call chains ── #}
+{% if om.call_chains %}
+<div class="section">
+  <h2>Call chains</h2>
+  <p style="font-size:0.78rem; color:var(--text-3); margin-bottom:1rem;">
+    Request/execution flows starting from this class, derived from constructor-injected field types.
+  </p>
+  {% for chain in om.call_chains %}
+  <div style="margin-bottom:1.25rem;">
+    <div style="font-size:0.72rem; color:var(--text-3); margin-bottom:0.4rem;">
+      Entry: <strong style="color:var(--text-3);">{{ chain.entry }}</strong>
+      · depth {{ chain.depth }}
+    </div>
+    <div class="chain-flow">
+      {% for step in chain.chain %}
+        {% if not loop.first %}<span class="chain-arrow">→</span>{% endif %}
+        <div class="chain-step">
+          <a href="/classes/{{ step.fqn }}" class="step-name" onclick="event.stopPropagation()">{{ step.name }}</a>
+          <span class="step-role">{{ step.role }}</span>
+          {% if step.via_field %}<span class="step-via">via .{{ step.via_field }}</span>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── appears in chains ── #}
+{% if appears_details %}
+<div class="section">
+  <h2>Appears in call chains</h2>
+  <p style="font-size:0.78rem; color:var(--text-3); margin-bottom:0.75rem;">
+    Entry-point classes whose execution flow passes through this class.
+  </p>
+  <div>
+    {% for e in appears_details %}
+    <a class="appears-chip" href="/classes/{{ e.fqn }}">
+      <span class="role role-{{ e.role or 'CLASS' }}" style="font-size:0.55rem;">{{ e.role or 'CLASS' }}</span>
+      {{ e.name }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── blast radius ── #}
+{% if blast_details %}
+<div class="section">
+  <h2>Blast radius — top {{ blast_details | length }} of {{ om.blast_size }} dependents</h2>
+  <p style="font-size:0.78rem; color:var(--text-3); margin-bottom:0.75rem;">
+    Classes that transitively import this class. A signature change here affects all of them.
+  </p>
+  <table class="mini-table">
+    <thead>
+      <tr><th>Class</th><th>Role</th><th>Coupling</th></tr>
+    </thead>
+    <tbody>
+    {% for d in blast_details %}
+    <tr>
+      <td><a href="/classes/{{ d.fqn }}">{{ d.name }}</a>
+          <span style="font-size:0.65rem; color:var(--text-3);"> {{ d.fqn | replace(d.name, '') | trim('.') }}</span></td>
+      <td><span class="role role-{{ d.role or 'CLASS' }}">{{ d.role or 'CLASS' }}</span></td>
+      <td>
+        <div style="display:flex; align-items:center; gap:0.4rem;">
+          <div style="height:4px; width:50px; background:var(--surface-2); border-radius:2px;">
+            <div style="height:100%; width:{{ ((d.coupling or 0)*100)|int }}%; border-radius:2px;
+              background:{% if (d.coupling or 0) > 0.7 %}var(--danger){% elif (d.coupling or 0) > 0.4 %}var(--warning){% else %}#1d4ed8{% endif %};"></div>
+          </div>
+          <span style="font-size:0.7rem; color:var(--text-3);">{{ '%.2f' | format(d.coupling or 0) }}</span>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ── inheritance ── #}
+{% if om.superclass or om.interfaces %}
+<div class="section">
+  <h2>Inheritance</h2>
+  {% if om.superclass %}
+  <div style="margin-bottom:0.5rem; font-size:0.82rem;">
+    <span style="color:var(--text-3);">extends</span>
+    <a href="/classes?q={{ om.superclass.name }}" style="font-family:monospace; color:var(--primary); margin-left:0.4rem;">{{ om.superclass.name }}</a>
+  </div>
+  {% endif %}
+  {% if om.interfaces %}
+  <div style="font-size:0.82rem;">
+    <span style="color:var(--text-3);">implements</span>
+    {% for iface in om.interfaces %}
+    <a href="/classes?q={{ iface.name }}" style="font-family:monospace; color:var(--purple); margin-left:0.4rem;">{{ iface.name }}</a>{% if not loop.last %},{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── methods & fields side by side ── #}
+<div class="two-col">
+  {% if om.methods %}
+  <div class="section">
+    <h2>Methods ({{ om.method_count or om.methods | length }})</h2>
+    <ul class="method-list">
+      {% for m in om.methods[:30] %}
+      <li class="{% if m.visibility == 'public' %}pub{% endif %}">
+        <span class="vis">{{ m.visibility or 'pkg' }}</span>
+        <span class="name">{{ m.name }}</span>
+        <span style="color:var(--text-3);">({{ m.parameters | length }} params)</span>
+        {% if m.return_type and m.return_type != 'void' %}
+        <span style="color:var(--text-3);"> → {{ m.return_type }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+      {% if om.method_count and om.method_count > 30 %}
+      <li style="color:var(--text-3); font-style:italic;">… {{ om.method_count - 30 }} more</li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if om.fields %}
+  <div class="section">
+    <h2>Fields</h2>
+    <ul class="method-list">
+      {% for f in om.fields %}
+      <li>
+        <span class="vis">{{ (f.modifiers or ['pkg']) | join(' ') }}</span>
+        <span class="name" style="color:var(--purple);">{{ f.name }}</span>
+        <span style="color:var(--text-3);"> : {{ f.type }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+
+{# ── dependencies ── #}
+{% if om.dependencies %}
+<div class="section">
+  <h2>Imports (same-repo dependencies)</h2>
+  <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+    {% for dep in om.dependencies %}
+    <a href="/classes/{{ dep.fqn }}" style="font-size:0.72rem; font-family:monospace;
+      background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:0.1rem 0.45rem;
+      color:var(--text-3); text-decoration:none;">{{ dep.name }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── arch patterns ── #}
+{% if om.patterns %}
+<div class="section">
+  <h2>Architectural patterns</h2>
+  <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+    {% for p in om.patterns %}
+    <span style="font-size:0.75rem; border-radius:5px; padding:0.2rem 0.6rem;
+      background:{% if p.anti %}#2d1b1b{% else %}#1a3d2e{% endif %};
+      color:{% if p.anti %}var(--danger){% else %}var(--success){% endif %};">
+      {{ p.name }}
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── file info ── #}
+<div style="margin-top:1.5rem; font-size:0.72rem; color:var(--text-3); font-family:monospace;">
+  {% if om.file_path %}{{ om.file_path }}{% endif %}
+  {% if om.lines %} · lines {{ om.lines[0] }}–{{ om.lines[1] }}{% endif %}
+  {% if c.repo_id %} · repo {{ c.repo_id }}{% endif %}
+</div>
+
+{% endblock %}

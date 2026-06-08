@@ -3,7 +3,7 @@
 {% block content %}
 
 <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
-  <a href="/repos" style="color:#64748b;font-size:0.85rem">← Repositories</a>
+  <a href="/repos" style="color:var(--text-3);font-size:0.85rem">← Repositories</a>
   <h1 style="margin:0"><code>{{ repo_id }}</code></h1>
   {% if not in_registry %}
   <span class="badge badge-warning">not in registry</span>
@@ -11,9 +11,9 @@
 </div>
 
 {% if request.query_params.get('scan') == 'started' %}
-<div id="scan-banner" style="background:#0f2a1f;border:1px solid #166534;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.75rem">
-  <span id="scan-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #4ade80;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>
-  <span id="scan-status-text" style="color:#4ade80;font-size:0.875rem">Full scan started — indexing in background…</span>
+<div id="scan-banner" style="background:var(--success-lt);border:1px solid #86efac;border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.75rem">
+  <span id="scan-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid var(--success);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>
+  <span id="scan-status-text" style="color:var(--success);font-size:0.875rem;font-weight:500">Full scan started — indexing in background…</span>
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <script>
@@ -57,20 +57,21 @@
         {% if git and not git.get('error') %}
         <tr><th>Branch</th><td><code>{{ git.branch }}</code></td></tr>
         <tr><th>HEAD commit</th><td><code>{{ git.last_commit }}</code></td></tr>
-        <tr><th>Last message</th><td style="color:#94a3b8;font-size:0.85rem">{{ git.last_message }}</td></tr>
-        <tr><th>Author</th><td style="color:#94a3b8">{{ git.last_author }}</td></tr>
+        <tr><th>Last message</th><td style="color:var(--text-2);font-size:0.85rem">{{ git.last_message }}</td></tr>
+        <tr><th>Author</th><td style="color:var(--text-2)">{{ git.last_author }}</td></tr>
         {% elif git.get('error') %}
-        <tr><th>Git status</th><td><span style="color:#f87171">{{ git.error }}</span></td></tr>
+        <tr><th>Git status</th><td><span style="color:var(--danger)">{{ git.error }}</span></td></tr>
         {% endif %}
       </table>
     </div>
 
     <div class="card">
       <h2>KG Provenance</h2>
-      {% if provenance and provenance.get('last_commit') %}
+      {% set indexed_commit = provenance.get('last_commit') or provenance.get('prov_commit_sha') if provenance else none %}
+      {% if indexed_commit %}
       <table>
-        <tr><th>Last indexed commit</th><td><code>{{ provenance.last_commit[:12] if provenance.last_commit else '—' }}</code></td></tr>
-        <tr><th>Index freshness</th><td style="color:#94a3b8;font-size:0.85rem">{{ provenance.get('freshness_ts', '—') }}</td></tr>
+        <tr><th>Last indexed commit</th><td><code>{{ indexed_commit[:12] }}</code></td></tr>
+        <tr><th>Index freshness</th><td style="color:var(--text-2);font-size:0.85rem">{{ provenance.get('freshness_ts', '—') }}</td></tr>
         <tr><th>Stale nodes</th>
           <td>
             {% if provenance.stale_node_count and provenance.stale_node_count > 0 %}
@@ -135,15 +136,17 @@
     </div>
 
     {% if in_registry %}
-    <div class="card" style="border-color:#3f1717">
-      <h2 style="color:#f87171">Danger Zone</h2>
-      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem">
+    <div class="card" style="border-color:#fca5a5;background:var(--danger-lt)">
+      <h2 style="color:var(--danger)">Danger Zone</h2>
+      <p style="font-size:0.8rem;color:var(--text-2);margin-bottom:0.75rem">
         Removing from registry stops the watcher from monitoring this repo.
         KG data is preserved — run a full scan again to re-index.
       </p>
-      <form method="post" action="/repos/{{ repo_id }}/remove"
-            onsubmit="return confirm('Remove {{ repo_id }} from the watcher registry?')">
-        <button class="btn" style="background:#7f1d1d">Remove from Registry</button>
+      <form method="post" action="/repos/{{ repo_id }}/remove" id="rm-detail-form">
+        <button type="button" class="btn btn-danger"
+          onclick="appConfirm('Stops the watcher from monitoring this repo. KG data is preserved.', 'Remove from registry?').then(ok => ok && document.getElementById(\'rm-detail-form\').submit())">
+          Remove from Registry
+        </button>
       </form>
     </div>
     {% endif %}
