@@ -5,7 +5,6 @@ Scan jobs are now run as ephemeral Docker containers (run_scan.py).
 This service only exists for the claude-md/refresh endpoint which the
 console calls after a scan completes to regenerate CLAUDE.md.
 """
-import os
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse

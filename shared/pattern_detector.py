@@ -15,9 +15,7 @@ ArchPolicy — patterns are descriptive, policies are normative).
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Any
 
 from neo4j import Driver
 
@@ -150,7 +148,7 @@ def _match_missing_evaluator_variant(driver: Driver, repo_id: str | None) -> lis
         name = row["name"]
         base = name.replace("DocValuesAndSource", "").replace("DocValuesAndConstant", "")
         dv_dv_name = base + "DocValuesAndDocValues"
-        exists = _run(driver, f"""
+        exists = _run(driver, """
             MATCH (c:Class) WHERE c.name = $name RETURN c.fqn LIMIT 1
         """, name=dv_dv_name)
         if not exists:

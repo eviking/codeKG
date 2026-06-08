@@ -4,7 +4,6 @@ Uses multi-process parsing (one process per CPU core) for full scans.
 """
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
@@ -123,7 +122,6 @@ class IngestionEngine:
         Main thread parses files; a writer thread drains results into Neo4j in
         batches, so parse and write run concurrently without multiprocessing OOM risk.
         """
-        import time
 
         path = Path(repo_path)
 
@@ -347,7 +345,6 @@ class IngestionEngine:
         """
         Incremental update — single-threaded (typically only a handful of files).
         """
-        import time
         start = time.perf_counter()
 
         repo = git.Repo(repo_path)

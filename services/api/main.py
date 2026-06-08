@@ -800,7 +800,6 @@ def analyse_insights(body: dict) -> dict:
       confidence: float
     """
     import json as _json
-    import os as _os
     from shared.llm import llm as _llm
 
     repo_id = body.get("repo_id", "")
@@ -1080,8 +1079,8 @@ def _content_is_empty(content: str) -> bool:
     if not content:
         return True
     # Strip header lines (# title, _Generated ..., blank lines)
-    body_lines = [l for l in content.splitlines()
-                  if l.strip() and not l.startswith("#") and not l.startswith("_Generated")]
+    body_lines = [ln for ln in content.splitlines()
+                  if ln.strip() and not ln.startswith("#") and not ln.startswith("_Generated")]
     body = "\n".join(body_lines).strip()
     if len(body) < 80:
         return True
@@ -1137,7 +1136,7 @@ def _ai_regen_all(repo_id: str) -> dict:
                         "sha": parts[0][:8], "date": parts[1],
                         "author": parts[2], "message": parts[3],
                     })
-        except (OSError, subprocess.SubprocessError) as e:
+        except (OSError, _sp2.SubprocessError) as e:
             log.warning("Failed to read git log for agent index", repo_id=repo_id, exc=e)
 
     files = [f for f in store.list_files(repo_id) if not f.get("hidden")]
@@ -1651,17 +1650,17 @@ def telemetry_query_plan(session_id: str) -> dict:
     try:
         with driver.session() as _ks:
             rows = _ks.run("""
-                MATCH (c:Class {repo_id:$repo_id})
+                MATCH (c:Class)
                 WHERE c.file_path IS NOT NULL AND c.end_line IS NOT NULL AND c.end_line > 0
                 WITH c.file_path AS fp, max(c.end_line) AS loc
                 RETURN fp, loc
-            """, repo_id=repo_id).data()
+            """).data()
             for row in rows:
                 fp = row["fp"]
                 loc = row["loc"] or 0
                 _file_tok_map[fp] = max(100, int(loc * _tok_per_line))
     except Exception as e:
-        log.warning("Failed to build file token map from KG", repo_id=repo_id, exc=e)
+        log.warning("Failed to build file token map from KG", exc=e)
 
     def _tok_for_path(path: str) -> int:
         """Tokens to read this file — from KG LOC if available, else disk size, else average."""
@@ -1705,7 +1704,6 @@ def telemetry_query_plan(session_id: str) -> dict:
         return result or ([parts[0][:20]] if parts else ["<query>"])
 
     # Build a map: index_file_path → source files it covers (real sizes from disk)
-    repo_root = None
     def _get_repo_root_once(index_path: str) -> str:
         # .codekg/ lives directly under repo root
         return os.path.dirname(os.path.dirname(index_path))

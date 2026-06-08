@@ -46,7 +46,6 @@ def _run(coro):
 def auth_module(monkeypatch):
     """Provide a freshly-imported auth module for each test."""
     # Strip existing cached module to allow re-import with different cfg
-    import importlib
     monkeypatch.delenv("GITHUB_CLIENT_ID", raising=False)
     monkeypatch.delenv("GITHUB_CLIENT_SECRET", raising=False)
     monkeypatch.delenv("ALLOWED_GITHUB_USERS", raising=False)

@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-import queue
 import threading
-import time
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -167,7 +164,7 @@ async def start_summarise(
     include_skip_roles: str  = Form(""),
     ollama_url:         str  = Form(""),
 ):
-    import uuid, sys, importlib.util, subprocess, shutil
+    import uuid
 
     job_id = str(uuid.uuid4())[:8]
     _jobs[job_id] = {"status": "starting", "log": [], "done": 0, "total": 0}
@@ -186,7 +183,6 @@ async def start_summarise(
             # 3. /host-home/<rel-path> where rel-path comes from the codeKG
             #    registry entry (works on any machine where codeKG is registered)
             import json as _json2
-            from shared.config import cfg as _cfg2
             _tool_name = "tools/summarise_classes.py"
             _env_override = os.environ.get("SUMMARISE_TOOL_PATH", "")
             _dynamic_paths = []
@@ -234,7 +230,8 @@ async def start_summarise(
             sc.__file__ = tool_path
             exec(compile(source, tool_path, "exec"), sc.__dict__)
 
-            import argparse, logging
+            import argparse
+            import logging
 
             args = argparse.Namespace(
                 repo=repo_id,

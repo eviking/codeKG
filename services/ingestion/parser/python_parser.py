@@ -42,7 +42,7 @@ def _extract_docstring(body_node: Node, src: bytes) -> Optional[str]:
                         if raw.startswith(q) and raw.endswith(q) and len(raw) > 2 * len(q):
                             inner = raw[len(q):-len(q)]
                             # Clean up indentation
-                            lines = [l.strip() for l in inner.splitlines() if l.strip()]
+                            lines = [ln.strip() for ln in inner.splitlines() if ln.strip()]
                             return " ".join(lines)[:500] if lines else None
         elif child.type not in ("comment", "\n", "pass_statement"):
             break  # Past the docstring position

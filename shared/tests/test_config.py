@@ -111,7 +111,6 @@ class TestAuthConfig:
     def _make_auth(self, **env_overrides):
         """Helper: create a fresh _AuthConfig with controlled env vars."""
         from shared.config import _AuthConfig
-        import os
         old = {}
         for k, v in env_overrides.items():
             old[k] = os.environ.get(k)

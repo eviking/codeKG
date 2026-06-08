@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import textwrap
 from datetime import datetime, timezone
-from typing import Callable
 
 from typing import Callable as _Callable
 
@@ -30,7 +29,8 @@ _CAP = _DefaultZero()
 # file instead of separate per-module files — eliminates the need for extra reads.
 _COMBINED_LOC_THRESHOLD: int = cfg.agent_index.combined_loc_threshold
 
-_TS = lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+def _TS() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 # Injected at publish time so generators can embed the current commit SHA.
 # Falls back to "unpublished" when called outside a publish context.
@@ -509,7 +509,7 @@ def generate_violations(repo_id: str) -> str:
                 continue
             lines.append(f"## {sev.capitalize()} severity ({len(by_sev[sev])} violations)")
             lines.append("")
-            lines += [f"| Class | Policy | Blast | File |", "|---|---|---|---|"]
+            lines += ["| Class | Policy | Blast | File |", "|---|---|---|---|"]
             for v in by_sev[sev]:
                 parts = (v.get("file_path") or "").split("/")
                 short_fp = "/".join(parts[-2:]) if len(parts) >= 2 else parts[-1] if parts else ""
@@ -574,7 +574,6 @@ def _shorten_fp(fp: str, repo_path: str) -> str:
 
 # ── Shared class renderer ────────────────────────────────────────────────────
 
-import json as _json
 
 def _render_class(c: dict, heading_level: int = 3, repo_path: str = "") -> list[str]:
     """
@@ -744,7 +743,6 @@ def _render_module_body(module_id: str, m: dict, data: dict,
     """
     h1 = "#" * (1 + heading_offset)
     h2 = "#" * (2 + heading_offset)
-    h3 = "#" * (3 + heading_offset)
 
     classes      = data["classes"]
     incoming     = data["incoming_deps"]
@@ -974,7 +972,6 @@ def generate_insights_module(repo_id: str, module_id: str) -> str:
 # ── datastores/ ──────────────────────────────────────────────────────────────
 
 import sqlite3 as _sqlite3
-import re as _re_ds
 
 # Known data store signatures: (store_id, label, type, detector_patterns)
 # detector_patterns: list of strings that appear in source files using this store
@@ -1166,8 +1163,8 @@ def generate_datastores_index(repo_id: str, repo_path: str) -> str:
     neo4j_content = generate_schema(repo_id)
     # Strip the title/header — we're embedding it
     neo4j_body = "\n".join(
-        l for l in neo4j_content.splitlines()
-        if not l.startswith("# ") and not l.startswith("_Generated")
+        line for line in neo4j_content.splitlines()
+        if not line.startswith("# ") and not line.startswith("_Generated")
     ).strip()
     lines.append(neo4j_body)
     lines.append("")
@@ -1184,9 +1181,6 @@ def generate_schema(repo_id: str) -> str:
     without needing to probe the KG first.
     """
     # Node labels + property keys (sampled from real nodes)
-    label_rows = run_query("""
-        CALL db.labels() YIELD label RETURN label ORDER BY label
-    """)
 
     lines = [
         f"# Knowledge Graph Schema — {repo_id}",
@@ -1405,10 +1399,10 @@ def generate_recent_changes(repo_id: str, repo_path: str) -> str:
         try:
             result = _sp.run(
                 ["git", "-C", repo_path, "diff", "--name-only",
-                 f"HEAD~5", "HEAD"],
+                 "HEAD~5", "HEAD"],
                 capture_output=True, text=True, timeout=10,
             )
-            changed = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
+            changed = [ln.strip() for ln in result.stdout.strip().splitlines() if ln.strip()]
             if changed:
                 lines += ["## Files changed in last 5 commits", ""]
                 for f in changed[:40]:
@@ -1434,11 +1428,6 @@ def generate_claude_md_snippet(repo_id: str, visible_keys: set | None = None) ->
         "ORDER BY m.module_id LIMIT 12",
         repo_id=repo_id,
     )
-    module_lines = "\n".join(
-        f"        - `{m['id']}`" + (f" — {m['name']}" if m.get("name") else "")
-        for m in modules
-    )
-
     total_loc = get_repo_total_loc(repo_id)
     is_combined = total_loc < _COMBINED_LOC_THRESHOLD and total_loc > 0
 
@@ -1722,7 +1711,6 @@ def apply_claude_md_section(existing_content: str, snippet: str) -> str:
 
 # ── architecture/screens.md ──────────────────────────────────────────────────
 
-import ast as _ast
 import re as _re_screens
 
 _SCREEN_TECH = {
@@ -1898,10 +1886,7 @@ def _collect_screens(repo_path: str) -> list[dict]:
                                                    "site-packages", ".git", ".codekg",
                                                    "node_modules"}]
         # Route files: anything under a routes/ directory
-        rel_root = _os_sc.path.relpath(root, repo_path)
         in_routes = _os_sc.path.basename(root) == "routes"
-        # Also catch top-level app files that define routes (e.g. main.py with @app.get)
-        is_main = _os_sc.path.basename(root) in {"console", "api"} and not in_routes
 
         for fname in files:
             if not fname.endswith(".py"):
@@ -2092,7 +2077,7 @@ def generate_screens_index(repo_id: str, repo_path: str) -> str:
             # Outbound links in the template
             links_to = s.get("links_to", [])
             if links_to:
-                lines.append("**Links to:** " + ", ".join(f"`{l}`" for l in sorted(set(links_to))[:15]))
+                lines.append("**Links to:** " + ", ".join(f"`{lk}`" for lk in sorted(set(links_to))[:15]))
                 lines.append("")
 
             # Form actions (POST targets)

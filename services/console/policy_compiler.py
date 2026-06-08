@@ -7,7 +7,6 @@ rules compile instantly without an API call.
 """
 from __future__ import annotations
 
-import os
 import re
 
 from shared.config import cfg

@@ -46,8 +46,7 @@ from deps import (
 )
 from auth import (
     AUTH_ENABLED, BYPASS_PATHS,
-    current_user, _login_page_html,
-    router as auth_router,
+    current_user, router as auth_router,
 )
 from routes import (
     repos, dashboard, policies, modules, classes,

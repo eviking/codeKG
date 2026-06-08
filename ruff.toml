@@ -1,0 +1,10 @@
+[lint]
+# E402 — module-level imports not at top: test files do sys.path manipulation
+#         before imports, which is intentional and idiomatic.
+# E701/E702 — multiple statements on one line: used intentionally for compact
+#         inline guards throughout the codebase.
+ignore = ["E402", "E701", "E702"]
+
+[lint.per-file-ignores]
+# Test files use sys.path manipulation before imports
+"**/tests/**" = ["E402"]

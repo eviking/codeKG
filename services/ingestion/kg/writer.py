@@ -320,18 +320,13 @@ class KGWriter:
             for e in parsed.edges:
                 edges.append(e)
 
-        prov_props = (
-            "row.prov_commit_sha, row.prov_freshness_ts, "
-            "row.prov_confidence, row.prov_source_tool"
-        )
-
         with self._driver.session() as s:
 
             if packages:
                 s.run(
-                    f"""
+                    """
                     UNWIND $rows AS row
-                    MERGE (p:Package {{fqn: row.fqn}})
+                    MERGE (p:Package {fqn: row.fqn})
                     SET p.name = row.name, p.repo_id = row.repo_id,
                         p.prov_commit_sha = row.prov_commit_sha,
                         p.prov_freshness_ts = row.prov_freshness_ts,
@@ -681,7 +676,6 @@ class KGWriter:
         This is the canonical write path for all language plugins.
         The doc carries repo_id; provenance uses self.current_commit.
         """
-        from parser.scip_emitter import CONTAINS, SCIPDocument
         prov = make_provenance(self.current_commit, "tree-sitter-java")
         with self._driver.session() as s:
             s.execute_write(self._write_scip_document, doc, prov)
@@ -690,7 +684,6 @@ class KGWriter:
     def _write_scip_document(tx, doc, prov: dict):
         from parser.scip_emitter import (
             CONTAINS, EXTENDS, IMPLEMENTS, IMPORTS, CALLS,
-            SymbolRole,
         )
 
         # Package

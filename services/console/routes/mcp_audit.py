@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json as _json
-import os
 import sqlite3 as _sq
 
 from fastapi import APIRouter, HTTPException, Request

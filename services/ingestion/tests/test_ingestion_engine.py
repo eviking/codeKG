@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 # Force single-worker mode before importing config/engine
 os.environ.setdefault("NEO4J_URI", "bolt://localhost:7687")
@@ -26,7 +26,6 @@ _SVC_ROOT = str(Path(__file__).parent.parent)
 if _SVC_ROOT not in sys.path:
     sys.path.insert(0, _SVC_ROOT)
 
-import pytest
 
 
 def _make_writer():

@@ -16,7 +16,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 # Set required env vars before importing the watcher module
 os.environ.setdefault("NEO4J_URI", "bolt://localhost:7687")
@@ -27,7 +27,6 @@ _SVC_ROOT = str(Path(__file__).parent.parent)
 if _SVC_ROOT not in sys.path:
     sys.path.insert(0, _SVC_ROOT)
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # We need to import main but patch docker.from_env at import time because

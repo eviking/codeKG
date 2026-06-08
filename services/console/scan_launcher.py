@@ -9,7 +9,6 @@ and writes them to scan_log.db so failures are never lost.
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 import threading
 from datetime import datetime, timezone

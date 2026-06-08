@@ -17,7 +17,6 @@ _SVC_ROOT = str(Path(__file__).parent.parent)
 if _SVC_ROOT not in sys.path:
     sys.path.insert(0, _SVC_ROOT)
 
-import pytest
 from parser.build_extractor import BuildExtractor, extract_modules
 
 
@@ -108,7 +107,6 @@ class TestExtractModules:
             (svc_dir / "main.py").write_text("# service entry\n")
 
         modules = extract_modules(str(tmp_path))
-        module_names = [m.name for m in modules]
         # Should find at least some of the service directories
         assert len(modules) >= 1
 

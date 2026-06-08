@@ -38,8 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict, deque
-from typing import Any
+from collections import defaultdict
 
 from neo4j import Driver
 

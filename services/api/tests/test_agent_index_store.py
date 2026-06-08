@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 # Point to a temp db before importing the module

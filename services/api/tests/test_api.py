@@ -15,7 +15,6 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
@@ -35,7 +34,7 @@ _mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
 with patch("neo4j.GraphDatabase.driver", return_value=_mock_driver):
     # Add service root to path so relative imports work
     sys.path.insert(0, str(__file__).replace("/tests/test_api.py", ""))
-    from main import app, run_query  # noqa: E402
+    from main import app  # noqa: E402
 
 client = TestClient(app, raise_server_exceptions=False)
 

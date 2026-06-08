@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from collections import defaultdict
-from typing import Optional
 
 from neo4j import Driver
 
@@ -503,8 +502,8 @@ def _section_danger_zones(driver: Driver, repo_id: str) -> str:
 
     if large:
         lines += ["### Oversized Packages (> 100 production classes)", ""]
-        for l in large:
-            lines.append(f"- `{l['pkg']}` — {l['cnt']} classes")
+        for pkg_row in large:
+            lines.append(f"- `{pkg_row['pkg']}` — {pkg_row['cnt']} classes")
         lines += ["",
                   "> These packages are too large to reason about as a unit. "
                   "New code should go in focused sub-packages, not here.",

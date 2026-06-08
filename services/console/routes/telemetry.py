@@ -4,7 +4,6 @@ collected by the Claude Code Stop hook.
 """
 from __future__ import annotations
 
-import os
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 import httpx

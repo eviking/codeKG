@@ -31,7 +31,8 @@ from parser.python_parser import PythonParser
 
 def _parse(source: str, file_path: str = "/repo/mymodule.py", repo_id: str = "test") -> object:
     """Parse a source string using PythonParser.parse_file via a temp Path."""
-    import tempfile, os
+    import tempfile
+    import os
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
         f.write(source)
         tmp = f.name

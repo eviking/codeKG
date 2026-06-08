@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import textwrap
 from datetime import datetime, timezone
-from typing import Callable
 
 from deps import run_query
 
@@ -18,7 +17,8 @@ class _DefaultZero(dict):
     def __missing__(self, key): return 0
 _CAP = _DefaultZero()
 
-_TS = lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+def _TS() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _cap(text: str, limit: int) -> str:
@@ -370,7 +370,7 @@ def generate_violations(repo_id: str) -> str:
                 continue
             lines.append(f"## {sev.capitalize()} severity ({len(by_sev[sev])} violations)")
             lines.append("")
-            lines += [f"| Class | Policy | Blast | File |", "|---|---|---|---|"]
+            lines += ["| Class | Policy | Blast | File |", "|---|---|---|---|"]
             for v in by_sev[sev]:
                 parts = (v.get("file_path") or "").split("/")
                 short_fp = "/".join(parts[-2:]) if len(parts) >= 2 else parts[-1] if parts else ""

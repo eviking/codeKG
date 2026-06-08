@@ -263,12 +263,10 @@ def _fqn_to_symbol(fqn: str, default_pkg: str) -> str:
         parts = fqn.split("#", 1)
         class_fqn = parts[0]
         method = parts[1]
-        path = class_fqn.replace(".", "/")
         class_name = class_fqn.split(".")[-1]
         pkg_path = "/".join(class_fqn.split(".")[:-1])
         return f"scip-java {pkg_path}/{class_name}#{method}()."
     elif "." in fqn:
-        path = fqn.replace(".", "/")
         class_name = fqn.split(".")[-1]
         pkg_path = "/".join(fqn.split(".")[:-1])
         return f"scip-java {pkg_path}/{class_name}#"

@@ -53,13 +53,11 @@ def _refactor_reasons(c: dict) -> list[dict]:
     Each reason has: id, title, detail, expected_outcome, severity (high/medium/low).
     """
     reasons = []
-    score       = c.get("score") or 0
     tier        = c.get("tier") or "small"
     coupling    = c.get("coupling") or 0
     blast       = c.get("blast_size") or 0
     methods     = c.get("method_count") or 0
     has_doc     = c.get("has_doc", False)
-    grade       = c.get("grade") or "?"
     name        = c.get("name") or ""
 
     if tier == "god":

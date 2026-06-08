@@ -112,8 +112,8 @@ class TestGenerateIndex:
                  "description": "desc", "status": "current", "generated_at": None}
             ])
         # stale marker should not appear on this entry
-        lines_with_index = [l for l in result.splitlines() if "INDEX.md" in l]
-        assert any("stale" not in l for l in lines_with_index)
+        lines_with_index = [ln for ln in result.splitlines() if "INDEX.md" in ln]
+        assert any("stale" not in ln for ln in lines_with_index)
 
 
 class TestRenderClass:
@@ -164,7 +164,7 @@ class TestRenderClass:
             "object_model": None,
         }
         lines = gen._render_class(cls)
-        assert any("EmptyClass" in l for l in lines)
+        assert any("EmptyClass" in ln for ln in lines)
 
     def test_handles_empty_dict_object_model(self):
         """

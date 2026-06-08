@@ -23,7 +23,6 @@ _SHARED_ROOT = str(Path(__file__).parent.parent.parent)
 if _SHARED_ROOT not in sys.path:
     sys.path.insert(0, _SHARED_ROOT)
 
-import pytest
 
 
 def _capture_log(fn, *, service: str = "test") -> list[dict]:
@@ -49,8 +48,8 @@ def _capture_log(fn, *, service: str = "test") -> list[dict]:
     log = ckg.CodeKGLogger(logger_name, service)
     fn(log)
 
-    lines = [l.strip() for l in buf.getvalue().splitlines() if l.strip()]
-    return [json.loads(l) for l in lines]
+    lines = [ln.strip() for ln in buf.getvalue().splitlines() if ln.strip()]
+    return [json.loads(ln) for ln in lines]
 
 
 class TestGetLogger:

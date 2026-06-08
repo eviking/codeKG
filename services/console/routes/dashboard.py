@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -15,7 +14,8 @@ router = APIRouter()
 
 
 def _compute_token_savings() -> dict | None:
-    import sqlite3 as _sq, json as _json
+    import sqlite3 as _sq
+    import json as _json
     db_path = cfg.paths.mcp_audit_db
     total_kg_cache = 0
     total_kg_input = 0

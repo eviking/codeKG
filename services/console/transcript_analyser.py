@@ -13,8 +13,6 @@ The ~/.claude/projects directory is accessible via the /host-home mount.
 from __future__ import annotations
 
 import json
-import os
-import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
@@ -89,7 +87,7 @@ def _extract_tool_sequence(transcript_path: Path) -> dict[str, Any]:
 
     try:
         with open(transcript_path) as f:
-            lines = [json.loads(l.strip()) for l in f if l.strip()]
+            lines = [json.loads(ln.strip()) for ln in f if ln.strip()]
     except (OSError, ValueError):
         return {}
 

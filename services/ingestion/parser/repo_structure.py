@@ -235,11 +235,11 @@ def _infer_directory_purpose(path: Path) -> str:
             pass
 
     if has_main_java and has_test_java:
-        return f"Java module with source and tests"
+        return "Java module with source and tests"
     if has_main_java:
-        return f"Java module"
+        return "Java module"
     if has_test_java:
-        return f"Test module"
+        return "Test module"
     if has_pom or has_gradle:
         return "Build sub-module"
 

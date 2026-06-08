@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 from collections import defaultdict, deque
 
 from neo4j import Driver

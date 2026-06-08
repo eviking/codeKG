@@ -3,7 +3,6 @@ Agent Indexing routes — UI only. All regen/publish operations proxy to the API
 """
 from __future__ import annotations
 
-import os
 
 import httpx
 from fastapi import APIRouter, Request, HTTPException
@@ -67,8 +66,8 @@ async def agent_index_overview(request: Request):
                       "No active policies", "No significant hotspots")
     def _mark_empty(f: dict) -> dict:
         content = f.get("content") or ""
-        body_lines = [l for l in content.splitlines()
-                      if l.strip() and not l.startswith("#") and not l.startswith("_Generated")]
+        body_lines = [ln for ln in content.splitlines()
+                      if ln.strip() and not ln.startswith("#") and not ln.startswith("_Generated")]
         body = "\n".join(body_lines).strip()
         f["is_empty"] = f.get("hidden") and (
             len(body) < 80 or any(p in body for p in _EMPTY_PHRASES)
@@ -111,7 +110,8 @@ async def agent_index_file_view(request: Request, file_key: str):
         f = dict(row) if row else None
     if not f:
         raise HTTPException(status_code=404, detail="File not found — generate it first")
-    import markdown as _md, re as _re
+    import markdown as _md
+    import re as _re
     content_html = _md.markdown(
         f.get("content") or "",
         extensions=["tables", "fenced_code"],

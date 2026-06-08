@@ -38,10 +38,9 @@ No changes to any call site are needed.
 """
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from shared.config import cfg
 

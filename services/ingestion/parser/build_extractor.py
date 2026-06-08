@@ -383,9 +383,6 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
     # parse module paths from settings.gradle.  Walk the filesystem and treat
     # every directory that has its own build.gradle/pom.xml as a submodule.
     # Skip directories that are already covered by the parsed list above.
-    existing_paths = {m.path for m in modules}
-    build_files = ("build.gradle", "build.gradle.kts", "pom.xml")
-
     # Determine build tool from root
     fs_build_tool = "gradle"
     if (root / "pom.xml").exists() and not any(

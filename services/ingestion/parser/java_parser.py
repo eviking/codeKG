@@ -5,7 +5,6 @@ annotations, inheritance, and import dependencies) without invoking any LLM.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Optional
 
