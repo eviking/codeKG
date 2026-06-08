@@ -127,6 +127,8 @@ Add to `.mcp.json` in any repo:
 
 After every scan, codeKG commits a `.codekg/` directory into your repo:
 
+![Agent Indexing — pre-computed intelligence files published to the repo](docs/Agent%20Indexing%20-%20Screenshot.png)
+
 ```
 .codekg/
 ├── INDEX.md                    # master navigation — agents read this first
@@ -144,6 +146,14 @@ After every scan, codeKG commits a `.codekg/` directory into your repo:
 ```
 
 It also writes `CLAUDE.md` (for Claude Code) and `AGENTS.md` (for Codex/OpenAI agents) into your repo root, instructing agents to read the index before touching any file.
+
+---
+
+## Code hygiene scoring
+
+Every class is scored across four dimensions — documentation, blast radius, class size, and coupling — into a single 0–100 repo hygiene score. The console surfaces exactly where to focus refactoring effort and estimates AI token savings from cleanup.
+
+![Hygiene dashboard — repo score, god-class breakdown, and refactoring ROI estimate](docs/Hygiene%20-%20Screenshot.png)
 
 ---
 
