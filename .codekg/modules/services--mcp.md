@@ -1,5 +1,5 @@
 # Module: services/mcp
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 

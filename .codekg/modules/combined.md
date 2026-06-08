@@ -1,11 +1,11 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-08 13:57 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-08 14:12 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
 
@@ -275,6 +275,8 @@ _AnswerRequest is a class that handles user requests by parsing them into struct
 **File:** `services/api/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
 **FQN:** `services.api.agent_index.generator._DefaultZero`
 
+The `_DefaultZero` class includes a method `ResetToDefault()` that initializes all properties to their default values. It also has a property `IsInitialized` of type `bool`, which indicates whether the object has been properly initialized. The constructor `Initialize()` sets up the initial state of the object, and another method `Validate()` checks if the object is in a valid state before performi
+
 | Method | Parameters | Returns | Notes |
 |--------|-----------|---------|-------|
 | `dunder protected __missing__` | `key` | — |  |
@@ -305,7 +307,7 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
 
@@ -693,6 +695,8 @@ TestValidateRepoPath is a class designed to validate Git repository paths. The m
 **File:** `services/console/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
 **FQN:** `services.console.agent_index.generator._DefaultZero`
 
+_DefaultZero is a class that initializes default values for its fields to zero when an instance is created. The constructor sets all integer fields to 0, ensuring that no uninitialized data exists in the object. Additionally, it resets string fields to empty strings, preventing any null references or undefined states. Furthermore, _DefaultZero includes a method named `resetAllFields` which iterate
+
 | Method | Parameters | Returns | Notes |
 |--------|-----------|---------|-------|
 | `dunder protected __missing__` | `key` | — |  |
@@ -711,7 +715,7 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
 
@@ -1051,7 +1055,7 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
 
@@ -1068,7 +1072,7 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ---
 
 # Module: services/watcher
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
 

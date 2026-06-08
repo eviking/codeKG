@@ -1,5 +1,5 @@
 # Architectural Patterns — codeKG
-_Generated 2026-06-08 13:57 UTC_
+_Generated 2026-06-08 14:12 UTC_
 
 ## Design patterns in use
 

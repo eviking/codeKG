@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-08 13:57 UTC_
+_Generated 2026-06-08 14:12 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -364,7 +364,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":159,"scored_classes":122,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `47004d461a8f0cb1dc00100ebe748436df4deceb` |
+| `last_commit` | `74c80ba7c7b4a24ed1aecd918cb43c975a56168c` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
 | `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |

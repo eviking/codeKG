@@ -1,5 +1,5 @@
 # Recent Changes — codeKG
-_Generated 2026-06-08 13:57 UTC · commit `b00c2a9`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 Use this file to understand what has changed recently in both the codebase and the agent index itself, so you can focus on areas that matter.
 
@@ -7,6 +7,7 @@ Use this file to understand what has changed recently in both the codebase and t
 
 | Commit | Date | Author | Message |
 |--------|------|--------|---------|
+| `74c80ba7` | 2026-06-08 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `47004d46` | 2026-06-07 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `5e7c4028` | 2026-06-05 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `fe6d6519` | 2026-06-05 | CodeKG | chore: update CodeKG agent index [skip ci] |
@@ -36,7 +37,6 @@ Use this file to understand what has changed recently in both the codebase and t
 | `51488d52` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `3c39073b` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 | `f5c18807` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
-| `614e5ffe` | 2026-06-04 | CodeKG | chore: update CodeKG agent index [skip ci] |
 
 ## Files changed in last 5 commits
 

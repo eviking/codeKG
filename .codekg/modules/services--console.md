@@ -1,5 +1,5 @@
 # Module: services/console
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
 
@@ -386,6 +386,8 @@ TestValidateRepoPath is a class designed to validate Git repository paths. The m
 ### `_DefaultZero` — class
 **File:** `services/console/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
 **FQN:** `services.console.agent_index.generator._DefaultZero`
+
+_DefaultZero is a class that initializes default values for its fields to zero when an instance is created. The constructor sets all integer fields to 0, ensuring that no uninitialized data exists in the object. Additionally, it resets string fields to empty strings, preventing any null references or undefined states. Furthermore, _DefaultZero includes a method named `resetAllFields` which iterate
 
 | Method | Parameters | Returns | Notes |
 |--------|-----------|---------|-------|

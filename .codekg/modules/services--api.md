@@ -1,5 +1,5 @@
 # Module: services/api
-_Generated 2026-06-08 13:57 UTC · commit `unpublished`_
+_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
 
 **Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
 
@@ -268,6 +268,8 @@ _AnswerRequest is a class that handles user requests by parsing them into struct
 ### `_DefaultZero` — class
 **File:** `services/api/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
 **FQN:** `services.api.agent_index.generator._DefaultZero`
+
+The `_DefaultZero` class includes a method `ResetToDefault()` that initializes all properties to their default values. It also has a property `IsInitialized` of type `bool`, which indicates whether the object has been properly initialized. The constructor `Initialize()` sets up the initial state of the object, and another method `Validate()` checks if the object is in a valid state before performi
 
 | Method | Parameters | Returns | Notes |
 |--------|-----------|---------|-------|
