@@ -1,12 +1,13 @@
 # Module: services/console
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
+**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 34
 
 ## Depends on
 
 _External files/modules this module imports from:_
 
+- `codeKG/shared/config.py` — 1 import(s)
 - `shared/logging/codekg_logger.py` — 1 import(s)
 
 ## Data stores
@@ -89,8 +90,18 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 
 ## Classes
 
+### `AuthMiddleware` — class
+**File:** `services/console/main.py`  **LOC:** 21  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.main.AuthMiddleware`
+
+Gate all console pages behind GitHub OAuth when AUTH_ENABLED. Bypassed for the auth routes themselves and /health. When auth is disabled (GITHUB_CLIENT_ID not set) every request passes through.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public dispatch` | `Request request`<br>`call_next` | — |  |
+
 ### `RequestLogMiddleware` — class
-**File:** `services/console/main.py`  **LOC:** 11  **Grade:** C  **Blast:** 0
+**File:** `services/console/main.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.main.RequestLogMiddleware`
 
 The `RequestLogMiddleware` class includes a method named `dispatch`, which accepts two parameters: a `Request` object and a `call_next` function. This method is designed to log details about each request processed by the middleware before passing control to the next handler in the chain, thereby enabling detailed tracking of requests through the application's layers.
@@ -100,7 +111,7 @@ The `RequestLogMiddleware` class includes a method named `dispatch`, which accep
 | `public dispatch` | `Request request`<br>`call_next` | — |  |
 
 ### `TestAnnotationRequired` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 13  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 15  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestAnnotationRequired`
 
 TestAnnotationRequired is a class that includes methods for testing various aspects of annotation processing. The `test_without_at_prefix` method checks if annotations can be processed correctly when they do not start with the '@' symbol, ensuring flexibility in how annotations are applied. The `test_basic_match` method evaluates whether the system accurately identifies and matches annotations bas
@@ -112,7 +123,7 @@ TestAnnotationRequired is a class that includes methods for testing various aspe
 | `public test_case_insensitive` | — | — |  |
 
 ### `TestAsk` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 26  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestAsk`
 
 TestAsk is a class that includes several methods to test various scenarios related to an API endpoint designed for asking questions. The method `test_ask_post_happy()` evaluates how the system handles a successful POST request with all necessary parameters, ensuring it processes the question correctly. `test_ask_api_endpoint_missing_question()` checks the response when a required parameter (the qu
@@ -136,8 +147,32 @@ TestAuditLog is a class that includes a method named `test_audit_page_renders`. 
 |--------|-----------|---------|-------|
 | `public test_audit_page_renders` | — | — |  |
 
+### `TestCancelScan` — class
+**File:** `services/console/tests/test_scan_launcher.py`  **LOC:** 29  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_scan_launcher.TestCancelScan`
+
+Exercises cancel scan behavior in the scan launcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_stops_matching_container` | `launcher` | — |  |
+| `public test_noop_when_no_container_running` | `launcher` | — |  |
+
+### `TestCheckAccess` — class
+**File:** `services/console/tests/test_auth.py`  **LOC:** 97  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_auth.TestCheckAccess`
+
+Exercises check access behavior in the auth test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_org_config_calls_github_api` | `auth_module` | — |  |
+| `public test_denies_user_not_on_allowlist` | `auth_module` | — |  |
+| `public test_allows_user_on_allowlist` | `auth_module` | — |  |
+| `public test_allows_any_user_when_no_config` | `auth_module` | — |  |
+
 ### `TestClassesPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 52  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 54  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestClassesPage`
 
 TestClassesPage includes methods for testing various aspects of a classes page, such as sorting classes by name or blast, handling a 404 error when accessing a non-existent class detail, rendering the list of classes correctly, and ensuring that a not-found message is displayed when attempting to access a class that does not exist. Additionally, it tests the functionality of displaying a list of c
@@ -154,8 +189,20 @@ TestClassesPage includes methods for testing various aspects of a classes page, 
 | `public test_class_detail_renders` | — | — |  |
 | `public test_classes_list_with_query` | — | — |  |
 
+### `TestConfigRoutes` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 35  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestConfigRoutes`
+
+Exercises config routes behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_save_valid_key` | `console_client` | — |  |
+| `public test_save_unknown_key_returns_400` | `console_client` | — |  |
+| `public test_current_returns_redacted_secrets` | `console_client` | — |  |
+
 ### `TestControllerRepoRestriction` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 9  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 11  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestControllerRepoRestriction`
 
 The `TestControllerRepoRestriction` class includes methods for testing API endpoints without direct access and for standard phrasing in tests. The `test_without_directly()` method ensures that certain API calls can be made even when not authenticated directly, verifying the system's ability to handle such scenarios gracefully. Meanwhile, the `test_standard_phrasing()` method checks that all respon
@@ -165,8 +212,18 @@ The `TestControllerRepoRestriction` class includes methods for testing API endpo
 | `public test_without_directly` | — | — |  |
 | `public test_standard_phrasing` | — | — |  |
 
+### `TestCurrentUser` — class
+**File:** `services/console/tests/test_auth.py`  **LOC:** 19  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_auth.TestCurrentUser`
+
+Exercises current user behavior in the auth test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_local_user_when_auth_disabled` | `monkeypatch` | — |  |
+
 ### `TestDashboard` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 26  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestDashboard`
 
 TestDashboard includes methods to validate the rendering of a dashboard, its behavior when no data is present in the knowledge graph, and its interaction with repository statistics.
@@ -178,8 +235,22 @@ TestDashboard includes methods to validate the rendering of a dashboard, its beh
 | `public test_dashboard_no_ise_on_empty_kg` | — | — |  |
 | `public test_dashboard_with_repo_stats` | — | — |  |
 
+### `TestLaunchScan` — class
+**File:** `services/console/tests/test_scan_launcher.py`  **LOC:** 80  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_scan_launcher.TestLaunchScan`
+
+Exercises launch scan behavior in the scan launcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_incremental_scan_type_passed` | `launcher`<br>`tmp_path` | — |  |
+| `public test_passes_scan_repo_id_and_path` | `launcher`<br>`tmp_path` | — |  |
+| `public test_container_labelled_with_repo_id` | `launcher`<br>`tmp_path` | — |  |
+| `public test_uses_ingestion_image_from_config` | `launcher`<br>`tmp_path` | — |  |
+| `public test_home_mount_added_as_volume` | `launcher`<br>`tmp_path` | — |  |
+
 ### `TestLayerMustNotDependOn` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 12  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 14  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestLayerMustNotDependOn`
 
 TestLayerMustNotDependOn is a class that includes methods for testing various aspects of FQN (Fully Qualified Name) handling. The `test_returns_fqn` method checks if the class correctly returns the FQN, ensuring that it adheres to naming conventions. The `test_quoted_names` method evaluates how the class handles names that require quoting, verifying that special characters are managed appropriatel
@@ -190,8 +261,22 @@ TestLayerMustNotDependOn is a class that includes methods for testing various as
 | `public test_quoted_names` | — | — |  |
 | `public test_basic_match` | — | — |  |
 
+### `TestLoadEnvFile` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 54  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestLoadEnvFile`
+
+Exercises load env file behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_skips_comment_lines` | `config_routes` | — |  |
+| `public test_strips_quotes_from_values` | `config_routes` | — |  |
+| `public test_skips_blank_lines` | `config_routes` | — |  |
+| `public test_parses_key_value_pairs` | `config_routes` | — |  |
+| `public test_returns_empty_when_file_missing` | `config_routes` | — |  |
+
 ### `TestMcpAudit` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 24  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 26  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestMcpAudit`
 
 TestMcpAudit is a class that includes several methods to validate the behavior of an audit API for a system named MCP (likely Management Control Panel). The method `test_mcp_audit_api_returns_shape()` checks if the API returns data in the expected format or shape. Another method, `test_mcp_audit_page_renders()`, ensures that the audit page is rendered correctly without errors. The method `test_mcp
@@ -204,7 +289,7 @@ TestMcpAudit is a class that includes several methods to validate the behavior o
 | `public test_mcp_audit_api_no_db` | — | — |  |
 
 ### `TestModuleMustNotCall` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 18  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 20  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestModuleMustNotCall`
 
 TestModuleMustNotCall ensures that no service tests are called directly, promoting isolation. It validates FQN (Fully Qualified Name) column handling through test_returns_fqn_column. test_basic_match checks for basic matching functionality, while test_directly_variant assesses variant handling without direct calls.
@@ -217,7 +302,7 @@ TestModuleMustNotCall ensures that no service tests are called directly, promoti
 | `public test_directly_variant` | — | — |  |
 
 ### `TestModulesPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 39  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 41  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestModulesPage`
 
 TestModulesPage is a class designed to perform various tests related to module management within an application. The `test_modules_list_with_data` method checks if the list of modules renders correctly when data is available, ensuring that the UI displays the modules as expected. The `test_modules_list_renders` method verifies that the module list page renders without errors, regardless of whether
@@ -231,7 +316,7 @@ TestModulesPage is a class designed to perform various tests related to module m
 | `public test_module_detail_not_found` | — | — |  |
 
 ### `TestOutputSafety` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 7  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 9  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestOutputSafety`
 
 TestOutputSafety ensures that curly braces within input data do not lead to a key error by implementing a robust validation mechanism. The method `test_curly_braces_in_input_do_not_cause_key_error` specifically checks how the system handles unexpected characters in input, thereby enhancing the safety and reliability of output generation.
@@ -241,7 +326,7 @@ TestOutputSafety ensures that curly braces within input data do not lead to a ke
 | `public test_curly_braces_in_input_do_not_cause_key_error` | — | — |  |
 
 ### `TestPatternCatalog` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 48  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 50  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestPatternCatalog`
 
 TestPatternCatalog is a class designed to perform various tests on a catalog system. The `test_catalog_toggle_off` method checks the functionality of toggling items in the catalog off, ensuring that the system correctly handles this operation without errors. The `test_catalog_page_renders` method verifies that the catalog pages are rendered properly, checking for any layout or display issues. The 
@@ -258,7 +343,7 @@ TestPatternCatalog is a class designed to perform various tests on a catalog sys
 | `protected _catalog` | — | — |  |
 
 ### `TestPatternsPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 17  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 19  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestPatternsPage`
 
 The `TestPatternsPage` class includes methods for detecting patterns through a POST request (`test_patterns_detect_post`) and retrieving rendered patterns via a GET request (`test_patterns_get_renders`).
@@ -269,7 +354,7 @@ The `TestPatternsPage` class includes methods for detecting patterns through a P
 | `public test_patterns_get_renders` | — | — |  |
 
 ### `TestPoliciesPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 77  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 79  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestPoliciesPage`
 
 The `TestPoliciesPage` class includes several methods to validate various aspects of a policies page in an application. The `test_policies_list_no_ise_when_api_fails()` method checks that the policies list does not display any issues when the API call fails, ensuring robust error handling. The `test_activate_policy()` method tests the functionality of activating a policy, verifying that the system
@@ -287,7 +372,7 @@ The `TestPoliciesPage` class includes several methods to validate various aspect
 | `public test_run_policy_executes_cypher` | — | — |  |
 
 ### `TestPublicMethodAnnotation` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 21  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 23  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestPublicMethodAnnotation`
 
 TestPublicMethodAnnotation is a class that includes several methods to validate the behavior of public method annotations in Java. The `test_must_annotated_variant` method checks if a method must be annotated with a specific annotation, ensuring compliance with coding standards. The `test_module_keyword_in_phrase_is_not_matched` method tests whether the module keyword within phrases is correctly i
@@ -299,8 +384,20 @@ TestPublicMethodAnnotation is a class that includes several methods to validate 
 | `public test_basic_match` | — | — |  |
 | `public test_without_at_prefix` | — | — |  |
 
+### `TestRedact` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 29  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestRedact`
+
+Exercises redact behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_leaves_non_secret_unchanged` | `config_routes` | — |  |
+| `public test_replaces_secret_with_dots` | `config_routes` | — |  |
+| `public test_returns_empty_for_unset_secret` | `config_routes` | — |  |
+
 ### `TestReposPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 90  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 92  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestReposPage`
 
 TestReposPage is a class that includes several methods for testing various functionalities related to repository management. The `test_repo_detail_unknown` method likely tests how the system handles requests for details of repositories when the requested information is not available or unknown. The `test_scan_status_api` method probably checks the functionality of an API endpoint that returns the 
@@ -324,8 +421,20 @@ TestReposPage is a class that includes several methods for testing various funct
 | `public test_clone_status_not_found` | — | — |  |
 | `public test_repo_detail_not_in_registry` | — | — |  |
 
+### `TestSaveEnvFile` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 35  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestSaveEnvFile`
+
+Exercises save env file behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_merges_with_existing_values` | `config_routes` | — |  |
+| `public test_creates_file_with_correct_content` | `config_routes` | — |  |
+| `public test_removes_keys_with_empty_values` | `config_routes` | — |  |
+
 ### `TestServiceMustNotExtend` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestServiceMustNotExtend`
 
 TestServiceMustNotExtend is a class that includes a method named `test_basic_match`. This method does not take any parameters and does not return any value, indicated by its signature `void test_basic_match()`. The purpose of this method is to perform basic matching tests within the TestServiceMustNotExtend class.
@@ -334,8 +443,21 @@ TestServiceMustNotExtend is a class that includes a method named `test_basic_mat
 |--------|-----------|---------|-------|
 | `public test_basic_match` | — | — |  |
 
+### `TestSessionCookie` — class
+**File:** `services/console/tests/test_auth.py`  **LOC:** 51  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_auth.TestSessionCookie`
+
+Exercises session cookie behavior in the auth test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_decode_tampered_cookie_returns_none` | `auth_module` | — |  |
+| `public test_decode_expired_cookie_returns_none` | `auth_module` | — |  |
+| `public test_decode_empty_string_returns_none` | `auth_module` | — |  |
+| `public test_round_trip_preserves_user` | `auth_module` | — |  |
+
 ### `TestSystemHealth` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 14  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 16  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestSystemHealth`
 
 TestSystemHealth includes methods to verify that the system health API returns JSON data and that the system health page renders correctly. The `test_system_health_api_returns_json` method checks if the API endpoint responds with a valid JSON format, ensuring data integrity for automated monitoring systems. Meanwhile, the `test_system_health_page_renders` method assesses whether the web page displ
@@ -346,7 +468,7 @@ TestSystemHealth includes methods to verify that the system health API returns J
 | `public test_system_health_page_renders` | — | — |  |
 
 ### `TestToContainerPath` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 20  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 22  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestToContainerPath`
 
 The `TestToContainerPath` class contains methods to verify different scenarios for converting host paths to container paths. The `test_passthrough_when_no_match` method checks that if there is no matching pattern, the original path is returned unchanged. The `test_passthrough_when_host_home_empty` method ensures that if the host home directory is empty, the conversion still returns the original pa
@@ -358,7 +480,7 @@ The `TestToContainerPath` class contains methods to verify different scenarios f
 | `public test_rewrites_host_home` | — | — |  |
 
 ### `TestUnknownPolicy` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 16  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 18  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestUnknownPolicy`
 
 TestUnknownPolicy is a class that includes several methods to validate the behavior of placeholder text in various scenarios. The method `test_placeholder_has_fqn_comment()` checks if the placeholder contains a fully qualified name (FQN) comment, ensuring it adheres to naming conventions. The method `test_empty_string_returns_placeholder()` verifies that an empty string input results in a default 
@@ -371,7 +493,7 @@ TestUnknownPolicy is a class that includes several methods to validate the behav
 | `public test_placeholder_contains_original_text` | — | — |  |
 
 ### `TestValidateRepoPath` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 22  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 24  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestValidateRepoPath`
 
 TestValidateRepoPath is a class designed to validate Git repository paths. The method `test_nonexistent_path` checks if the system correctly identifies and handles non-existent paths, ensuring robust error handling for missing directories. The method `test_not_a_directory` verifies that the validation logic distinguishes between valid Git repositories and non-directory entities, preventing incorre
@@ -384,7 +506,7 @@ TestValidateRepoPath is a class designed to validate Git repository paths. The m
 | `public test_directory_without_git` | — | — |  |
 
 ### `_DefaultZero` — class
-**File:** `services/console/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**File:** `services/console/agent_index/generator.py`  **LOC:** 3  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.agent_index.generator._DefaultZero`
 
 _DefaultZero is a class that initializes default values for its fields to zero when an instance is created. The constructor sets all integer fields to 0, ensuring that no uninitialized data exists in the object. Additionally, it resets string fields to empty strings, preventing any null references or undefined states. Furthermore, _DefaultZero includes a method named `resetAllFields` which iterate
@@ -394,7 +516,7 @@ _DefaultZero is a class that initializes default values for its fields to zero w
 | `dunder protected __missing__` | `key` | — |  |
 
 ### `_Entry` — class
-**File:** `services/console/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0
+**File:** `services/console/llm_audit.py`  **LOC:** 51  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.llm_audit._Entry`
 
 _Entries are recorded using the `record` method, which accepts a generic type `response` and a string `error`. The `record_error` method captures exceptions by accepting an `Exception` type named `exc`, logging or handling errors accordingly.

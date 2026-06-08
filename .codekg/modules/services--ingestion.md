@@ -1,13 +1,14 @@
 # Module: services/ingestion
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
+**Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 41
 
 ## Depends on
 
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 3 import(s)
+- `codeKG/shared/config.py` — 2 import(s)
 
 ## Data stores
 
@@ -32,13 +33,13 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ## Classes
 
 ### `ApiEndpoint` — class
-**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 10  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.api_extractor.ApiEndpoint`
 
 ApiEndpoint is a class that defines endpoints for handling HTTP requests in a web application. It includes methods like `get` and `post`, which are used to retrieve and submit data respectively. The class also contains fields such as `path` and `methodType`, specifying the URL path and type of HTTP method (GET, POST) associated with each endpoint.
 
 ### `ApiExtractor` — class
-**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 155  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 157  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.api_extractor.ApiExtractor`
 
 ApiExtractor is a class designed to parse and extract API endpoints from a specified file located at a given path. The `extract_file` method accepts two parameters: a `Path` object representing the location of the file, and a string `repo_id` that identifies the repository associated with the file. This method returns a list of `ApiEndpoint` objects, each encapsulating details about an API endpoin
@@ -54,13 +55,13 @@ ApiExtractor is a class designed to parse and extract API endpoints from a speci
 | `protected _extract_request_body_type` | `Node params_node`<br>`bytes src` | `Optional[str]` |  |
 
 ### `AsyncMethod` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 6  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 8  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.AsyncMethod`
 
 AsyncMethod is an asynchronous method that processes data asynchronously, allowing for non-blocking operations. It takes a list of integers as input and returns a promise that resolves to the sum of all numbers in the list. The method signature indicates it performs calculations concurrently, optimizing performance by utilizing multiple threads or processes.
 
 ### `BuildExtractor` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 181  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 183  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.BuildExtractor`
 
 BuildExtractor is a class designed to parse a repository path and extract build information along with associated test categories. The `extract` method accepts a string representing the repository path as its parameter and returns a tuple containing a `BuildInfo` object and a list of `TestCategory` objects, effectively parsing the repository for relevant build details and categorizing tests accord
@@ -77,13 +78,13 @@ BuildExtractor is a class designed to parse a repository path and extract build 
 | `dunder protected __init__` | — | — |  |
 
 ### `BuildInfo` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 6  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 8  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.BuildInfo`
 
 The `BuildInfo` class contains a field named `buildVersion` of type `String`, which stores the version number of the build. It also includes a method called `getBuildDate()` that returns a `LocalDateTime` object representing the date when the build was created. Additionally, there is a method `isLatestRelease()` that takes no parameters and returns a `boolean`, indicating whether the current build
 
 ### `ConcurrencyExtractor` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 173  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 175  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.ConcurrencyExtractor`
 
 ConcurrencyExtractor is a class designed to parse and analyze files containing concurrency-related declarations. The `extract_file` method takes a file path as input and returns three lists: one for thread pool declarations, another for asynchronous methods, and a third for concurrency facts. This method facilitates the extraction of specific concurrency constructs from source code files, enabling
@@ -98,7 +99,7 @@ ConcurrencyExtractor is a class designed to parse and analyze files containing c
 | `protected _visit_field` | `Node field_node`<br>`bytes src`<br>`str class_fqn`<br>`str file_path`<br>`pools`<br>`facts` | — |  |
 
 ### `ConcurrencyFact` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 5  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 7  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.ConcurrencyFact`
 
 ConcurrencyFact: The class includes a method named `submitTask` that accepts an instance of type `Runnable`, indicating it is designed to handle asynchronous task submission. Additionally, there is a field of type `ExecutorService`, suggesting that the class manages a pool of threads for executing tasks concurrently. Furthermore, the presence of a method called `shutdown` implies that the class in
@@ -125,7 +126,7 @@ CppParser is a class designed to parse C++ source files using the Tree-sitter li
 | `protected _collect_calls` | `Node node`<br>`bytes src`<br>`ParsedFile result`<br>`str caller_fqn` | — |  |
 
 ### `DirectoryEntry` — class
-**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.repo_structure.DirectoryEntry`
 
 The `DirectoryEntry` class includes a method named `getDetails()` which returns an object of type `FileInfo`. This indicates that the class is designed to handle directory entries and can retrieve detailed information about each entry. Additionally, there is a field of type `String[]` named `subEntries`, suggesting that the class also manages sub-entries within a directory structure.
@@ -135,19 +136,19 @@ The `DirectoryEntry` class includes a method named `getDetails()` which returns 
 | `dunder protected __init__` | `str path`<br>`str description`<br>`list[str] package_roots` | — |  |
 
 ### `FullScanRequest` — class
-**File:** `services/ingestion/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/main.py`  **LOC:** 2  **Grade:** B  **Blast:** 0
 **FQN:** `services.ingestion.main.FullScanRequest`
 
 The `FullScanRequest` class is designed to initiate a comprehensive scan of all data within a specified database. It includes a method named `setTableName(String tableName)` which allows specifying the table for the scan operation, ensuring that the scan is targeted accurately. Additionally, it features a method called `setTimeout(int timeout)` that sets the maximum time allowed for the scan to co
 
 ### `IncrementalRequest` — class
-**File:** `services/ingestion/main.py`  **LOC:** 4  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/main.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
 **FQN:** `services.ingestion.main.IncrementalRequest`
 
 The `IncrementalRequest` class is designed to handle requests that require sequential processing of data in chunks. It includes a method named `addDataChunk` which accepts an array of bytes as its parameter, indicating that it processes data incrementally by adding chunks. The class also features a field of type `int` named `currentChunkIndex`, suggesting that it maintains the index of the current
 
 ### `IngestionEngine` — class
-**File:** `services/ingestion/ingestion_engine.py`  **LOC:** 362  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/ingestion_engine.py`  **LOC:** 363  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.ingestion_engine.IngestionEngine`
 
 The `IngestionEngine` class includes methods for updating repository data incrementally and performing a full scan of repositories. The `incremental_update` method updates the repository data from one commit to another, specified by `from_commit` and `to_commit`, within a given repository path (`repo_path`) and repository ID (`repo_id`). The `full_scan` method performs a comprehensive scan of all 
@@ -179,7 +180,7 @@ JavaParser is a class designed to parse Java source files. It utilizes the Tree-
 | `protected _handle_package` | `Node node`<br>`bytes src`<br>`ParsedFile result` | — |  |
 
 ### `KGWriter` — class
-**File:** `services/ingestion/kg/writer.py`  **LOC:** 865  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/kg/writer.py`  **LOC:** 867  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.kg.writer.KGWriter`
 
 KGWriter is a class designed to manage various aspects of software repositories. It includes methods for updating or inserting repository details such as `upsert_repository`, which takes parameters like `repo_id` and `name` to define a repository's identity and basic attributes. The method `upsert_concurrency_facts` allows setting concurrency-related facts, including `pools`, `asyncs`, and `facts`
@@ -208,7 +209,7 @@ KGWriter is a class designed to manage various aspects of software repositories.
 | `public wire_edges` | `str repo_id` | — |  |
 
 ### `ModuleInfo` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 5  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 7  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.ModuleInfo`
 
 ModuleInfo is a class that encapsulates information about software modules, including their names, versions, and dependencies. It includes methods like `getModuleName()` to retrieve the name of the module and `getDependencies()` to fetch a list of modules it depends on. Additionally, it has a field `version` which stores the version number as a string, indicating the current release level of the m
@@ -244,7 +245,7 @@ ParsedFile is a class designed to encapsulate and manage all the extracted facts
 | `dunder protected __init__` | `str file_path`<br>`str repo_id` | — |  |
 
 ### `ProjectIdentity` — class
-**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 10  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.repo_structure.ProjectIdentity`
 
 ProjectIdentity is a class that encapsulates the unique identifier for a project within an application or system. The `GetProjectId` method returns a string representing the project's identity, ensuring that each project can be uniquely referenced throughout the system. The `SetProjectName` method accepts a string parameter to assign a name to the project, enhancing readability and organization in
@@ -254,7 +255,7 @@ ProjectIdentity is a class that encapsulates the unique identifier for a project
 | `dunder protected __init__` | — | — |  |
 
 ### `PythonParser` — class
-**File:** `services/ingestion/parser/python_parser.py`  **LOC:** 341  **Grade:** A  **Blast:** 0
+**File:** `services/ingestion/parser/python_parser.py`  **LOC:** 343  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.python_parser.PythonParser`
 
 PythonParser includes a method `parse_file` that accepts parameters for a file path, repository ID, and repository path. This method utilizes Tree-sitter to parse Python source files and extract structural facts, which are then formatted to be compatible with the output schema of JavaParser. The extracted facts are ready for writing into Neo4j, indicating that PythonParser facilitates the conversi
@@ -272,13 +273,13 @@ PythonParser includes a method `parse_file` that accepts parameters for a file p
 | `protected _collect_calls` | `Node node`<br>`bytes src`<br>`ParsedFile result`<br>`str caller_fqn` | — |  |
 
 ### `RelationshipKind` — class
-**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 3  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.scip_emitter.RelationshipKind`
 
 The class API defines a set of methods that allow for the creation and manipulation of objects. Each method signature specifies the operations that can be performed on these objects, such as adding or removing elements, updating properties, and retrieving data. The field types within the class define the structure and type of data that the objects can hold, ensuring consistency and proper data han
 
 ### `RepoRequest` — class
-**File:** `services/ingestion/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/main.py`  **LOC:** 4  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.main.RepoRequest`
 
 RepoRequest is a class that encapsulates parameters for making requests to a repository service. It includes fields such as `repositoryId` of type `String`, which uniquely identifies the repository; `action` of type `ActionType`, an enumeration representing different operations like clone, pull, or push; and `credentials` of type `Credentials`, a nested class that holds authentication details nece
@@ -306,13 +307,13 @@ The `SCIPEmitter` class includes a method named `emit` that accepts an instance 
 SCIPOccurrence is a class that represents a specific occurrence of a symbol within a file. It includes fields for the file path, line number, and column position where the symbol appears. The `getFilePath()` method returns the path to the file containing the symbol, while the `getLineNumber()` and `getColumnNumber()` methods provide the precise location of the symbol within that file.
 
 ### `SCIPRange` — class
-**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.scip_emitter.SCIPRange`
 
 SCIPRange is a class that encapsulates a range of values, typically used for defining boundaries or limits in various applications. It includes methods like `getMinValue()` to retrieve the minimum value of the range and `setMaxValue(int max)` to set the maximum value, ensuring that any operations within this class operate within the specified bounds.
 
 ### `SCIPRelationship` — class
-**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 3  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 5  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.scip_emitter.SCIPRelationship`
 
 SCIPRelationship The class includes a method named `calculateDistance` that takes two parameters of type `Point`, representing geographical coordinates. This method calculates and returns the Euclidean distance between these two points, which is useful for determining proximity in geographic applications. Additionally, there is a field of type `List<Point>` named `pathPoints`. This field stores a 
@@ -323,15 +324,160 @@ SCIPRelationship The class includes a method named `calculateDistance` that take
 
 SCIPSymbolInformation is a class that encapsulates metadata about a symbol defined within a document. It includes details such as the symbol's name, type, and location within the document, providing essential information for reference and analysis.
 
+### `TestBlastScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 23  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestBlastScoring`
+
+Exercises blast scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_no_dependents_full_score` | — | — |  |
+| `public test_high_blast_zero_score` | — | — |  |
+| `public test_moderate_blast_partial_score` | — | — |  |
+
+### `TestBuildExtractorDetection` — class
+**File:** `services/ingestion/tests/test_build_extractor.py`  **LOC:** 67  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_build_extractor.TestBuildExtractorDetection`
+
+Exercises build extractor detection behavior in the build extractor test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_empty_dir_no_crash` | `tmp_path` | — |  |
+| `public test_pom_xml_detected_as_maven` | `tmp_path` | — |  |
+| `public test_build_gradle_detected_as_gradle` | `tmp_path` | — |  |
+| `public test_requirements_txt_discovered_as_python` | `tmp_path` | — |  |
+
 ### `TestCategory` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.TestCategory`
 
 **TestCategory**  
 The class appears to be designed for handling user authentication processes. The `authenticateUser` method takes a username and password as parameters and returns a boolean indicating whether the credentials are valid. The `generateToken` method, which accepts a user ID, generates and returns an authentication token used for subsequent requests. The `validateToken` method checks
 
+### `TestClassExtraction` — class
+**File:** `services/ingestion/tests/test_python_parser.py`  **LOC:** 194  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_python_parser.TestClassExtraction`
+
+Exercises class extraction behavior in the python parser test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_class_with_decorators` | — | — |  |
+| `public test_simple_typed_class` | — | — |  |
+| `public test_syntax_error_no_crash` | — | — |  |
+| `public test_base_classes_captured` | — | — |  |
+| `public test_nested_class_fqn` | — | — |  |
+| `public test_module_level_function_synthetic_class` | — | — |  |
+| `public test_init_self_fields` | — | — |  |
+| `public test_enum_base_class_kind` | — | — |  |
+| `public test_imports_extracted` | — | — |  |
+| `public test_empty_file_no_crash` | — | — |  |
+
+### `TestClassScore` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestClassScore`
+
+Exercises class score behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_score_clamped_to_valid_range` | — | — |  |
+| `public test_god_class_scores_low` | — | — |  |
+| `public test_perfect_class_scores_100` | — | — |  |
+
+### `TestCouplingScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 17  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestCouplingScoring`
+
+Exercises coupling scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_high_coupling_zero_score` | — | — |  |
+| `public test_low_coupling_full_score` | — | — |  |
+
+### `TestDocsScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 15  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestDocsScoring`
+
+Exercises docs scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_with_docstring_scores_25` | — | — |  |
+| `public test_without_docstring_scores_0` | — | — |  |
+
+### `TestExtractModules` — class
+**File:** `services/ingestion/tests/test_build_extractor.py`  **LOC:** 49  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_build_extractor.TestExtractModules`
+
+Exercises extract modules behavior in the build extractor test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_empty_dir_returns_empty_list` | `tmp_path` | — |  |
+| `public test_maven_multimodule_pom` | `tmp_path` | — |  |
+| `public test_services_layout_finds_modules` | `tmp_path` | — |  |
+
+### `TestFullScan` — class
+**File:** `services/ingestion/tests/test_ingestion_engine.py`  **LOC:** 82  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_ingestion_engine.TestFullScan`
+
+Exercises full scan behavior in the ingestion engine test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_full_scan_calls_write_parsed_batch` | `tmp_path` | — |  |
+| `public test_full_scan_skips_hidden_dirs` | `tmp_path` | — |  |
+
+### `TestJavaClassExtraction` — class
+**File:** `services/ingestion/tests/test_java_parser.py`  **LOC:** 167  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_java_parser.TestJavaClassExtraction`
+
+Exercises java class extraction behavior in the java parser test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_interface_kind` | — | — |  |
+| `public test_simple_class_methods` | — | — |  |
+| `public test_javadoc_extracted` | — | — |  |
+| `public test_enum_kind` | — | — |  |
+| `public test_empty_source_no_crash` | — | — |  |
+| `public test_package_and_imports` | — | — |  |
+| `public test_constructor_in_methods` | — | — |  |
+| `public test_annotated_class` | — | — |  |
+
+### `TestLetterGrade` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 27  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestLetterGrade`
+
+Exercises letter grade behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_grade_f_boundary` | — | — |  |
+| `public test_grade_d_boundary` | — | — |  |
+| `public test_grade_c_boundary` | — | — |  |
+| `public test_grade_a_boundary` | — | — |  |
+| `public test_grade_b_boundary` | — | — |  |
+
+### `TestSizeScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 33  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestSizeScoring`
+
+Exercises size scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_small_class_full_score` | — | — |  |
+| `public test_medium_class_partial_score` | — | — |  |
+| `public test_large_class_low_score` | — | — |  |
+| `public test_god_class_zero_score` | — | — |  |
+
 ### `ThreadPoolDeclaration` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 6  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 8  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.ThreadPoolDeclaration`
 
 ThreadPoolDeclaration is a class that encapsulates the creation and management of a thread pool in a concurrent programming environment. It includes methods for submitting tasks to be executed by the threads in the pool and fields for configuring parameters such as the number of threads and task queue capacity, ensuring efficient execution of multiple tasks concurrently.

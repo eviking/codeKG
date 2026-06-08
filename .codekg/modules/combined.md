@@ -1,19 +1,20 @@
 # Full Codebase Index — codeKG
-_Generated 2026-06-08 14:12 UTC · all modules inlined (repo LOC below 2500 threshold)_
+_Generated 2026-06-08 18:37 UTC · all modules inlined (repo LOC below 2500 threshold)_
 
 This file contains complete class and method detail for every module.
 No additional file reads needed — everything is here.
 
 # Module: services/api
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 23
+**Path:** `/host-home/Documents/projects/codeKG/services/api`  **Classes:** 35
 
 ## Depends on
 
 _External files/modules this module imports from:_
 
-- `shared/logging/codekg_logger.py` — 4 import(s)
+- `codeKG/shared/config.py` — 7 import(s)
+- `shared/logging/codekg_logger.py` — 5 import(s)
 
 ## Data stores
 
@@ -47,6 +48,13 @@ _Detected from source file imports and connection patterns:_
 
 _Non-obvious facts from engineering sessions — treat as expert hints._
 
+- **services.api.main** (100%): The `except Exception: pass` audit produced three distinct fix categories, not just one. Silent swallows in infrastructure code (Neo4j, Docker, SQLite, HTTP) need `log.warning(..., exc=e)` so operators see failures. Data-shape fallbacks (JSON decode, file I/O) should narrow to `ValueError` / `OSError`. Plugin/SDK boundaries (classifier rules, gitpython, LLM SDK version shims) should keep broad `except Exception` with an explanatory comment. Two intentional broad excepts remain with documented comments: `api/main.py` snapshot cache miss (fall through to live queries) and `shared/llm.py` Older SDK shim. Every bare except without a log call or narrowing is a debugging black hole in production.
+- **services.api.agent_index.generator** (100%): CLAUDE.md and AGENTS.md are written by separate file_key entries (`claude_md` and `agents_md`) that generate different content — they are NOT the same generator output. `claude_md` injects MCP tool references (`capture_insight`, `get_change_impact`), while `agents_md` uses shell commands (`cat .codekg/INDEX.md`) because Codex has no MCP support. The publish dispatch in `api/main.py` checks `f["file_key"] in ("claude_md", "agents_md")` and routes each to its own target file independently:
+```python
+target_name = "CLAUDE.md" if f["file_key"] == "claude_md" else "AGENTS.md"
+root_file = Path(repo_path) / target_name
+```
+Always add both file_keys to `_INDEX_FILES` when you want both — writing one function and mapping it to both names produces wrong content in at least one file.
 - **services.api.main** (100%): The telemetry DB stores tool_calls with input_json (serialised tool input) and step_tokens (per-inference-step cost). Rows before the input_json column was added have NULL there — the question text for those CodeKG calls is permanently unrecoverable, which limits query plan reconstruction quality for old sessions.
 - **services.api.main** (100%): The KG stores start_line and end_line per Class node, not LOC per file. File LOC must be derived as max(end_line) across all Class nodes with that file_path. This only covers .py files with at least one indexed class — HTML templates and non-Python files are absent from the KG and need disk-size fallback.
 - **services.api.agent_index.generator** (100%): Module index files grew from ~40 lines (class table only) to 230-300 lines per module by pulling full method signatures, parameter types, return types, and LOC from object_model on each Class node. The object_model JSON blob contains a 'methods' array with name, return_type, parameters, and modifiers — this is richer than the separate Method nodes which lack a 'signature' property.
@@ -55,10 +63,18 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 - **services.api.agent_index.generator** (100%): The insight query in generate_insights_module used CONTAINS $module_id where module_id is 'services/console' (slash-separated) but TribalKnowledge.applies_to stores dot-separated FQNs like 'services.console.main'. The fix is to also match against module_id.replace('/', '.') as module_dot. Both forms must be passed as separate Cypher parameters.
 - **services.api.main** (100%): _content_is_empty scans the full body for sentinel phrases like 'not found'. This causes false positives when actual insight text contains those words (e.g. 'FastAPI route registration... path-parameter catch-all... not found'). Fix: only scan the first 200 chars of body, where empty-file sentinels always appear.
 - **services.api.agent_index.generator** (100%): The cross-module dependency query required BOTH source and target classes to belong to a Module node. Since shared/logging/codekg_logger.py is outside all modules, all imports resolved to zero rows. Fix: use OPTIONAL MATCH for the target module and fall back to the filename for display.
-- **services.api.main** (100%): The publish cleanup only deleted files that were hidden in the store — it missed files removed from the store entirely (e.g. deprecated per-module insight files). Fix: build the expected_paths set from visible store entries, then delete any .codekg/ file on disk not in that set using rglob.
-- **services.api.agent_index.generator** (100%): Class-level "Used by" comes from blast_radius (array of dependent FQNs stored on each Class node). Module-level "Used by" comes from intra-repo IMPORTS edges. In this repo, blast_radius is only non-empty on codekg_logger (blast=8) in shared/ — all service module classes have blast=0 because the ingestion hasn't resolved deeper Python import chains beyond direct class imports.
 
 ## Classes
+
+### `ApiTokenMiddleware` — class
+**File:** `services/api/main.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.main.ApiTokenMiddleware`
+
+Enforce bearer-token authentication when API_TOKEN is configured. /health is always permitted.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public dispatch` | `Request request`<br>`call_next` | — |  |
 
 ### `ImpactEngine` — class
 **File:** `services/api/impact/engine.py`  **LOC:** 254  **Grade:** A  **Blast:** 0
@@ -81,7 +97,7 @@ ImpactEngine computes impact reports for code changes by executing Cypher querie
 | `protected _callers` | `list[str] direct_fqns` | `list[ImpactedNode]` |  |
 
 ### `ImpactReport` — class
-**File:** `services/api/impact/engine.py`  **LOC:** 39  **Grade:** B  **Blast:** 0
+**File:** `services/api/impact/engine.py`  **LOC:** 41  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.impact.engine.ImpactReport`
 
 ImpactReport is a class that includes a method named `to_dict()`. This method converts an instance of ImpactReport into a dictionary format, facilitating easy serialization and data interchange between different parts of an application or system. The dictionary representation captures all relevant attributes of the ImpactReport object, making it straightforward to store, transmit, or manipulate th
@@ -91,25 +107,25 @@ ImpactReport is a class that includes a method named `to_dict()`. This method co
 | `public to_dict` | — | `dict` |  |
 
 ### `ImpactedEndpoint` — class
-**File:** `services/api/impact/engine.py`  **LOC:** 7  **Grade:** B  **Blast:** 0
+**File:** `services/api/impact/engine.py`  **LOC:** 9  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.impact.engine.ImpactedEndpoint`
 
 ImpactedEndpoint is a class that encapsulates details about an endpoint affected by some system operation. It includes a field `endpointId` of type `String`, which uniquely identifies each endpoint. The method `updateStatus(String status)` allows changing the status of the endpoint, such as from "active" to "inactive". Another method `getEndpointDetails()` returns a comprehensive string representa
 
 ### `ImpactedNode` — class
-**File:** `services/api/impact/engine.py`  **LOC:** 8  **Grade:** B  **Blast:** 0
+**File:** `services/api/impact/engine.py`  **LOC:** 10  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.impact.engine.ImpactedNode`
 
 ImpactedNode is a class that encapsulates information about nodes in a network or graph structure. It includes fields such as `nodeId` of type `String`, which uniquely identifies each node, and `neighbors` of type `List<Node>`, representing the connections to other nodes. The method `updateStatus(String status)` allows changing the status of the node, indicating its current state in the network. A
 
 ### `ImpactedPolicy` — class
-**File:** `services/api/impact/engine.py`  **LOC:** 5  **Grade:** B  **Blast:** 0
+**File:** `services/api/impact/engine.py`  **LOC:** 7  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.impact.engine.ImpactedPolicy`
 
 ImpactedPolicy is a class that encapsulates policies related to resource access control within an application. It includes methods such as `applyPolicy` which takes a policy object and applies it to resources, ensuring compliance with security requirements. The class also contains a field of type `List<PolicyRule>` named `rules`, which stores the individual rules that define how resources can be a
 
 ### `RequestLogMiddleware` — class
-**File:** `services/api/main.py`  **LOC:** 11  **Grade:** C  **Blast:** 0
+**File:** `services/api/main.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.main.RequestLogMiddleware`
 
 `RequestLogMiddleware` is a middleware component designed to log details of each HTTP request processed by an application. The `dispatch` method accepts a `Request` object containing information about the incoming request and a `call_next` function, which allows the middleware to pass control to the next handler in the chain after logging the request details.
@@ -119,13 +135,13 @@ ImpactedPolicy is a class that encapsulates policies related to resource access 
 | `public dispatch` | `Request request`<br>`call_next` | — |  |
 
 ### `SuggestedTest` — class
-**File:** `services/api/impact/engine.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/api/impact/engine.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.impact.engine.SuggestedTest`
 
 SuggestedTest is a class that includes methods for setting up test environments and running tests. The `initializeEnvironment` method configures necessary resources before tests begin, while the `executeTests` method runs the actual tests defined in the class. The `reportResults` method outputs the outcomes of the tests to a specified destination, ensuring transparency and accountability of the te
 
 ### `TestClassContext` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 49  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 51  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestClassContext`
 
 `TestClassContext` is a class designed to handle various scenarios related to testing class loading and fallback mechanisms. The `test_fuzzy_fallback_also_404` method tests how the system handles fuzzy fallbacks, ensuring that it correctly returns a 404 error when no suitable class is found. The `test_class_found_via_prebuilt_snapshot` method verifies that classes can be successfully loaded from p
@@ -139,7 +155,7 @@ SuggestedTest is a class that includes methods for setting up test environments 
 | `public test_class_not_found_returns_404` | — | — |  |
 
 ### `TestFeatureContext` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 13  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 15  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestFeatureContext`
 
 The `TestFeatureContext` class includes methods to validate feature behavior. The `test_feature_returns_list()` method checks if a feature correctly returns a list, ensuring that the output is as expected. Conversely, the `test_feature_skips_missing_classes()` method tests whether the feature skips over classes that are not present or valid, maintaining robustness in scenarios where some data migh
@@ -149,8 +165,31 @@ The `TestFeatureContext` class includes methods to validate feature behavior. Th
 | `public test_feature_returns_list` | — | — |  |
 | `public test_feature_skips_missing_classes` | — | — |  |
 
+### `TestGenerateIndex` — class
+**File:** `services/api/tests/test_agent_index_generator.py`  **LOC:** 39  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_generator.TestGenerateIndex`
+
+Exercises generate index behavior in the agent index generator test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_marks_stale_files` | — | — |  |
+| `public test_contains_available_files_heading` | — | — |  |
+| `public test_current_files_not_marked_stale` | — | — |  |
+
+### `TestGetFile` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 19  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestGetFile`
+
+Exercises get file behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_none_for_missing` | `fresh_db` | — |  |
+| `public test_returns_dict_for_existing` | `fresh_db` | — |  |
+
 ### `TestImpactFiles` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 44  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 46  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestImpactFiles`
 
 TestImpactFiles is a class designed to validate the behavior of methods related to file impact analysis in software development. The `test_impact_files_missing_params` method checks how the system handles scenarios where required parameters for file impact analysis are not provided, ensuring robust error handling. The `test_impact_pr_delegates_to_files` method tests whether pull request (PR) data 
@@ -163,8 +202,39 @@ TestImpactFiles is a class designed to validate the behavior of methods related 
 | `public test_impact_files_happy_path` | — | — |  |
 | `protected _make_engine_mock` | — | — |  |
 
+### `TestInitDb` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestInitDb`
+
+Exercises init database behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_creates_both_tables` | `fresh_db` | — |  |
+
+### `TestListFiles` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 16  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestListFiles`
+
+Exercises list files behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_rows_from_both_tables` | `fresh_db` | — |  |
+
+### `TestMarkPublished` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 23  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestMarkPublished`
+
+Exercises mark published behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_does_not_update_hidden_files` | `fresh_db` | — |  |
+| `public test_sets_published_at_and_sha` | `fresh_db` | — |  |
+
 ### `TestModuleContext` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 25  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 27  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestModuleContext`
 
 TestModuleContext is a class designed to encapsulate the context for testing various scenarios within a module. The `test_no_ise_on_exception` method ensures that no unintended side effects occur when exceptions are thrown during normal operations, maintaining the integrity of the system under test. The `test_happy_path` method validates the expected behavior and outcomes when all inputs are valid
@@ -176,7 +246,7 @@ TestModuleContext is a class designed to encapsulate the context for testing var
 | `public test_empty_module` | — | — |  |
 
 ### `TestPatterns` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 30  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 32  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestPatterns`
 
 TestPatterns is a class designed to validate patterns within packages. The `test_patterns_malformed_top_packages` method checks for malformed patterns at the top level of packages, ensuring they adhere to specific formatting rules. The `test_patterns_with_data` method evaluates patterns that include data elements, verifying their correctness and integration with other components. The `test_pattern
@@ -188,7 +258,7 @@ TestPatterns is a class designed to validate patterns within packages. The `test
 | `public test_patterns_empty` | — | — |  |
 
 ### `TestPolicies` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 24  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 26  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestPolicies`
 
 TestPolicies is a class that includes several methods to test different scenarios related to policy management. The method `test_get_policy_not_found` checks if the system correctly handles requests for policies that do not exist, ensuring it returns an appropriate error response without internal server errors. The method `test_list_active_policies` verifies that the system accurately lists only t
@@ -202,7 +272,7 @@ TestPolicies is a class that includes several methods to test different scenario
 | `public test_get_policy_found` | — | — |  |
 
 ### `TestProvenance` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 18  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 20  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestProvenance`
 
 TestProvenance is a class designed to validate the behavior of a system in response to different scenarios related to provenance data. The method `test_provenance_not_found()` checks how the system handles cases where no provenance information is found, ensuring that it responds appropriately without errors. Similarly, `test_provenance_found()` evaluates the system's reaction when valid provenance
@@ -213,8 +283,20 @@ TestProvenance is a class designed to validate the behavior of a system in respo
 | `public test_provenance_found` | — | — |  |
 | `public test_provenance_404_not_500` | — | — |  |
 
+### `TestRenderClass` — class
+**File:** `services/api/tests/test_agent_index_generator.py`  **LOC:** 66  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_generator.TestRenderClass`
+
+Exercises render class behavior in the agent index generator test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_produces_method_table` | — | — |  |
+| `public test_handles_none_object_model` | — | — |  |
+| `public test_handles_empty_dict_object_model` | — | — |  |
+
 ### `TestRepos` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 28  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 30  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestRepos`
 
 TestRepos is a class that includes several methods to test various scenarios related to repository operations. The method `test_get_repo_not_found` checks if the system correctly handles requests for repositories that do not exist, ensuring appropriate responses are returned without throwing exceptions. Similarly, `test_list_repos_empty` verifies how the system behaves when no repositories are ava
@@ -228,7 +310,7 @@ TestRepos is a class that includes several methods to test various scenarios rel
 | `public test_list_repos_returns_data` | — | — |  |
 
 ### `TestSearchClass` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 33  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 35  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestSearchClass`
 
 TestSearchClass includes several methods to validate the search functionality of a system. The `test_search_missing_q_param` method checks how the system handles requests without a query parameter, ensuring it responds appropriately. The `test_search_empty_result` method tests the scenario where no results are returned for a valid query, verifying that the system correctly indicates an empty resul
@@ -241,8 +323,21 @@ TestSearchClass includes several methods to validate the search functionality of
 | `public test_search_uses_object_model_when_available` | — | — |  |
 | `public test_search_with_repo_filter` | — | — |  |
 
+### `TestShortenFp` — class
+**File:** `services/api/tests/test_agent_index_generator.py`  **LOC:** 41  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_generator.TestShortenFp`
+
+Exercises shorten file-path behavior in the agent index generator test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_falls_back_to_last_4_segments` | — | — |  |
+| `public test_empty_string_returns_empty` | — | — |  |
+| `public test_strips_repo_path_prefix` | — | — |  |
+| `public test_falls_back_to_host_home_stripping` | — | — |  |
+
 ### `TestTemplate` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 11  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestTemplate`
 
 TestTemplate includes methods `test_template_renders` and `test_template_not_found`. The method `test_template_renders` checks if a template is correctly rendered, ensuring that all placeholders are replaced with appropriate values. Conversely, `test_template_not_found` verifies that the system handles cases where a requested template does not exist gracefully, possibly by returning an error messa
@@ -252,8 +347,60 @@ TestTemplate includes methods `test_template_renders` and `test_template_not_fou
 | `public test_template_renders` | — | — |  |
 | `public test_template_not_found` | — | — |  |
 
+### `TestToggleHidden` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 22  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestToggleHidden`
+
+Exercises toggle hidden behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_sets_hidden_true` | `fresh_db` | — |  |
+| `public test_sets_hidden_false` | `fresh_db` | — |  |
+
+### `TestUpdateManualAdditions` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 18  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestUpdateManualAdditions`
+
+Exercises update manual additions behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_true_on_success` | `fresh_db` | — |  |
+| `public test_returns_false_for_nonexistent_row` | `fresh_db` | — |  |
+
+### `TestUpsertFile` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 58  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestUpsertFile`
+
+Exercises upsert file behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_creates_new_row` | `fresh_db` | — |  |
+| `public test_status_current_on_first_write` | `fresh_db` | — |  |
+| `public test_status_stale_when_content_changes_after_publish` | `fresh_db` | — |  |
+| `public test_status_stays_current_when_content_unchanged` | `fresh_db` | — |  |
+| `public test_updates_on_conflict` | `fresh_db` | — |  |
+
+### `TestValidateTable` — class
+**File:** `services/api/tests/test_agent_index_store.py`  **LOC:** 29  **Grade:** A  **Blast:** 0
+**FQN:** `services.api.tests.test_agent_index_store.TestValidateTable`
+
+Exercises validate table behavior in the agent index store test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_sql_injection_attempt_raises` | `fresh_db` | — |  |
+| `public test_update_manual_additions_rejects_invalid_table` | `fresh_db` | — |  |
+| `public test_toggle_hidden_rejects_invalid_table` | `fresh_db` | — |  |
+| `public test_upsert_rejects_invalid_table` | `fresh_db` | — |  |
+| `public test_invalid_table_raises_value_error` | `fresh_db` | — |  |
+| `public test_get_file_rejects_invalid_table` | `fresh_db` | — |  |
+| `public test_valid_tables_are_accepted` | `fresh_db` | — |  |
+
 ### `TestViolations` — class
-**File:** `services/api/tests/test_api.py`  **LOC:** 26  **Grade:** B  **Blast:** 0
+**File:** `services/api/tests/test_api.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.tests.test_api.TestViolations`
 
 TestViolations is a class designed to validate and verify violations within code repositories. The method `test_list_violations_with_filters` checks if the system correctly filters and lists violations based on specified criteria, ensuring that only relevant issues are returned. The method `test_list_violations_empty` tests the behavior of the system when there are no violations present in the rep
@@ -266,13 +413,13 @@ TestViolations is a class designed to validate and verify violations within code
 | `public test_pr_violations_returns_matches` | — | — |  |
 
 ### `_AnswerRequest` — class
-**File:** `services/api/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
+**File:** `services/api/main.py`  **LOC:** 4  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.main._AnswerRequest`
 
 _AnswerRequest is a class that handles user requests by parsing them into structured data using the `parse_request` method. It stores parsed data in the `request_data` field, which is a dictionary. The `process_request` method then uses this data to execute the appropriate action based on the request type, demonstrating its role in processing and responding to user inputs efficiently._
 
 ### `_DefaultZero` — class
-**File:** `services/api/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**File:** `services/api/agent_index/generator.py`  **LOC:** 3  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.agent_index.generator._DefaultZero`
 
 The `_DefaultZero` class includes a method `ResetToDefault()` that initializes all properties to their default values. It also has a property `IsInitialized` of type `bool`, which indicates whether the object has been properly initialized. The constructor `Initialize()` sets up the initial state of the object, and another method `Validate()` checks if the object is in a valid state before performi
@@ -282,7 +429,7 @@ The `_DefaultZero` class includes a method `ResetToDefault()` that initializes a
 | `dunder protected __missing__` | `key` | — |  |
 
 ### `_Entry` — class
-**File:** `services/api/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0
+**File:** `services/api/llm_audit.py`  **LOC:** 56  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.llm_audit._Entry`
 
 _Entries are recorded using the `record` method, which accepts a generic `response` object and a string `error`. The `record_error` method captures exceptions by accepting an `Exception` object.
@@ -293,13 +440,13 @@ _Entries are recorded using the `record` method, which accepts a generic `respon
 | `public record` | `Any response`<br>`str error` | `None` |  |
 
 ### `_PublishRequest` — class
-**File:** `services/api/main.py`  **LOC:** 1  **Grade:** C  **Blast:** 0
+**File:** `services/api/main.py`  **LOC:** 3  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.main._PublishRequest`
 
 _PublishRequest is a class that encapsulates the details required to publish content or data to a specified destination. It includes fields such as `destinationUrl` of type `String`, which specifies where the content should be published, and `contentData` of type `byte[]`, representing the actual data to be published. The method `validate()` checks if all necessary information is provided before p
 
 ### `_RegenRequest` — class
-**File:** `services/api/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
+**File:** `services/api/main.py`  **LOC:** 4  **Grade:** A  **Blast:** 0
 **FQN:** `services.api.main._RegenRequest`
 
 _The `_RegenRequest` class is designed to encapsulate the parameters necessary for regenerating a request. It includes a `requestId` field of type `string`, which uniquely identifies each regeneration process, ensuring that operations can be traced and managed effectively. The class also features a `timestamp` field of type `DateTime`, capturing the exact moment when the regeneration request was i
@@ -307,14 +454,15 @@ _The `_RegenRequest` class is designed to encapsulate the parameters necessary f
 ---
 
 # Module: services/console
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 24
+**Path:** `/host-home/Documents/projects/codeKG/services/console`  **Classes:** 34
 
 ## Depends on
 
 _External files/modules this module imports from:_
 
+- `codeKG/shared/config.py` — 1 import(s)
 - `shared/logging/codekg_logger.py` — 1 import(s)
 
 ## Data stores
@@ -397,8 +545,18 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 
 ## Classes
 
+### `AuthMiddleware` — class
+**File:** `services/console/main.py`  **LOC:** 21  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.main.AuthMiddleware`
+
+Gate all console pages behind GitHub OAuth when AUTH_ENABLED. Bypassed for the auth routes themselves and /health. When auth is disabled (GITHUB_CLIENT_ID not set) every request passes through.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public dispatch` | `Request request`<br>`call_next` | — |  |
+
 ### `RequestLogMiddleware` — class
-**File:** `services/console/main.py`  **LOC:** 11  **Grade:** C  **Blast:** 0
+**File:** `services/console/main.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.main.RequestLogMiddleware`
 
 The `RequestLogMiddleware` class includes a method named `dispatch`, which accepts two parameters: a `Request` object and a `call_next` function. This method is designed to log details about each request processed by the middleware before passing control to the next handler in the chain, thereby enabling detailed tracking of requests through the application's layers.
@@ -408,7 +566,7 @@ The `RequestLogMiddleware` class includes a method named `dispatch`, which accep
 | `public dispatch` | `Request request`<br>`call_next` | — |  |
 
 ### `TestAnnotationRequired` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 13  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 15  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestAnnotationRequired`
 
 TestAnnotationRequired is a class that includes methods for testing various aspects of annotation processing. The `test_without_at_prefix` method checks if annotations can be processed correctly when they do not start with the '@' symbol, ensuring flexibility in how annotations are applied. The `test_basic_match` method evaluates whether the system accurately identifies and matches annotations bas
@@ -420,7 +578,7 @@ TestAnnotationRequired is a class that includes methods for testing various aspe
 | `public test_case_insensitive` | — | — |  |
 
 ### `TestAsk` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 26  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestAsk`
 
 TestAsk is a class that includes several methods to test various scenarios related to an API endpoint designed for asking questions. The method `test_ask_post_happy()` evaluates how the system handles a successful POST request with all necessary parameters, ensuring it processes the question correctly. `test_ask_api_endpoint_missing_question()` checks the response when a required parameter (the qu
@@ -444,8 +602,32 @@ TestAuditLog is a class that includes a method named `test_audit_page_renders`. 
 |--------|-----------|---------|-------|
 | `public test_audit_page_renders` | — | — |  |
 
+### `TestCancelScan` — class
+**File:** `services/console/tests/test_scan_launcher.py`  **LOC:** 29  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_scan_launcher.TestCancelScan`
+
+Exercises cancel scan behavior in the scan launcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_stops_matching_container` | `launcher` | — |  |
+| `public test_noop_when_no_container_running` | `launcher` | — |  |
+
+### `TestCheckAccess` — class
+**File:** `services/console/tests/test_auth.py`  **LOC:** 97  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_auth.TestCheckAccess`
+
+Exercises check access behavior in the auth test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_org_config_calls_github_api` | `auth_module` | — |  |
+| `public test_denies_user_not_on_allowlist` | `auth_module` | — |  |
+| `public test_allows_user_on_allowlist` | `auth_module` | — |  |
+| `public test_allows_any_user_when_no_config` | `auth_module` | — |  |
+
 ### `TestClassesPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 52  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 54  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestClassesPage`
 
 TestClassesPage includes methods for testing various aspects of a classes page, such as sorting classes by name or blast, handling a 404 error when accessing a non-existent class detail, rendering the list of classes correctly, and ensuring that a not-found message is displayed when attempting to access a class that does not exist. Additionally, it tests the functionality of displaying a list of c
@@ -462,8 +644,20 @@ TestClassesPage includes methods for testing various aspects of a classes page, 
 | `public test_class_detail_renders` | — | — |  |
 | `public test_classes_list_with_query` | — | — |  |
 
+### `TestConfigRoutes` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 35  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestConfigRoutes`
+
+Exercises config routes behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_save_valid_key` | `console_client` | — |  |
+| `public test_save_unknown_key_returns_400` | `console_client` | — |  |
+| `public test_current_returns_redacted_secrets` | `console_client` | — |  |
+
 ### `TestControllerRepoRestriction` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 9  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 11  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestControllerRepoRestriction`
 
 The `TestControllerRepoRestriction` class includes methods for testing API endpoints without direct access and for standard phrasing in tests. The `test_without_directly()` method ensures that certain API calls can be made even when not authenticated directly, verifying the system's ability to handle such scenarios gracefully. Meanwhile, the `test_standard_phrasing()` method checks that all respon
@@ -473,8 +667,18 @@ The `TestControllerRepoRestriction` class includes methods for testing API endpo
 | `public test_without_directly` | — | — |  |
 | `public test_standard_phrasing` | — | — |  |
 
+### `TestCurrentUser` — class
+**File:** `services/console/tests/test_auth.py`  **LOC:** 19  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_auth.TestCurrentUser`
+
+Exercises current user behavior in the auth test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_local_user_when_auth_disabled` | `monkeypatch` | — |  |
+
 ### `TestDashboard` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 26  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestDashboard`
 
 TestDashboard includes methods to validate the rendering of a dashboard, its behavior when no data is present in the knowledge graph, and its interaction with repository statistics.
@@ -486,8 +690,22 @@ TestDashboard includes methods to validate the rendering of a dashboard, its beh
 | `public test_dashboard_no_ise_on_empty_kg` | — | — |  |
 | `public test_dashboard_with_repo_stats` | — | — |  |
 
+### `TestLaunchScan` — class
+**File:** `services/console/tests/test_scan_launcher.py`  **LOC:** 80  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_scan_launcher.TestLaunchScan`
+
+Exercises launch scan behavior in the scan launcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_incremental_scan_type_passed` | `launcher`<br>`tmp_path` | — |  |
+| `public test_passes_scan_repo_id_and_path` | `launcher`<br>`tmp_path` | — |  |
+| `public test_container_labelled_with_repo_id` | `launcher`<br>`tmp_path` | — |  |
+| `public test_uses_ingestion_image_from_config` | `launcher`<br>`tmp_path` | — |  |
+| `public test_home_mount_added_as_volume` | `launcher`<br>`tmp_path` | — |  |
+
 ### `TestLayerMustNotDependOn` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 12  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 14  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestLayerMustNotDependOn`
 
 TestLayerMustNotDependOn is a class that includes methods for testing various aspects of FQN (Fully Qualified Name) handling. The `test_returns_fqn` method checks if the class correctly returns the FQN, ensuring that it adheres to naming conventions. The `test_quoted_names` method evaluates how the class handles names that require quoting, verifying that special characters are managed appropriatel
@@ -498,8 +716,22 @@ TestLayerMustNotDependOn is a class that includes methods for testing various as
 | `public test_quoted_names` | — | — |  |
 | `public test_basic_match` | — | — |  |
 
+### `TestLoadEnvFile` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 54  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestLoadEnvFile`
+
+Exercises load env file behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_skips_comment_lines` | `config_routes` | — |  |
+| `public test_strips_quotes_from_values` | `config_routes` | — |  |
+| `public test_skips_blank_lines` | `config_routes` | — |  |
+| `public test_parses_key_value_pairs` | `config_routes` | — |  |
+| `public test_returns_empty_when_file_missing` | `config_routes` | — |  |
+
 ### `TestMcpAudit` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 24  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 26  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestMcpAudit`
 
 TestMcpAudit is a class that includes several methods to validate the behavior of an audit API for a system named MCP (likely Management Control Panel). The method `test_mcp_audit_api_returns_shape()` checks if the API returns data in the expected format or shape. Another method, `test_mcp_audit_page_renders()`, ensures that the audit page is rendered correctly without errors. The method `test_mcp
@@ -512,7 +744,7 @@ TestMcpAudit is a class that includes several methods to validate the behavior o
 | `public test_mcp_audit_api_no_db` | — | — |  |
 
 ### `TestModuleMustNotCall` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 18  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 20  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestModuleMustNotCall`
 
 TestModuleMustNotCall ensures that no service tests are called directly, promoting isolation. It validates FQN (Fully Qualified Name) column handling through test_returns_fqn_column. test_basic_match checks for basic matching functionality, while test_directly_variant assesses variant handling without direct calls.
@@ -525,7 +757,7 @@ TestModuleMustNotCall ensures that no service tests are called directly, promoti
 | `public test_directly_variant` | — | — |  |
 
 ### `TestModulesPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 39  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 41  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestModulesPage`
 
 TestModulesPage is a class designed to perform various tests related to module management within an application. The `test_modules_list_with_data` method checks if the list of modules renders correctly when data is available, ensuring that the UI displays the modules as expected. The `test_modules_list_renders` method verifies that the module list page renders without errors, regardless of whether
@@ -539,7 +771,7 @@ TestModulesPage is a class designed to perform various tests related to module m
 | `public test_module_detail_not_found` | — | — |  |
 
 ### `TestOutputSafety` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 7  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 9  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestOutputSafety`
 
 TestOutputSafety ensures that curly braces within input data do not lead to a key error by implementing a robust validation mechanism. The method `test_curly_braces_in_input_do_not_cause_key_error` specifically checks how the system handles unexpected characters in input, thereby enhancing the safety and reliability of output generation.
@@ -549,7 +781,7 @@ TestOutputSafety ensures that curly braces within input data do not lead to a ke
 | `public test_curly_braces_in_input_do_not_cause_key_error` | — | — |  |
 
 ### `TestPatternCatalog` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 48  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 50  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestPatternCatalog`
 
 TestPatternCatalog is a class designed to perform various tests on a catalog system. The `test_catalog_toggle_off` method checks the functionality of toggling items in the catalog off, ensuring that the system correctly handles this operation without errors. The `test_catalog_page_renders` method verifies that the catalog pages are rendered properly, checking for any layout or display issues. The 
@@ -566,7 +798,7 @@ TestPatternCatalog is a class designed to perform various tests on a catalog sys
 | `protected _catalog` | — | — |  |
 
 ### `TestPatternsPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 17  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 19  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestPatternsPage`
 
 The `TestPatternsPage` class includes methods for detecting patterns through a POST request (`test_patterns_detect_post`) and retrieving rendered patterns via a GET request (`test_patterns_get_renders`).
@@ -577,7 +809,7 @@ The `TestPatternsPage` class includes methods for detecting patterns through a P
 | `public test_patterns_get_renders` | — | — |  |
 
 ### `TestPoliciesPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 77  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 79  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestPoliciesPage`
 
 The `TestPoliciesPage` class includes several methods to validate various aspects of a policies page in an application. The `test_policies_list_no_ise_when_api_fails()` method checks that the policies list does not display any issues when the API call fails, ensuring robust error handling. The `test_activate_policy()` method tests the functionality of activating a policy, verifying that the system
@@ -595,7 +827,7 @@ The `TestPoliciesPage` class includes several methods to validate various aspect
 | `public test_run_policy_executes_cypher` | — | — |  |
 
 ### `TestPublicMethodAnnotation` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 21  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 23  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestPublicMethodAnnotation`
 
 TestPublicMethodAnnotation is a class that includes several methods to validate the behavior of public method annotations in Java. The `test_must_annotated_variant` method checks if a method must be annotated with a specific annotation, ensuring compliance with coding standards. The `test_module_keyword_in_phrase_is_not_matched` method tests whether the module keyword within phrases is correctly i
@@ -607,8 +839,20 @@ TestPublicMethodAnnotation is a class that includes several methods to validate 
 | `public test_basic_match` | — | — |  |
 | `public test_without_at_prefix` | — | — |  |
 
+### `TestRedact` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 29  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestRedact`
+
+Exercises redact behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_leaves_non_secret_unchanged` | `config_routes` | — |  |
+| `public test_replaces_secret_with_dots` | `config_routes` | — |  |
+| `public test_returns_empty_for_unset_secret` | `config_routes` | — |  |
+
 ### `TestReposPage` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 90  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 92  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestReposPage`
 
 TestReposPage is a class that includes several methods for testing various functionalities related to repository management. The `test_repo_detail_unknown` method likely tests how the system handles requests for details of repositories when the requested information is not available or unknown. The `test_scan_status_api` method probably checks the functionality of an API endpoint that returns the 
@@ -632,8 +876,20 @@ TestReposPage is a class that includes several methods for testing various funct
 | `public test_clone_status_not_found` | — | — |  |
 | `public test_repo_detail_not_in_registry` | — | — |  |
 
+### `TestSaveEnvFile` — class
+**File:** `services/console/tests/test_config_routes.py`  **LOC:** 35  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_config_routes.TestSaveEnvFile`
+
+Exercises save env file behavior in the config routes test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_merges_with_existing_values` | `config_routes` | — |  |
+| `public test_creates_file_with_correct_content` | `config_routes` | — |  |
+| `public test_removes_keys_with_empty_values` | `config_routes` | — |  |
+
 ### `TestServiceMustNotExtend` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestServiceMustNotExtend`
 
 TestServiceMustNotExtend is a class that includes a method named `test_basic_match`. This method does not take any parameters and does not return any value, indicated by its signature `void test_basic_match()`. The purpose of this method is to perform basic matching tests within the TestServiceMustNotExtend class.
@@ -642,8 +898,21 @@ TestServiceMustNotExtend is a class that includes a method named `test_basic_mat
 |--------|-----------|---------|-------|
 | `public test_basic_match` | — | — |  |
 
+### `TestSessionCookie` — class
+**File:** `services/console/tests/test_auth.py`  **LOC:** 51  **Grade:** A  **Blast:** 0
+**FQN:** `services.console.tests.test_auth.TestSessionCookie`
+
+Exercises session cookie behavior in the auth test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_decode_tampered_cookie_returns_none` | `auth_module` | — |  |
+| `public test_decode_expired_cookie_returns_none` | `auth_module` | — |  |
+| `public test_decode_empty_string_returns_none` | `auth_module` | — |  |
+| `public test_round_trip_preserves_user` | `auth_module` | — |  |
+
 ### `TestSystemHealth` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 14  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 16  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestSystemHealth`
 
 TestSystemHealth includes methods to verify that the system health API returns JSON data and that the system health page renders correctly. The `test_system_health_api_returns_json` method checks if the API endpoint responds with a valid JSON format, ensuring data integrity for automated monitoring systems. Meanwhile, the `test_system_health_page_renders` method assesses whether the web page displ
@@ -654,7 +923,7 @@ TestSystemHealth includes methods to verify that the system health API returns J
 | `public test_system_health_page_renders` | — | — |  |
 
 ### `TestToContainerPath` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 20  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 22  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestToContainerPath`
 
 The `TestToContainerPath` class contains methods to verify different scenarios for converting host paths to container paths. The `test_passthrough_when_no_match` method checks that if there is no matching pattern, the original path is returned unchanged. The `test_passthrough_when_host_home_empty` method ensures that if the host home directory is empty, the conversion still returns the original pa
@@ -666,7 +935,7 @@ The `TestToContainerPath` class contains methods to verify different scenarios f
 | `public test_rewrites_host_home` | — | — |  |
 
 ### `TestUnknownPolicy` — class
-**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 16  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_policy_compiler.py`  **LOC:** 18  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_policy_compiler.TestUnknownPolicy`
 
 TestUnknownPolicy is a class that includes several methods to validate the behavior of placeholder text in various scenarios. The method `test_placeholder_has_fqn_comment()` checks if the placeholder contains a fully qualified name (FQN) comment, ensuring it adheres to naming conventions. The method `test_empty_string_returns_placeholder()` verifies that an empty string input results in a default 
@@ -679,7 +948,7 @@ TestUnknownPolicy is a class that includes several methods to validate the behav
 | `public test_placeholder_contains_original_text` | — | — |  |
 
 ### `TestValidateRepoPath` — class
-**File:** `services/console/tests/test_console.py`  **LOC:** 22  **Grade:** B  **Blast:** 0
+**File:** `services/console/tests/test_console.py`  **LOC:** 24  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.tests.test_console.TestValidateRepoPath`
 
 TestValidateRepoPath is a class designed to validate Git repository paths. The method `test_nonexistent_path` checks if the system correctly identifies and handles non-existent paths, ensuring robust error handling for missing directories. The method `test_not_a_directory` verifies that the validation logic distinguishes between valid Git repositories and non-directory entities, preventing incorre
@@ -692,7 +961,7 @@ TestValidateRepoPath is a class designed to validate Git repository paths. The m
 | `public test_directory_without_git` | — | — |  |
 
 ### `_DefaultZero` — class
-**File:** `services/console/agent_index/generator.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**File:** `services/console/agent_index/generator.py`  **LOC:** 3  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.agent_index.generator._DefaultZero`
 
 _DefaultZero is a class that initializes default values for its fields to zero when an instance is created. The constructor sets all integer fields to 0, ensuring that no uninitialized data exists in the object. Additionally, it resets string fields to empty strings, preventing any null references or undefined states. Furthermore, _DefaultZero includes a method named `resetAllFields` which iterate
@@ -702,7 +971,7 @@ _DefaultZero is a class that initializes default values for its fields to zero w
 | `dunder protected __missing__` | `key` | — |  |
 
 ### `_Entry` — class
-**File:** `services/console/llm_audit.py`  **LOC:** 38  **Grade:** B  **Blast:** 0
+**File:** `services/console/llm_audit.py`  **LOC:** 51  **Grade:** A  **Blast:** 0
 **FQN:** `services.console.llm_audit._Entry`
 
 _Entries are recorded using the `record` method, which accepts a generic type `response` and a string `error`. The `record_error` method captures exceptions by accepting an `Exception` type named `exc`, logging or handling errors accordingly.
@@ -715,15 +984,16 @@ _Entries are recorded using the `record` method, which accepts a generic type `r
 ---
 
 # Module: services/ingestion
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 30
+**Path:** `/host-home/Documents/projects/codeKG/services/ingestion`  **Classes:** 41
 
 ## Depends on
 
 _External files/modules this module imports from:_
 
 - `shared/logging/codekg_logger.py` — 3 import(s)
+- `codeKG/shared/config.py` — 2 import(s)
 
 ## Data stores
 
@@ -748,13 +1018,13 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 ## Classes
 
 ### `ApiEndpoint` — class
-**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 10  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.api_extractor.ApiEndpoint`
 
 ApiEndpoint is a class that defines endpoints for handling HTTP requests in a web application. It includes methods like `get` and `post`, which are used to retrieve and submit data respectively. The class also contains fields such as `path` and `methodType`, specifying the URL path and type of HTTP method (GET, POST) associated with each endpoint.
 
 ### `ApiExtractor` — class
-**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 155  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/api_extractor.py`  **LOC:** 157  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.api_extractor.ApiExtractor`
 
 ApiExtractor is a class designed to parse and extract API endpoints from a specified file located at a given path. The `extract_file` method accepts two parameters: a `Path` object representing the location of the file, and a string `repo_id` that identifies the repository associated with the file. This method returns a list of `ApiEndpoint` objects, each encapsulating details about an API endpoin
@@ -770,13 +1040,13 @@ ApiExtractor is a class designed to parse and extract API endpoints from a speci
 | `protected _extract_request_body_type` | `Node params_node`<br>`bytes src` | `Optional[str]` |  |
 
 ### `AsyncMethod` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 6  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 8  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.AsyncMethod`
 
 AsyncMethod is an asynchronous method that processes data asynchronously, allowing for non-blocking operations. It takes a list of integers as input and returns a promise that resolves to the sum of all numbers in the list. The method signature indicates it performs calculations concurrently, optimizing performance by utilizing multiple threads or processes.
 
 ### `BuildExtractor` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 181  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 183  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.BuildExtractor`
 
 BuildExtractor is a class designed to parse a repository path and extract build information along with associated test categories. The `extract` method accepts a string representing the repository path as its parameter and returns a tuple containing a `BuildInfo` object and a list of `TestCategory` objects, effectively parsing the repository for relevant build details and categorizing tests accord
@@ -793,13 +1063,13 @@ BuildExtractor is a class designed to parse a repository path and extract build 
 | `dunder protected __init__` | — | — |  |
 
 ### `BuildInfo` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 6  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 8  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.BuildInfo`
 
 The `BuildInfo` class contains a field named `buildVersion` of type `String`, which stores the version number of the build. It also includes a method called `getBuildDate()` that returns a `LocalDateTime` object representing the date when the build was created. Additionally, there is a method `isLatestRelease()` that takes no parameters and returns a `boolean`, indicating whether the current build
 
 ### `ConcurrencyExtractor` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 173  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 175  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.ConcurrencyExtractor`
 
 ConcurrencyExtractor is a class designed to parse and analyze files containing concurrency-related declarations. The `extract_file` method takes a file path as input and returns three lists: one for thread pool declarations, another for asynchronous methods, and a third for concurrency facts. This method facilitates the extraction of specific concurrency constructs from source code files, enabling
@@ -814,7 +1084,7 @@ ConcurrencyExtractor is a class designed to parse and analyze files containing c
 | `protected _visit_field` | `Node field_node`<br>`bytes src`<br>`str class_fqn`<br>`str file_path`<br>`pools`<br>`facts` | — |  |
 
 ### `ConcurrencyFact` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 5  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 7  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.ConcurrencyFact`
 
 ConcurrencyFact: The class includes a method named `submitTask` that accepts an instance of type `Runnable`, indicating it is designed to handle asynchronous task submission. Additionally, there is a field of type `ExecutorService`, suggesting that the class manages a pool of threads for executing tasks concurrently. Furthermore, the presence of a method called `shutdown` implies that the class in
@@ -841,7 +1111,7 @@ CppParser is a class designed to parse C++ source files using the Tree-sitter li
 | `protected _collect_calls` | `Node node`<br>`bytes src`<br>`ParsedFile result`<br>`str caller_fqn` | — |  |
 
 ### `DirectoryEntry` — class
-**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.repo_structure.DirectoryEntry`
 
 The `DirectoryEntry` class includes a method named `getDetails()` which returns an object of type `FileInfo`. This indicates that the class is designed to handle directory entries and can retrieve detailed information about each entry. Additionally, there is a field of type `String[]` named `subEntries`, suggesting that the class also manages sub-entries within a directory structure.
@@ -851,19 +1121,19 @@ The `DirectoryEntry` class includes a method named `getDetails()` which returns 
 | `dunder protected __init__` | `str path`<br>`str description`<br>`list[str] package_roots` | — |  |
 
 ### `FullScanRequest` — class
-**File:** `services/ingestion/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/main.py`  **LOC:** 2  **Grade:** B  **Blast:** 0
 **FQN:** `services.ingestion.main.FullScanRequest`
 
 The `FullScanRequest` class is designed to initiate a comprehensive scan of all data within a specified database. It includes a method named `setTableName(String tableName)` which allows specifying the table for the scan operation, ensuring that the scan is targeted accurately. Additionally, it features a method called `setTimeout(int timeout)` that sets the maximum time allowed for the scan to co
 
 ### `IncrementalRequest` — class
-**File:** `services/ingestion/main.py`  **LOC:** 4  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/main.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
 **FQN:** `services.ingestion.main.IncrementalRequest`
 
 The `IncrementalRequest` class is designed to handle requests that require sequential processing of data in chunks. It includes a method named `addDataChunk` which accepts an array of bytes as its parameter, indicating that it processes data incrementally by adding chunks. The class also features a field of type `int` named `currentChunkIndex`, suggesting that it maintains the index of the current
 
 ### `IngestionEngine` — class
-**File:** `services/ingestion/ingestion_engine.py`  **LOC:** 362  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/ingestion_engine.py`  **LOC:** 363  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.ingestion_engine.IngestionEngine`
 
 The `IngestionEngine` class includes methods for updating repository data incrementally and performing a full scan of repositories. The `incremental_update` method updates the repository data from one commit to another, specified by `from_commit` and `to_commit`, within a given repository path (`repo_path`) and repository ID (`repo_id`). The `full_scan` method performs a comprehensive scan of all 
@@ -895,7 +1165,7 @@ JavaParser is a class designed to parse Java source files. It utilizes the Tree-
 | `protected _handle_package` | `Node node`<br>`bytes src`<br>`ParsedFile result` | — |  |
 
 ### `KGWriter` — class
-**File:** `services/ingestion/kg/writer.py`  **LOC:** 865  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/kg/writer.py`  **LOC:** 867  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.kg.writer.KGWriter`
 
 KGWriter is a class designed to manage various aspects of software repositories. It includes methods for updating or inserting repository details such as `upsert_repository`, which takes parameters like `repo_id` and `name` to define a repository's identity and basic attributes. The method `upsert_concurrency_facts` allows setting concurrency-related facts, including `pools`, `asyncs`, and `facts`
@@ -924,7 +1194,7 @@ KGWriter is a class designed to manage various aspects of software repositories.
 | `public wire_edges` | `str repo_id` | — |  |
 
 ### `ModuleInfo` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 5  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 7  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.ModuleInfo`
 
 ModuleInfo is a class that encapsulates information about software modules, including their names, versions, and dependencies. It includes methods like `getModuleName()` to retrieve the name of the module and `getDependencies()` to fetch a list of modules it depends on. Additionally, it has a field `version` which stores the version number as a string, indicating the current release level of the m
@@ -960,7 +1230,7 @@ ParsedFile is a class designed to encapsulate and manage all the extracted facts
 | `dunder protected __init__` | `str file_path`<br>`str repo_id` | — |  |
 
 ### `ProjectIdentity` — class
-**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 10  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/repo_structure.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.repo_structure.ProjectIdentity`
 
 ProjectIdentity is a class that encapsulates the unique identifier for a project within an application or system. The `GetProjectId` method returns a string representing the project's identity, ensuring that each project can be uniquely referenced throughout the system. The `SetProjectName` method accepts a string parameter to assign a name to the project, enhancing readability and organization in
@@ -970,7 +1240,7 @@ ProjectIdentity is a class that encapsulates the unique identifier for a project
 | `dunder protected __init__` | — | — |  |
 
 ### `PythonParser` — class
-**File:** `services/ingestion/parser/python_parser.py`  **LOC:** 341  **Grade:** A  **Blast:** 0
+**File:** `services/ingestion/parser/python_parser.py`  **LOC:** 343  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.python_parser.PythonParser`
 
 PythonParser includes a method `parse_file` that accepts parameters for a file path, repository ID, and repository path. This method utilizes Tree-sitter to parse Python source files and extract structural facts, which are then formatted to be compatible with the output schema of JavaParser. The extracted facts are ready for writing into Neo4j, indicating that PythonParser facilitates the conversi
@@ -988,13 +1258,13 @@ PythonParser includes a method `parse_file` that accepts parameters for a file p
 | `protected _collect_calls` | `Node node`<br>`bytes src`<br>`ParsedFile result`<br>`str caller_fqn` | — |  |
 
 ### `RelationshipKind` — class
-**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 1  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 3  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.scip_emitter.RelationshipKind`
 
 The class API defines a set of methods that allow for the creation and manipulation of objects. Each method signature specifies the operations that can be performed on these objects, such as adding or removing elements, updating properties, and retrieving data. The field types within the class define the structure and type of data that the objects can hold, ensuring consistency and proper data han
 
 ### `RepoRequest` — class
-**File:** `services/ingestion/main.py`  **LOC:** 2  **Grade:** C  **Blast:** 0
+**File:** `services/ingestion/main.py`  **LOC:** 4  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.main.RepoRequest`
 
 RepoRequest is a class that encapsulates parameters for making requests to a repository service. It includes fields such as `repositoryId` of type `String`, which uniquely identifies the repository; `action` of type `ActionType`, an enumeration representing different operations like clone, pull, or push; and `credentials` of type `Credentials`, a nested class that holds authentication details nece
@@ -1022,13 +1292,13 @@ The `SCIPEmitter` class includes a method named `emit` that accepts an instance 
 SCIPOccurrence is a class that represents a specific occurrence of a symbol within a file. It includes fields for the file path, line number, and column position where the symbol appears. The `getFilePath()` method returns the path to the file containing the symbol, while the `getLineNumber()` and `getColumnNumber()` methods provide the precise location of the symbol within that file.
 
 ### `SCIPRange` — class
-**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.scip_emitter.SCIPRange`
 
 SCIPRange is a class that encapsulates a range of values, typically used for defining boundaries or limits in various applications. It includes methods like `getMinValue()` to retrieve the minimum value of the range and `setMaxValue(int max)` to set the maximum value, ensuring that any operations within this class operate within the specified bounds.
 
 ### `SCIPRelationship` — class
-**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 3  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/scip_emitter.py`  **LOC:** 5  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.scip_emitter.SCIPRelationship`
 
 SCIPRelationship The class includes a method named `calculateDistance` that takes two parameters of type `Point`, representing geographical coordinates. This method calculates and returns the Euclidean distance between these two points, which is useful for determining proximity in geographic applications. Additionally, there is a field of type `List<Point>` named `pathPoints`. This field stores a 
@@ -1039,15 +1309,160 @@ SCIPRelationship The class includes a method named `calculateDistance` that take
 
 SCIPSymbolInformation is a class that encapsulates metadata about a symbol defined within a document. It includes details such as the symbol's name, type, and location within the document, providing essential information for reference and analysis.
 
+### `TestBlastScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 23  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestBlastScoring`
+
+Exercises blast scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_no_dependents_full_score` | — | — |  |
+| `public test_high_blast_zero_score` | — | — |  |
+| `public test_moderate_blast_partial_score` | — | — |  |
+
+### `TestBuildExtractorDetection` — class
+**File:** `services/ingestion/tests/test_build_extractor.py`  **LOC:** 67  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_build_extractor.TestBuildExtractorDetection`
+
+Exercises build extractor detection behavior in the build extractor test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_empty_dir_no_crash` | `tmp_path` | — |  |
+| `public test_pom_xml_detected_as_maven` | `tmp_path` | — |  |
+| `public test_build_gradle_detected_as_gradle` | `tmp_path` | — |  |
+| `public test_requirements_txt_discovered_as_python` | `tmp_path` | — |  |
+
 ### `TestCategory` — class
-**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 4  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/build_extractor.py`  **LOC:** 6  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.build_extractor.TestCategory`
 
 **TestCategory**  
 The class appears to be designed for handling user authentication processes. The `authenticateUser` method takes a username and password as parameters and returns a boolean indicating whether the credentials are valid. The `generateToken` method, which accepts a user ID, generates and returns an authentication token used for subsequent requests. The `validateToken` method checks
 
+### `TestClassExtraction` — class
+**File:** `services/ingestion/tests/test_python_parser.py`  **LOC:** 194  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_python_parser.TestClassExtraction`
+
+Exercises class extraction behavior in the python parser test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_class_with_decorators` | — | — |  |
+| `public test_simple_typed_class` | — | — |  |
+| `public test_syntax_error_no_crash` | — | — |  |
+| `public test_base_classes_captured` | — | — |  |
+| `public test_nested_class_fqn` | — | — |  |
+| `public test_module_level_function_synthetic_class` | — | — |  |
+| `public test_init_self_fields` | — | — |  |
+| `public test_enum_base_class_kind` | — | — |  |
+| `public test_imports_extracted` | — | — |  |
+| `public test_empty_file_no_crash` | — | — |  |
+
+### `TestClassScore` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 28  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestClassScore`
+
+Exercises class score behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_score_clamped_to_valid_range` | — | — |  |
+| `public test_god_class_scores_low` | — | — |  |
+| `public test_perfect_class_scores_100` | — | — |  |
+
+### `TestCouplingScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 17  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestCouplingScoring`
+
+Exercises coupling scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_high_coupling_zero_score` | — | — |  |
+| `public test_low_coupling_full_score` | — | — |  |
+
+### `TestDocsScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 15  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestDocsScoring`
+
+Exercises docs scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_with_docstring_scores_25` | — | — |  |
+| `public test_without_docstring_scores_0` | — | — |  |
+
+### `TestExtractModules` — class
+**File:** `services/ingestion/tests/test_build_extractor.py`  **LOC:** 49  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_build_extractor.TestExtractModules`
+
+Exercises extract modules behavior in the build extractor test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_empty_dir_returns_empty_list` | `tmp_path` | — |  |
+| `public test_maven_multimodule_pom` | `tmp_path` | — |  |
+| `public test_services_layout_finds_modules` | `tmp_path` | — |  |
+
+### `TestFullScan` — class
+**File:** `services/ingestion/tests/test_ingestion_engine.py`  **LOC:** 82  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_ingestion_engine.TestFullScan`
+
+Exercises full scan behavior in the ingestion engine test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_full_scan_calls_write_parsed_batch` | `tmp_path` | — |  |
+| `public test_full_scan_skips_hidden_dirs` | `tmp_path` | — |  |
+
+### `TestJavaClassExtraction` — class
+**File:** `services/ingestion/tests/test_java_parser.py`  **LOC:** 167  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_java_parser.TestJavaClassExtraction`
+
+Exercises java class extraction behavior in the java parser test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_interface_kind` | — | — |  |
+| `public test_simple_class_methods` | — | — |  |
+| `public test_javadoc_extracted` | — | — |  |
+| `public test_enum_kind` | — | — |  |
+| `public test_empty_source_no_crash` | — | — |  |
+| `public test_package_and_imports` | — | — |  |
+| `public test_constructor_in_methods` | — | — |  |
+| `public test_annotated_class` | — | — |  |
+
+### `TestLetterGrade` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 27  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestLetterGrade`
+
+Exercises letter grade behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_grade_f_boundary` | — | — |  |
+| `public test_grade_d_boundary` | — | — |  |
+| `public test_grade_c_boundary` | — | — |  |
+| `public test_grade_a_boundary` | — | — |  |
+| `public test_grade_b_boundary` | — | — |  |
+
+### `TestSizeScoring` — class
+**File:** `services/ingestion/tests/test_hygiene.py`  **LOC:** 33  **Grade:** A  **Blast:** 0
+**FQN:** `services.ingestion.tests.test_hygiene.TestSizeScoring`
+
+Exercises size scoring behavior in the hygiene test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_small_class_full_score` | — | — |  |
+| `public test_medium_class_partial_score` | — | — |  |
+| `public test_large_class_low_score` | — | — |  |
+| `public test_god_class_zero_score` | — | — |  |
+
 ### `ThreadPoolDeclaration` — class
-**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 6  **Grade:** B  **Blast:** 0
+**File:** `services/ingestion/parser/concurrency_extractor.py`  **LOC:** 8  **Grade:** A  **Blast:** 0
 **FQN:** `services.ingestion.parser.concurrency_extractor.ThreadPoolDeclaration`
 
 ThreadPoolDeclaration is a class that encapsulates the creation and management of a thread pool in a concurrent programming environment. It includes methods for submitting tasks to be executed by the threads in the pool and fields for configuring parameters such as the number of threads and task queue capacity, ensuring efficient execution of multiple tasks concurrently.
@@ -1055,9 +1470,9 @@ ThreadPoolDeclaration is a class that encapsulates the creation and management o
 ---
 
 # Module: services/mcp
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
+**Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 9
 
 ## ⚡ Insights from previous sessions
 
@@ -1069,13 +1484,141 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 
 ## Classes
 
+### `TestCaptureInsight` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 37  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestCaptureInsight`
+
+Exercises capture insight behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_posts_to_insights_and_returns_ok` | — | — |  |
+| `public test_missing_required_fields_returns_error_not_exception` | — | — |  |
+
+### `TestErrorHandling` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 22  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestErrorHandling`
+
+Exercises error handling behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_api_error_returns_error_text_not_exception` | — | — |  |
+
+### `TestGetChangeImpact` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 16  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetChangeImpact`
+
+Exercises get change impact behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_impact_report` | — | — |  |
+
+### `TestGetClass` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetClass`
+
+Exercises get class behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_class_data` | — | — |  |
+
+### `TestGetCodebaseTemplate` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 14  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetCodebaseTemplate`
+
+Exercises get codebase template behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_text_content` | — | — |  |
+
+### `TestGetRepoSummary` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 14  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetRepoSummary`
+
+Exercises get repo summary behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_repos_json` | — | — |  |
+
+### `TestListArchPolicies` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestListArchPolicies`
+
+Exercises list arch policies behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_policies_list` | — | — |  |
+
+### `TestSearchClasses` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestSearchClasses`
+
+Exercises search classes behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_search_results` | — | — |  |
+
+### `TestSessionId` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestSessionId`
+
+Exercises session id behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_session_id_is_consistent` | — | — |  |
+
 ---
 
 # Module: services/watcher
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 0
+**Path:** `/host-home/Documents/projects/codeKG/services/watcher`  **Classes:** 3
 
 ## Classes
+
+### `TestIsScanRunning` — class
+**File:** `services/watcher/tests/test_watcher.py`  **LOC:** 27  **Grade:** A  **Blast:** 0
+**FQN:** `services.watcher.tests.test_watcher.TestIsScanRunning`
+
+Exercises is scan running behavior in the watcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_false_when_no_matching_container` | — | — |  |
+| `public test_returns_true_when_matching_container_exists` | — | — |  |
+
+### `TestLaunchScan` — class
+**File:** `services/watcher/tests/test_watcher.py`  **LOC:** 79  **Grade:** A  **Blast:** 0
+**FQN:** `services.watcher.tests.test_watcher.TestLaunchScan`
+
+Exercises launch scan behavior in the watcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_home_mount_volume_added_when_set` | — | — |  |
+| `public test_passes_scan_env_vars` | — | — |  |
+| `public test_incremental_scan_passes_commits` | — | — |  |
+| `public test_container_labelled_with_repo_id` | — | — |  |
+| `protected _make_client` | — | — |  |
+
+### `TestLoadRepos` — class
+**File:** `services/watcher/tests/test_watcher.py`  **LOC:** 46  **Grade:** A  **Blast:** 0
+**FQN:** `services.watcher.tests.test_watcher.TestLoadRepos`
+
+Exercises load repos behavior in the watcher test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_reads_from_repos_json` | `tmp_path` | — |  |
+| `public test_returns_empty_when_neither_exists` | `tmp_path` | — |  |
+| `public test_falls_back_to_filesystem_discovery` | `tmp_path` | — |  |
 
 ---

@@ -1,5 +1,5 @@
 # Data Stores — codeKG
-_Generated 2026-06-08 14:12 UTC_
+_Generated 2026-06-08 18:37 UTC_
 
 **6 data stores detected** by scanning source files.
 
@@ -302,16 +302,17 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `end_line` | `0` |
 | `file_path` | `/host-home/Documents/projects/codeKG/tools/backfill_javadoc.py` |
 | `fqn` | `tools.backfill_javadoc` |
-| `hygiene_grade` | `B` |
-| `hygiene_score` | `75` |
+| `hygiene_grade` | `A` |
+| `hygiene_score` | `100` |
 | `hygiene_tier` | `small` |
+| `javadoc` | `backfill_javadoc.py — Backfill c.javadoc for existing Class nodes in Neo4j. Read` |
 | `kind` | `module` |
 | `name` | `backfill_javadoc` |
 | `object_model` | `{"fqn":"tools.backfill_javadoc","name":"backfill_javadoc","kind":"module","modul` |
 | `package_fqn` | `tools` |
-| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
+| `prov_commit_sha` | `2a41ab098653103221bdb4d712495b68c507c686` |
 | `prov_confidence` | `0.85` |
-| `prov_freshness_ts` | `2026-06-05T20:43:14Z` |
+| `prov_freshness_ts` | `2026-06-08T18:31:22Z` |
 | `prov_source_tool` | `tree-sitter-java` |
 | `repo_id` | `codeKG` |
 | `role` | `CLASS` |
@@ -324,7 +325,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | Property | Example value |
 |---|---|
 | `annotations` | `[]` |
-| `calls_unresolved` | `['session', 'run']` |
+| `calls_unresolved` | `['run', 'session']` |
 | `class_fqn` | `tools.backfill_javadoc` |
 | `docstring` | `Write javadoc for a batch of {fqn, javadoc} dicts.` |
 | `end_line` | `131` |
@@ -332,9 +333,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `modifiers` | `['public']` |
 | `name` | `write_batch` |
 | `parameters` | `['driver', 'list[dict] rows']` |
-| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
+| `prov_commit_sha` | `2a41ab098653103221bdb4d712495b68c507c686` |
 | `prov_confidence` | `0.85` |
-| `prov_freshness_ts` | `2026-06-05T20:43:14Z` |
+| `prov_freshness_ts` | `2026-06-08T18:31:22Z` |
 | `prov_source_tool` | `tree-sitter-java` |
 | `repo_id` | `codeKG` |
 | `start_line` | `124` |
@@ -348,9 +349,9 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `name` | `services/api` |
 | `path` | `/host-home/Documents/projects/codeKG/services/api` |
 | `pkg_prefix` | `api` |
-| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
+| `prov_commit_sha` | `2a41ab098653103221bdb4d712495b68c507c686` |
 | `prov_confidence` | `0.95` |
-| `prov_freshness_ts` | `2026-06-05T20:43:13Z` |
+| `prov_freshness_ts` | `2026-06-08T18:31:22Z` |
 | `prov_source_tool` | `build-extractor` |
 | `repo_id` | `codeKG` |
 
@@ -358,18 +359,18 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | Property | Example value |
 |---|---|
 | `build_tool` | `unknown` |
-| `hygiene_computed_at` | `2026-06-05T20:44:48.842000000+00:00` |
-| `hygiene_grade` | `B` |
-| `hygiene_score` | `74.1` |
-| `hygiene_stats` | `{"repo_score":74.1,"repo_grade":"B","total_classes":159,"scored_classes":122,"go` |
+| `hygiene_computed_at` | `2026-06-08T18:33:56.975000000+00:00` |
+| `hygiene_grade` | `A` |
+| `hygiene_score` | `95.3` |
+| `hygiene_stats` | `{"repo_score":95.3,"repo_grade":"A","total_classes":251,"scored_classes":147,"go` |
 | `key_dependencies` | `[]` |
 | `language` | `python` |
-| `last_commit` | `74c80ba7c7b4a24ed1aecd918cb43c975a56168c` |
+| `last_commit` | `2a41ab098653103221bdb4d712495b68c507c686` |
 | `name` | `codeKG` |
 | `path` | `/host-home/Documents/projects/codeKG` |
-| `prov_commit_sha` | `5e7c40281587e7e79043ffa67e073dfe794bca10` |
+| `prov_commit_sha` | `2a41ab098653103221bdb4d712495b68c507c686` |
 | `prov_confidence` | `0.75` |
-| `prov_freshness_ts` | `2026-06-05T20:43:13Z` |
+| `prov_freshness_ts` | `2026-06-08T18:31:22Z` |
 | `prov_source_tool` | `repo-structure` |
 | `repo_id` | `codeKG` |
 | `test_framework` | `junit5` |
@@ -381,12 +382,12 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `natural_language` | `Every production package with 3 or more classes should have at least one test cl` |
 | `policy_id` | `auto-403ee21d` |
 | `repo_id` | `codeKG` |
-| `sample_violators` | `['services.console.routes', 'shared.models.graph', 'services.ingestion.parser', ` |
+| `sample_violators` | `['services.console.routes', 'shared.config', 'shared.models.graph', 'services.in` |
 | `severity` | `warning` |
 | `source` | `auto-scan` |
 | `status` | `auto-draft` |
 | `title` | `Untested Package` |
-| `violator_count` | `8` |
+| `violator_count` | `10` |
 
 ### `ArchPattern`
 | Property | Example value |
@@ -394,7 +395,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `anti_pattern` | `False` |
 | `category` | `Testing` |
 | `intent` | `Classes inheriting from unittest.TestCase or Django's TestCase providing isolate` |
-| `match_count` | `34` |
+| `match_count` | `92` |
 | `name` | `Test Case` |
 | `pattern_id` | `python-test-case-codeKG` |
 | `repo_id` | `codeKG` |
@@ -426,6 +427,7 @@ All nodes are scoped to a repo via `repo_id` — always include it in MATCH clau
 | `ArchPolicy` | `:TARGETS` | `Module` |
 | `Class` | `:BELONGS_TO` | `Package` |
 | `Class` | `:EXHIBITS` | `ArchPattern` |
+| `Class` | `:EXTENDS` | `Class` |
 | `Class` | `:HAS_METHOD` | `Method` |
 | `Class` | `:IMPORTS` | `Class` |
 | `Class` | `:VIOLATES` | `ArchPolicy` |

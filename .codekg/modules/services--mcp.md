@@ -1,7 +1,7 @@
 # Module: services/mcp
-_Generated 2026-06-08 14:12 UTC · commit `47004d4`_
+_Generated 2026-06-08 18:37 UTC · commit `unpublished`_
 
-**Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 0
+**Path:** `/host-home/Documents/projects/codeKG/services/mcp`  **Classes:** 9
 
 ## ⚡ Insights from previous sessions
 
@@ -12,3 +12,94 @@ _Non-obvious facts from engineering sessions — treat as expert hints._
 - **services.mcp.main** (85%): The sync_claude_md tool includes a save_as comment header in the response so Claude Code knows what filename to use without needing to infer it from context.
 
 ## Classes
+
+### `TestCaptureInsight` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 37  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestCaptureInsight`
+
+Exercises capture insight behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_posts_to_insights_and_returns_ok` | — | — |  |
+| `public test_missing_required_fields_returns_error_not_exception` | — | — |  |
+
+### `TestErrorHandling` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 22  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestErrorHandling`
+
+Exercises error handling behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_api_error_returns_error_text_not_exception` | — | — |  |
+
+### `TestGetChangeImpact` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 16  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetChangeImpact`
+
+Exercises get change impact behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_impact_report` | — | — |  |
+
+### `TestGetClass` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetClass`
+
+Exercises get class behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_class_data` | — | — |  |
+
+### `TestGetCodebaseTemplate` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 14  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetCodebaseTemplate`
+
+Exercises get codebase template behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_text_content` | — | — |  |
+
+### `TestGetRepoSummary` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 14  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestGetRepoSummary`
+
+Exercises get repo summary behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_repos_json` | — | — |  |
+
+### `TestListArchPolicies` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestListArchPolicies`
+
+Exercises list arch policies behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_policies_list` | — | — |  |
+
+### `TestSearchClasses` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 13  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestSearchClasses`
+
+Exercises search classes behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_returns_search_results` | — | — |  |
+
+### `TestSessionId` — class
+**File:** `services/mcp/tests/test_mcp_tools.py`  **LOC:** 12  **Grade:** A  **Blast:** 0
+**FQN:** `services.mcp.tests.test_mcp_tools.TestSessionId`
+
+Exercises session id behavior in the mcp tools test module. Watch out for the mocked boundaries and bootstrap setup in this suite, because many tests patch module-level globals before imports happen.
+
+| Method | Parameters | Returns | Notes |
+|--------|-----------|---------|-------|
+| `public test_session_id_is_consistent` | — | — |  |

@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-08 14:12 UTC · commit `47004d4` · kept current by git commit triggers_
+_Generated 2026-06-08 18:37 UTC · commit `a9c1f2d` · kept current by git commit triggers_
 
 ## ⚠ STOP — read this before doing anything
 
@@ -34,29 +34,30 @@ blast radius, hygiene grades, architectural rules, and session insights.
 ## Available files
 
 ### root/
-- `CLAUDE.md` — Snippet to paste into repo root CLAUDE.md · updated 2026-06-08 14:12 UTC
-- `INDEX.md` — Master navigation file — read first · updated 2026-06-08 13:57 UTC
+- `AGENTS.md` — Snippet to paste into repo root AGENTS.md (Codex / OpenAI Codex agents) · updated 2026-06-08 18:37 UTC
+- `CLAUDE.md` ⚠ stale — Snippet to paste into repo root CLAUDE.md · updated 2026-06-08 18:37 UTC
+- `INDEX.md` — Master navigation file — read first · updated 2026-06-08 14:12 UTC
 
 ### architecture/
-- `datastores.md` ⚠ stale — All data stores (Neo4j, SQLite DBs) — schemas and which modules use them · updated 2026-06-08 14:12 UTC
-- `dependencies.md` ⚠ stale — Cross-module dependencies and high blast-radius classes · updated 2026-06-08 14:12 UTC
-- `hotspots.md` ⚠ stale — High blast-radius, low hygiene classes to approach carefully · updated 2026-06-08 14:12 UTC
-- `modules.md` ⚠ stale — Module map with class counts and summaries · updated 2026-06-08 14:12 UTC
-- `patterns.md` ⚠ stale — Detected design patterns and anti-patterns · updated 2026-06-08 14:12 UTC
-- `recent_changes.md` ⚠ stale — Recent git commits and index file changes — read to understand what changed · updated 2026-06-08 14:12 UTC
-- `screens.md` ⚠ stale — All pages/screens — URL, template, nav links, API calls, data access · updated 2026-06-08 14:12 UTC
+- `datastores.md` ⚠ stale — All data stores (Neo4j, SQLite DBs) — schemas and which modules use them · updated 2026-06-08 18:37 UTC
+- `dependencies.md` ⚠ stale — Cross-module dependencies and high blast-radius classes · updated 2026-06-08 18:37 UTC
+- `hotspots.md` ⚠ stale — High blast-radius, low hygiene classes to approach carefully · updated 2026-06-08 18:37 UTC
+- `modules.md` ⚠ stale — Module map with class counts and summaries · updated 2026-06-08 18:37 UTC
+- `patterns.md` ⚠ stale — Detected design patterns and anti-patterns · updated 2026-06-08 18:37 UTC
+- `recent_changes.md` ⚠ stale — Recent git commits and index file changes — read to understand what changed · updated 2026-06-08 18:37 UTC
+- `screens.md` ⚠ stale — All pages/screens — URL, template, nav links, API calls, data access · updated 2026-06-08 18:37 UTC
 
 ### modules/
-- `combined.md` ⚠ stale — All modules inlined — used when total repo LOC < 2,500 · updated 2026-06-08 14:12 UTC
-- `services--api.md` ⚠ stale — Classes and structure for module `services/api` · updated 2026-06-08 14:12 UTC
-- `services--console.md` ⚠ stale — Classes and structure for module `services/console` · updated 2026-06-08 14:12 UTC
-- `services--ingestion.md` ⚠ stale — Classes and structure for module `services/ingestion` · updated 2026-06-08 14:12 UTC
-- `services--mcp.md` ⚠ stale — Classes and structure for module `services/mcp` · updated 2026-06-08 14:12 UTC
-- `services--watcher.md` ⚠ stale — Classes and structure for module `services/watcher` · updated 2026-06-08 14:12 UTC
+- `combined.md` ⚠ stale — All modules inlined — used when total repo LOC < 2,500 · updated 2026-06-08 18:37 UTC
+- `services--api.md` ⚠ stale — Classes and structure for module `services/api` · updated 2026-06-08 18:37 UTC
+- `services--console.md` ⚠ stale — Classes and structure for module `services/console` · updated 2026-06-08 18:37 UTC
+- `services--ingestion.md` ⚠ stale — Classes and structure for module `services/ingestion` · updated 2026-06-08 18:37 UTC
+- `services--mcp.md` ⚠ stale — Classes and structure for module `services/mcp` · updated 2026-06-08 18:37 UTC
+- `services--watcher.md` ⚠ stale — Classes and structure for module `services/watcher` · updated 2026-06-08 18:37 UTC
 
 ### policies/
-- `active.md` ⚠ stale — Active architectural policies — read before making changes · updated 2026-06-08 14:12 UTC
-- `violations.md` ⚠ stale — Current policy violations by class · updated 2026-06-08 14:12 UTC
+- `active.md` ⚠ stale — Active architectural policies — read before making changes · updated 2026-06-08 18:37 UTC
+- `violations.md` ⚠ stale — Current policy violations by class · updated 2026-06-08 18:37 UTC
 
 ## Modules in this repo
 - `services/api` — services/api
@@ -68,24 +69,25 @@ blast radius, hygiene grades, architectural rules, and session insights.
 ## Recent changes
 
 **Index files updated this cycle:**
-- `architecture/datastores` — regenerated 2026-06-08 14:12 UTC
-- `architecture/dependencies` — regenerated 2026-06-08 14:12 UTC
-- `architecture/hotspots` — regenerated 2026-06-08 14:12 UTC
-- `architecture/modules` — regenerated 2026-06-08 14:12 UTC
-- `architecture/patterns` — regenerated 2026-06-08 14:12 UTC
-- `architecture/recent_changes` — regenerated 2026-06-08 14:12 UTC
-- `architecture/screens` — regenerated 2026-06-08 14:12 UTC
-- `claude_md` — regenerated 2026-06-08 14:12 UTC
-- `modules/combined` — regenerated 2026-06-08 14:12 UTC
-- `modules/services/api` — regenerated 2026-06-08 14:12 UTC
-- `modules/services/console` — regenerated 2026-06-08 14:12 UTC
-- `modules/services/ingestion` — regenerated 2026-06-08 14:12 UTC
-- `modules/services/mcp` — regenerated 2026-06-08 14:12 UTC
-- `modules/services/watcher` — regenerated 2026-06-08 14:12 UTC
-- `policies/active` — regenerated 2026-06-08 14:12 UTC
-- `policies/violations` — regenerated 2026-06-08 14:12 UTC
+- `architecture/datastores` — regenerated 2026-06-08 18:37 UTC
+- `architecture/dependencies` — regenerated 2026-06-08 18:37 UTC
+- `architecture/hotspots` — regenerated 2026-06-08 18:37 UTC
+- `architecture/modules` — regenerated 2026-06-08 18:37 UTC
+- `architecture/patterns` — regenerated 2026-06-08 18:37 UTC
+- `architecture/recent_changes` — regenerated 2026-06-08 18:37 UTC
+- `architecture/screens` — regenerated 2026-06-08 18:37 UTC
+- `claude_md` — regenerated 2026-06-08 18:37 UTC
+- `modules/combined` — regenerated 2026-06-08 18:37 UTC
+- `modules/services/api` — regenerated 2026-06-08 18:37 UTC
+- `modules/services/console` — regenerated 2026-06-08 18:37 UTC
+- `modules/services/ingestion` — regenerated 2026-06-08 18:37 UTC
+- `modules/services/mcp` — regenerated 2026-06-08 18:37 UTC
+- `modules/services/watcher` — regenerated 2026-06-08 18:37 UTC
+- `policies/active` — regenerated 2026-06-08 18:37 UTC
+- `policies/violations` — regenerated 2026-06-08 18:37 UTC
 
 **Recent repo commits:**
+- `2a41ab09` 2026-06-08 CodeKG — chore: update CodeKG agent index [skip ci]
 - `74c80ba7` 2026-06-08 CodeKG — chore: update CodeKG agent index [skip ci]
 - `47004d46` 2026-06-07 CodeKG — chore: update CodeKG agent index [skip ci]
 - `5e7c4028` 2026-06-05 CodeKG — chore: update CodeKG agent index [skip ci]
@@ -100,4 +102,3 @@ blast radius, hygiene grades, architectural rules, and session insights.
 - `de0417d0` 2026-06-04 CodeKG — chore: update CodeKG agent index [skip ci]
 - `2a7fac46` 2026-06-04 CodeKG — chore: update CodeKG agent index [skip ci]
 - `d5ec98d8` 2026-06-04 CodeKG — chore: update CodeKG agent index [skip ci]
-- `85a8c7b5` 2026-06-04 CodeKG — chore: update CodeKG agent index [skip ci]
