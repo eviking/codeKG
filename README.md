@@ -1,29 +1,79 @@
 # codeKG — Codebase Knowledge Graph
 
-![CI](https://github.com/your-org/codekg/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/eviking/codeKG/actions/workflows/ci.yml/badge.svg)](https://github.com/eviking/codeKG/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-A self-hosted knowledge graph for large codebases. Indexes Java, Python, and C++ repositories into Neo4j, exposes pre-computed architectural context via MCP, and provides a web console for exploration, policy enforcement, and AI session auditing.
+**codeKG gives AI coding agents a complete, always-current map of your codebase — so they stop exploring blindly and start working with real architectural understanding.**
 
-## What it does
+---
 
-- **Ingests** repositories (Java/Python/C++) and builds a Neo4j graph of classes, methods, packages, modules, dependencies, and call chains
-- **Serves context** to AI coding tools (Claude Code, Cursor) via an MCP server — `answer_question`, `get_class_context`, `get_change_impact`, and more
-- **Enforces hooks** that ensure AI agents always consult the KG before modifying files and always submit telemetry when done
-- **Audits** every MCP call, session, token usage, and tribal knowledge entry in a web console
+## The problem
+
+AI coding agents (Claude Code, Cursor, Codex) explore your codebase the same way a new engineer would on day one: opening files, grepping for symbols, reading method signatures. For a large codebase this means 20–40 tool calls just to understand the context for a single change — most of which produce incomplete or stale information.
+
+Every agent session starts from scratch. Nothing is retained between sessions. The agent that fixed a subtle bug last Tuesday has no memory of it today.
+
+---
+
+## What codeKG does
+
+codeKG is a self-hosted service that runs alongside your repositories. It:
+
+1. **Parses** your codebase (Java, Python, C++) and builds a Neo4j knowledge graph of every class, method, module, dependency, call chain, and architectural pattern
+2. **Publishes** a `.codekg/` directory into your repo — pre-computed markdown files containing complete structural intelligence, committed on every push and always current
+3. **Serves** that intelligence to AI agents via an MCP server with tools like `get_change_impact`, `answer_question`, and `check_violations`
+4. **Enforces** architectural policies automatically — Cypher queries that run after every scan and flag violations
+5. **Accumulates** tribal knowledge — non-obvious insights captured across agent sessions and surfaced in future ones
+
+The result: an agent that reads `.codekg/INDEX.md` and the relevant module file has complete knowledge of your codebase architecture in under 5 seconds, without opening a single source file.
 
 ---
 
 ## Quick start
 
+**Requirements:** Docker, Docker Compose, an Anthropic API key
+
 ```bash
+git clone https://github.com/eviking/codeKG.git
+cd codeKG
+
 cp .env.example .env
-# Edit .env — set NEO4J_PASSWORD, REPOS_PATH, HOME_MOUNT, ANTHROPIC_API_KEY
+# Edit .env: set NEO4J_PASSWORD, ANTHROPIC_API_KEY, HOME_MOUNT, REPOS_PATH
 
 docker compose up -d
-open http://localhost:8080   # Architecture console
+
+open http://localhost:8080
 ```
 
-Register a repo in the console → Repositories → Add, then trigger a full scan.
+Then go to **Repositories → Add**, point it at a local repo, and trigger a full scan. The watcher will keep it current on every subsequent commit.
+
+Full setup guide: [docs/onboarding.md](docs/onboarding.md)
+
+---
+
+## How it works
+
+```
+git commit
+    │
+    ▼
+watcher detects new HEAD
+    │
+    ▼
+ephemeral ingestion container
+    │  parses Java / Python / C++ via tree-sitter
+    │  writes Class, Method, Module, Package nodes to Neo4j
+    │  resolves IMPORTS, CALLS, HAS_METHOD edges
+    │  scores blast radius and hygiene grades
+    │  detects architectural patterns and policy violations
+    ▼
+Neo4j graph updated
+    │
+    ├──► agent index regenerated → .codekg/ committed to your repo
+    └──► MCP tools reflect updated graph immediately
+```
+
+When an AI agent is invoked, it reads `.codekg/INDEX.md` first (per the CLAUDE.md/AGENTS.md instructions codeKG writes into your repo), then the relevant module file. No source file exploration needed.
 
 ---
 
@@ -31,90 +81,34 @@ Register a repo in the console → Repositories → Add, then trigger a full sca
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| `console` | 8080 | Web UI — repos, classes, patterns, policies, audit, tribal knowledge |
-| `api` | 8000 | REST API — KG queries, policies, tribal knowledge storage |
-| `mcp` | 8002 | MCP server — SSE transport for Claude Code / Cursor |
-| `ingestion` | 8001 | Repo parser and KG writer |
-| `watcher` | — | Monitors repos for git changes, triggers re-ingestion |
+| `console` | 8080 | Web UI — repos, classes, patterns, policies, hygiene, audit, tribal knowledge |
+| `api` | 8000 | REST API — KG queries, impact analysis, agent index generation |
+| `mcp` | 8002 | MCP server — tools for Claude Code, Cursor, Codex |
+| `ingestion` | — | Ephemeral scan containers (launched per-repo, per-commit) |
+| `watcher` | — | Polls repos for new commits, launches ingestion |
 | `neo4j` | 7474/7687 | Graph database |
 
 ---
 
 ## MCP tools
 
-The MCP server exposes these tools to AI coding agents:
+Connect any MCP-capable AI agent to `http://localhost:8002/sse`:
 
-| Tool | Purpose |
-|------|---------|
+| Tool | What it does |
+|------|-------------|
 | `answer_question` | Natural-language question → ranked classes + blast radius + tribal knowledge |
-| `get_class_context` | Full context for a class by FQN |
-| `get_module_context` | All classes and policies for a logical module |
-| `get_change_impact` | Blast radius for a set of changed files |
-| `search_classes` | Find classes by name fragment |
-| `get_codebase_template` | Full pre-computed CLAUDE.md for a repo |
-| `sync_claude_md` | Fetch latest generated CLAUDE.md content |
-| `check_violations` | Check files against active architectural policies |
-| `list_arch_policies` | List active policies |
+| `get_class_context` | Full context for a class: methods, dependencies, callers, insights |
+| `get_module_context` | All classes and active policies for a logical module |
+| `get_change_impact` | Blast radius for a set of changed files — which classes are at risk |
+| `search_classes` | Find classes by name fragment across all indexed repos |
+| `get_codebase_template` | Full pre-computed CLAUDE.md / AGENTS.md for a repo |
+| `check_violations` | Run active architectural policies against specific files |
+| `list_arch_policies` | List all active policies and their current violation counts |
 | `get_arch_patterns` | Detected GoF/EIP patterns and anti-patterns |
-| `submit_session_telemetry` | Record session token usage and tribal knowledge |
+| `capture_insight` | Record a non-obvious finding for future agent sessions |
+| `submit_session_telemetry` | Log token usage, tool calls, and learnings from a session |
 
----
-
-## Agent protocol hooks
-
-Two Claude Code hooks enforce the codeKG protocol for every registered repo. They live in `.claude/hooks/` inside each repo.
-
-### `require_codekg.py` — PreToolUse
-
-Blocks `Read`, `Edit`, `Write`, and write-bearing `Bash` commands if no codeKG tool has been called since the last user message. Forces the agent to consult the KG before touching any file.
-
-**Blocked with message:**
-> ⛔ codeKG not consulted this turn. Call `answer_question` before reading or modifying files.
-
-### `require_telemetry.py` — Stop
-
-Fires when the agent finishes a response turn. Checks whether `submit_session_telemetry` was called after any codeKG tool use. If not, blocks turn completion and injects a reminder into model context.
-
-**Blocked with message:**
-> ⚠️ submit_session_telemetry not called. Call it now with codekg_request_id, turn_id, user_prompt, turns, and learnings.
-
-### Installing hooks in a new repo
-
-1. Copy the hooks into the repo's `.claude/hooks/` directory:
-   ```bash
-   mkdir -p <repo>/.claude/hooks
-   cp .claude/hooks/require_codekg.py <repo>/.claude/hooks/
-   cp .claude/hooks/require_telemetry.py <repo>/.claude/hooks/
-   ```
-
-2. Add to `<repo>/.claude/settings.local.json`:
-   ```json
-   {
-     "enabledMcpjsonServers": ["codekg"],
-     "enableAllProjectMcpServers": true,
-     "hooks": {
-       "PreToolUse": [
-         {
-           "matcher": ".*",
-           "hooks": [{ "type": "command", "command": "python3 .claude/hooks/require_codekg.py" }]
-         }
-       ],
-       "Stop": [
-         {
-           "hooks": [{ "type": "command", "command": "python3 .claude/hooks/require_telemetry.py" }]
-         }
-       ]
-     }
-   }
-   ```
-
-3. Register the repo in the codeKG console and trigger a full scan.
-
----
-
-## MCP configuration
-
-Add to `.mcp.json` in any repo (or to `~/.claude/.mcp.json` for all projects):
+Add to `.mcp.json` in any repo:
 
 ```json
 {
@@ -129,48 +123,99 @@ Add to `.mcp.json` in any repo (or to `~/.claude/.mcp.json` for all projects):
 
 ---
 
-## .env variables
+## Agent index
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `NEO4J_PASSWORD` | `codekg_dev` | Neo4j auth password |
-| `REPOS_PATH` | `./repos` | Host directory mounted at `/repos` in containers |
-| `HOME_MOUNT` | — | Your home dir mounted at `/host-home` (read-only) for reaching repos |
-| `ANTHROPIC_API_KEY` | — | Required for NL summary generation and tribal knowledge analysis |
+After every scan, codeKG commits a `.codekg/` directory into your repo:
 
----
+```
+.codekg/
+├── INDEX.md                    # master navigation — agents read this first
+├── architecture/
+│   ├── modules.md              # module map with class counts
+│   ├── dependencies.md         # cross-module import graph
+│   ├── hotspots.md             # highest blast-radius classes
+│   ├── patterns.md             # detected architectural patterns
+│   └── violations.md          # current policy violations
+├── modules/
+│   ├── services--api.md        # full class+method detail per module
+│   └── ...
+└── policies/
+    └── active.md               # active architectural policies
+```
 
-## Registered repos
-
-Currently indexed:
-
-| Repo ID | Path |
-|---------|------|
-| `codeKG` | This repository |
-| `ElasticSearch` | `/host-home/Documents/GitHub/elasticsearch-main` |
-| `Django` | `/host-home/Documents/GitHub/django` |
-
----
-
-## NL Summaries
-
-Generate natural-language summaries for classes using a local Ollama model:
-
-1. Install and run [Ollama](https://ollama.com) on your Mac
-2. Pull a model: `ollama pull qwen2.5-coder:7b`
-3. Open the console → Classes → **Run NL summaries**
-
-The summariser runs inside the console container and calls Ollama at `http://host.docker.internal:11434`.
+It also writes `CLAUDE.md` (for Claude Code) and `AGENTS.md` (for Codex/OpenAI agents) into your repo root, instructing agents to read the index before touching any file.
 
 ---
 
-## Tribal Knowledge
+## Architectural policies
 
-The console's **Tribal Knowledge** page shows insights captured by AI agents across sessions. Use the **✦ Analyse quality** button to run an AI review that detects:
+Policies are Cypher queries stored as `ArchPolicy` nodes. After every scan, codeKG evaluates all active policies and records violations. Define a policy once, enforce it forever:
 
-- **Conflicts** — entries that contradict each other
-- **Redundant** — entries saying the same thing
-- **Uplift** — insights stated at class level that apply at module/system level
-- **Rewrite** — stale entries using past-tense or outdated phrasing
+```cypher
+-- Example: console must never import from ingestion layer
+MATCH (a:Class {repo_id: $repo_id})-[:IMPORTS]->(b:Class {repo_id: $repo_id})
+WHERE a.file_path CONTAINS '/console/'
+  AND b.file_path CONTAINS '/ingestion/'
+RETURN DISTINCT a.fqn AS violator
+```
 
-Findings can be applied with one click to update, merge, or hide entries.
+Policies can be written manually, compiled from natural language via the console's AI compiler, or auto-detected by the pattern scanner.
+
+---
+
+## Tribal knowledge
+
+Every non-obvious finding an agent discovers can be captured as a tribal knowledge entry — a permanent, repo-scoped insight that surfaces in future sessions:
+
+```
+"store_insights() uses coalesce(tk.approved, false) — re-capturing an already-approved
+insight silently resets it to false. Always approve through the console."
+```
+
+The console's **Analyse quality** button runs an AI review to detect conflicts, redundancies, and stale entries across the full knowledge base.
+
+---
+
+## Language support
+
+| Language | Classes | Methods | Imports | Call chains | Patterns |
+|----------|---------|---------|---------|-------------|---------|
+| Java | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Python | ✅ | ✅ | ✅ | ✅ | ✅ |
+| C++ | ✅ | ✅ | ✅ | — | — |
+
+---
+
+## Configuration
+
+Key `.env` variables — see [.env.example](.env.example) for the full list:
+
+| Variable | Purpose |
+|----------|---------|
+| `ANTHROPIC_API_KEY` | Required — used for NL queries, policy compilation, tribal knowledge analysis |
+| `NEO4J_PASSWORD` | Neo4j auth (default: `codekg_dev` — change for any non-local deployment) |
+| `HOME_MOUNT` | Your home directory, mounted read-only into containers at `/host-home` |
+| `REPOS_PATH` | Directory where scan logs and SQLite databases are stored |
+| `GITHUB_CLIENT_ID` | Optional — enables GitHub OAuth for multi-user console access |
+
+---
+
+## Documentation
+
+| Doc | Contents |
+|-----|---------|
+| [Onboarding](docs/onboarding.md) | Step-by-step setup from zero |
+| [Overview](docs/01-overview.md) | Architecture, data flow, design decisions |
+| [Ingestion](docs/02-ingestion.md) | Parser, KG writer, hygiene scoring |
+| [API](docs/03-api.md) | REST endpoints, impact analysis, agent index API |
+| [MCP](docs/04-mcp.md) | MCP tools reference, transport modes |
+| [Agent Index](docs/05-agent-index.md) | How `.codekg/` is generated and published |
+| [Console](docs/06-console.md) | Web UI features and routes |
+| [Policies](docs/09-policies.md) | Writing and enforcing architectural policies |
+| [Telemetry & Insights](docs/10-telemetry-insights.md) | Session auditing and tribal knowledge |
+
+---
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE).
