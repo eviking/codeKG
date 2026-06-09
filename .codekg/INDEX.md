@@ -1,5 +1,5 @@
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-09 20:27 UTC · commit `83750ea` · kept current by git commit triggers_
+_Generated 2026-06-09 20:27 UTC · commit `d34fdeb` · kept current by git commit triggers_
 
 ## ⚠ STOP — read this before doing anything
 

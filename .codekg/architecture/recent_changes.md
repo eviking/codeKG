@@ -1,5 +1,5 @@
 # Recent Changes — codeKG
-_Generated 2026-06-09 20:27 UTC · commit `83750ea`_
+_Generated 2026-06-09 20:27 UTC · commit `d34fdeb`_
 
 Use this file to understand what has changed recently in both the codebase and the agent index itself, so you can focus on areas that matter.
 
