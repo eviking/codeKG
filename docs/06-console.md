@@ -25,6 +25,7 @@ services/console/
 │   ├── repos.py         # GET /repos, POST /repos (register)
 │   ├── patterns.py      # GET /patterns (architectural patterns)
 │   ├── config.py        # GET /config, POST /api/config (env/settings UI)
+│   ├── getstarted.py    # GET /getstarted (setup wizard), POST /getstarted/*
 │   ├── ask.py           # POST /api/ask (natural language query proxy)
 │   ├── audit_log.py     # GET /audit-log (LLM audit log)
 │   └── system_health.py # GET /system-health, GET /api/system-health
@@ -88,16 +89,34 @@ The selected repo is stored in a cookie (`selected_repo`). Switching repos via t
 
 ## Route reference
 
+### Get Started wizard — `GET /getstarted`
+
+Shown automatically via a banner on the dashboard when no repos are registered. A 6-step guided setup:
+
+1. **Config** — saves `ANTHROPIC_API_KEY`, `HOME_MOUNT`, `REPOS_PATH`, `NEO4J_PASSWORD` to `/repos/codekg.env`
+2. **Register & scan** — registers a repo and launches ingestion; polls `/getstarted/status` every 8s
+3. **NL summaries** — Ollama detection with model picker, fallback to Claude
+4. **Publish agent index** — one-click publish via `/agent-index/publish`
+5. **Connect MCP** — displays the `claude mcp add` SSE command
+6. **Memory & insights** — steps to install the session hook and add the Insights memory rule
+
+Supporting endpoints:
+- `POST /getstarted/config` — saves config to `codekg.env`
+- `POST /getstarted/register` — registers repo + launches scan
+- `POST /getstarted/publish` — triggers agent index publish for first registered repo
+- `GET /getstarted/status` — returns current wizard state (polled by JS)
+- `GET /getstarted/ollama-status` — live Ollama availability check
+
 ### Dashboard — `GET /`
 
 ```python
 # What it shows:
 repo_stats   = class count, method count, hygiene grade, last commit
 gc           = global stats across all repos
-recent_events = last 10 scan events
-token_savings = estimated tokens saved by using pre-computed index vs live KG calls
 tk_total     = total tribal knowledge entries
 ```
+
+When no repos are registered, a green "Welcome to codeKG" banner with a link to `/getstarted` is shown instead of the empty repo grid.
 
 ### Classes — `GET /classes`
 

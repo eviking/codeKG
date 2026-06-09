@@ -1,131 +1,154 @@
-# Onboarding a Repository to CodeKG
+# Getting started with codeKG
 
-This guide explains how to connect a new codebase to a running CodeKG instance so that Claude Code agents can query the knowledge graph instead of scraping source files.
-
----
-
-## Prerequisites
-
-- CodeKG is running and accessible (console at `http://localhost:8080`, API at `http://localhost:8001`, MCP at port 8002)
-- The repository you want to index is on the same machine as CodeKG (or is accessible via a mounted path)
-- Your `.env` contains `HOME_MOUNT=<your-home-directory>` so Docker can see your repos
+The fastest path is the **Get Started wizard** at `http://localhost:8080/getstarted`. It walks you through every step in the browser, detects what's already done, and lets you re-run any step at any time.
 
 ---
 
-## Step 1 — Register the repository
+## 1 — Start the stack
 
-Open the CodeKG console at **http://localhost:8080/repos** and click **Register Repository**.
+```bash
+git clone https://github.com/eviking/codeKG.git
+cd codeKG
+docker compose up -d
+open http://localhost:8080/getstarted
+```
 
-| Field | What to enter |
+If no repos are registered yet, a banner on the dashboard also links directly to the wizard.
+
+---
+
+## 2 — Configure (Step 1 of the wizard)
+
+Enter your credentials. The wizard saves them to `/repos/codekg.env` — a file on the host-mounted volume that persists across container rebuilds.
+
+| Field | Purpose |
 |---|---|
-| **Repository ID** | A short unique name, e.g. `my-service` or `org/my-service`. This is the `repo_id` Claude will reference in tool calls. |
-| **Local path** | Absolute path to the repo root on your machine, e.g. `/Users/you/code/my-service`. Must be inside `HOME_MOUNT`. |
+| **Anthropic API key** | Required for NL queries, policy compilation, and tribal knowledge analysis |
+| **Home mount path** | Your home directory (`/Users/you`). Mounted into containers at `/host-home` so Docker can read your repos |
+| **Repos path** | Directory where scan logs and SQLite databases are stored (default: `/repos`) |
+| **Neo4j password** | Graph database auth (change from the default for any non-local deployment) |
 
-Click **Register & Scan**. CodeKG will start a full ingestion run immediately. Watch the console for progress — large repos can take several minutes.
-
-Alternatively, register via the API:
-
-```bash
-curl -X POST http://localhost:8080/repos \
-  -d "repo_id=my-service&repo_path=/Users/you/code/my-service"
-```
+> **Alternatively:** copy `.env.example` to `.env`, fill in the values, and restart: `docker compose up -d`. The wizard will detect existing config and mark Step 1 complete.
 
 ---
 
-## Step 2 — Verify ingestion
+## 3 — Register & scan a repo (Step 2)
 
-Once the scan completes, the repository page at **http://localhost:8080/repos/my-service** should show class, method, and package counts. You can also check via the Modules page or run a natural-language query to confirm the graph has content.
+Enter a short unique **repo ID** (e.g. `my-service`) and the **absolute path** on your machine (e.g. `/Users/you/code/my-service`). The path must be under your home mount.
+
+Click **Register & Scan**. codeKG launches an ingestion container immediately. A status badge polls every 8 seconds and turns green when the scan completes. Large repos (>100k LOC) can take a few minutes.
+
+What ingestion does:
+- Parses every Java, Python, and C++ source file via tree-sitter
+- Writes Class, Method, Module, Package, and Field nodes to Neo4j
+- Resolves IMPORTS, CALLS, HAS_METHOD, and EXTENDS edges
+- Scores blast radius and hygiene grades for every class
+- Detects GoF/EIP/C++ patterns and policy violations
 
 ---
 
-## Step 3 — Add a `CLAUDE.md` and/or `AGENTS.md` to the repo
+## 4 — NL summaries (Step 3, optional)
 
-CodeKG generates the correct instruction file content for each agent type automatically. The easiest path is to let it write these files for you — skip to Step 4 and come back here only if you want to seed the files manually.
+Class-level natural language summaries make the agent index richer and power the `answer_question` MCP tool.
 
-**Automatic generation (recommended):** After a successful scan, open `http://localhost:8080/agent-index` and click **Publish to repo**. CodeKG writes:
-- `CLAUDE.md` — if a `CLAUDE.md` already exists at the repo root (updates the `<!-- codekg:start -->…<!-- codekg:end -->` section)
-- `AGENTS.md` — if an `AGENTS.md` already exists at the repo root (same update strategy)
-- Falls back to `.codekg/CLAUDE.md` / `.codekg/AGENTS.md` if neither root file exists yet
+**If Ollama is running locally** the wizard detects it automatically, lists available models, and lets you pick one. Summaries are generated locally at no cost.
 
-To use root-level files from the start, create empty placeholders:
+**If Ollama is not available** the wizard falls back to Claude (Anthropic API). A cost estimate is shown before you proceed.
+
+To run Ollama locally:
 ```bash
-touch CLAUDE.md AGENTS.md   # in your repo root
+brew install ollama
+ollama pull llama3.2          # or any model you prefer
+ollama serve                  # starts on localhost:11434
 ```
-Then publish from the console — codeKG will insert its section into both files.
+Then click **↺ recheck** in the wizard to detect it.
 
-**Content differences between the two files:**
-- **`CLAUDE.md`** references MCP tools: `capture_insight`, `get_change_impact`, `search_classes`
-- **`AGENTS.md`** uses shell commands (`cat .codekg/INDEX.md`) since Codex has no MCP support
+---
 
-**Manual template (if you want to write it yourself):**
+## 5 — Publish agent index (Step 4)
 
-`CLAUDE.md` (for Claude Code):
+Click **Publish**. codeKG commits the following into your repo:
+
+```
+.codekg/
+├── INDEX.md                    # master navigation — agents read this first
+├── architecture/
+│   ├── modules.md
+│   ├── dependencies.md
+│   ├── hotspots.md
+│   ├── patterns.md
+│   └── violations.md
+├── modules/
+│   └── <name>.md               # full class + method detail per module
+└── policies/
+    └── active.md
+CLAUDE.md                       # instructs Claude Code to read the index
+AGENTS.md                       # same for Codex / OpenAI agents
+```
+
+`CLAUDE.md` and `AGENTS.md` are written into your repo root (or updated if they already exist, within `<!-- codekg:start -->…<!-- codekg:end -->` markers). They include a session-close block that prompts Claude Code to call `capture_insight` at the end of each session.
+
+---
+
+## 6 — Connect the MCP server (Step 5)
+
+codeKG's MCP server runs on SSE transport by default. Add it to Claude Code once:
+
+```bash
+claude mcp add codekg --transport sse http://localhost:8002/sse
+```
+
+Or add it to `.mcp.json` in any repo that should use codeKG:
+
+```json
+{
+  "mcpServers": {
+    "codekg": {
+      "type": "sse",
+      "url": "http://localhost:8002/sse"
+    }
+  }
+}
+```
+
+Restart Claude Code after saving. Verify with `claude mcp list` — `codekg` should appear.
+
+---
+
+## 7 — Memory & insights (Step 6)
+
+This step wires codeKG into Claude Code's persistent memory so insights captured during sessions surface in future ones.
+
+**A — Install the session hook**
+
+Download the stop hook and save it to your Claude Code project-scoped hooks directory:
+
+```bash
+curl -o ~/.claude/projects/<your-project-slug>/hooks/require_telemetry.py \
+  https://raw.githubusercontent.com/eviking/codeKG/main/.claude/hooks/require_telemetry.py
+```
+
+The hook fires at the end of every Claude Code session and submits token usage, tool calls, and captured insights to codeKG. It never blocks — exits 0 on any error.
+
+**B — Add the Insights memory rule**
+
+Open `~/.claude/projects/<your-project-slug>/memory/MEMORY.md` and add:
+
 ```markdown
-## CodeKG Agent Index
-<!-- codekg:start -->
-<!-- codekg:end -->
+- [Insights section required](feedback_insights_section.md) — Every response must end with **Insights:** written as a sr engineer explaining a gotcha to a jr engineer (fact → why → what it means for future work)
 ```
-Leave the markers in place — the publish step inserts the full generated content between them.
 
-`AGENTS.md` (for Codex / OpenAI agents): same marker pattern, different generated content (shell commands instead of MCP tool references).
+**C — Session-close prompt (already in CLAUDE.md)**
+
+The `CLAUDE.md` published in Step 4 already contains a session-close block that prompts Claude Code to call `capture_insight` before ending a session. Nothing more to do here.
 
 ---
 
-## Step 4 — Connect the MCP server to Claude Code
+## Keeping the graph current
 
-The default transport is **stdio** (local Docker exec). Add it once to your Claude Code config:
+The watcher service (`codekg-watcher`) polls your registered repos for new commits and triggers incremental re-ingestion automatically. As long as `docker compose up` is running, changes appear in the graph within seconds of a commit.
 
-```bash
-claude mcp add codekg --transport stdio -- docker exec -i codekg-mcp python main.py
-```
-
-Or add it manually to `~/.claude/settings.json` (or the repo-local `.claude/settings.json`):
-
-```json
-{
-  "mcpServers": {
-    "codekg": {
-      "command": "docker",
-      "args": ["exec", "-i", "codekg-mcp", "python", "main.py"]
-    }
-  }
-}
-```
-
-If you prefer SSE mode (for shared or remote access), set `MCP_TRANSPORT=sse` in `.env` and connect via HTTP instead:
-
-```json
-{
-  "mcpServers": {
-    "codekg": {
-      "type": "http",
-      "url": "http://localhost:8002/mcp"
-    }
-  }
-}
-```
-
-Restart Claude Code after saving.
-
----
-
-## Step 5 — Test it
-
-Open a Claude Code session in the repository and ask something about the codebase:
-
-```
-What does the AuthService class do?
-```
-
-Claude should call `answer_question` (using the knowledge graph) rather than opening source files. The call will appear in the **MCP Audit** dashboard at `http://localhost:8080/mcp-audit`.
-
----
-
-## Keeping the graph up to date
-
-CodeKG ships a watcher service (`codekg-watcher`) that detects file changes and re-indexes incrementally. As long as `docker compose up` is running, changes are picked up automatically within a few seconds of saving a file.
-
-To trigger a manual full re-scan at any time, click **Re-scan** on the repository page in the console.
+To trigger a full re-scan manually: open the repo page in the console and click **Re-scan**.
 
 ---
 
@@ -133,7 +156,9 @@ To trigger a manual full re-scan at any time, click **Re-scan** on the repositor
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| 0 modules / 0 classes after scan | Repo path not visible to Docker | Check `HOME_MOUNT` in `.env`; path must start with that prefix |
-| `answer_question` returns nothing | Wrong `repo_id` in CLAUDE.md | Make sure `repo_id` matches exactly what you entered during registration (case-sensitive) |
-| MCP tools not available in Claude | MCP server not configured | Run `claude mcp list` and verify `codekg` appears |
-| Class detail page returns 500 | Stale build | Run `docker compose build console && docker compose up -d console` |
+| 0 classes after scan | Repo path not visible to Docker | Check `HOME_MOUNT` in the wizard or `.env`; path must start with your home directory |
+| `answer_question` returns nothing | Wrong `repo_id` | Must match exactly what you entered during registration (case-sensitive) |
+| MCP tools not available in Claude | MCP not configured | Run `claude mcp list`; if codekg is missing, re-run Step 5 |
+| Ollama not detected | Ollama not running or wrong URL | Run `ollama serve`, then click **↺ recheck** in the wizard |
+| Wizard step stuck on scanning | Ingestion container failed | Check `docker logs codekg-ingestion` for parse errors |
+| Console returns 500 | Stale container | `docker compose up -d --build console` |

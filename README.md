@@ -31,21 +31,25 @@ The result: an agent that reads `.codekg/INDEX.md` and the relevant module file 
 
 ## Quick start
 
-**Requirements:** Docker, Docker Compose, an Anthropic API key
+**Requirements:** Docker, Docker Compose
 
 ```bash
 git clone https://github.com/eviking/codeKG.git
 cd codeKG
-
-cp .env.example .env
-# Edit .env: set NEO4J_PASSWORD, ANTHROPIC_API_KEY, HOME_MOUNT, REPOS_PATH
-
 docker compose up -d
-
-open http://localhost:8080
+open http://localhost:8080/getstarted
 ```
 
-Then go to **Repositories → Add**, point it at a local repo, and trigger a full scan. The watcher will keep it current on every subsequent commit.
+The **Get Started wizard** walks you through every step in the browser — no manual `.env` editing required:
+
+1. **Configure** — enter your Anthropic API key, home mount path, and Neo4j password
+2. **Register & scan** — point codeKG at a local repo; ingestion starts immediately
+3. **NL summaries** *(optional)* — connect Ollama or use Claude to generate class-level summaries
+4. **Publish agent index** — commits `.codekg/`, `CLAUDE.md`, and `AGENTS.md` to your repo
+5. **Connect MCP** — one command to wire codeKG into Claude Code
+6. **Memory & insights** — install the session hook so insights flow back automatically
+
+The wizard detects what's already done and lets you re-run any step at any time. If no repos are registered yet, a banner on the dashboard links directly to it.
 
 Full setup guide: [docs/onboarding.md](docs/onboarding.md)
 
@@ -188,11 +192,11 @@ The console's **Analyse quality** button runs an AI review to detect conflicts, 
 
 ## Language support
 
-| Language | Classes | Methods | Imports | Call chains | Patterns |
-|----------|---------|---------|---------|-------------|---------|
-| Java | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Python | ✅ | ✅ | ✅ | ✅ | ✅ |
-| C++ | ✅ | ✅ | ✅ | — | — |
+| Language | Classes | Methods | Imports | Call chains | Patterns | Build detection | Concurrency |
+|----------|---------|---------|---------|-------------|---------|-----------------|-------------|
+| Java | ✅ | ✅ | ✅ | ✅ | ✅ | Maven, Gradle | ✅ |
+| Python | ✅ | ✅ | ✅ | ✅ | ✅ | pip, setuptools | — |
+| C++ | ✅ | ✅ | ✅ | ✅ | ✅ | CMake, Make, Meson, Bazel, Conan | ✅ |
 
 ---
 
