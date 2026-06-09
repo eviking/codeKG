@@ -523,6 +523,17 @@
         </svg>
         <span class="nav-label">Dashboard</span>
       </a>
+      {% if not all_repos %}
+      <a href="/getstarted" class="nav-item {{ 'active' if current_path.startswith('/getstarted') else '' }}"
+         title="Get Started" style="color:var(--primary);font-weight:600">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:1">
+          <circle cx="8" cy="8" r="6"/>
+          <path d="M8 5v3l2 2"/>
+          <path d="M6 8h4"/>
+        </svg>
+        <span class="nav-label" style="color:var(--primary)">Get Started</span>
+      </a>
+      {% endif %}
     </div>
 
     <!-- Codebase -->

@@ -84,6 +84,31 @@
 
 <h1>Dashboard</h1>
 
+{# ── Get Started banner (shown when no repos yet) ── #}
+{% if not repo_stats %}
+<div style="background:linear-gradient(135deg,var(--primary-lt) 0%,#dcfce7 100%);border:1.5px solid #86efac;border-radius:var(--radius-lg);padding:2rem 2.25rem;margin-bottom:2rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;box-shadow:var(--shadow-md)">
+  <div style="flex:1;min-width:240px">
+    <div style="font-size:1.25rem;font-weight:700;color:var(--text);margin-bottom:0.4rem;letter-spacing:-0.02em">
+      Welcome to codeKG
+    </div>
+    <p style="font-size:0.88rem;color:var(--text-2);margin:0 0 1.25rem;line-height:1.6">
+      No repositories are indexed yet. Follow the setup wizard to connect your first repo
+      and start giving AI agents complete architectural understanding of your codebase.
+    </p>
+    <a href="/getstarted" class="btn" style="font-size:0.88rem;padding:0.55rem 1.4rem">
+      Get Started →
+    </a>
+  </div>
+  <div style="flex-shrink:0;display:flex;flex-direction:column;gap:0.5rem;font-size:0.8rem;color:var(--text-2)">
+    <div style="display:flex;align-items:center;gap:0.5rem"><span style="color:var(--success);font-weight:700">①</span> Configure API key &amp; paths</div>
+    <div style="display:flex;align-items:center;gap:0.5rem"><span style="color:var(--success);font-weight:700">②</span> Register &amp; scan a repo</div>
+    <div style="display:flex;align-items:center;gap:0.5rem"><span style="color:var(--success);font-weight:700">③</span> Publish agent index to your repo</div>
+    <div style="display:flex;align-items:center;gap:0.5rem"><span style="color:var(--success);font-weight:700">④</span> Connect MCP to Claude Code</div>
+    <div style="display:flex;align-items:center;gap:0.5rem"><span style="color:var(--text-3);font-weight:700">⑤</span> <span style="color:var(--text-3)">Send insights back (every session)</span></div>
+  </div>
+</div>
+{% endif %}
+
 {# ── Global summary bar ── #}
 <div class="summary-bar">
   <div class="summary-chip">

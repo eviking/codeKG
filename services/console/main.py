@@ -51,7 +51,7 @@ from auth import (
 from routes import (
     repos, dashboard, policies, modules, classes,
     patterns, ask, mcp_audit, system_health, audit_log,
-    insights, hygiene, agent_index, telemetry, config,
+    insights, hygiene, agent_index, telemetry, config, getstarted,
 )
 
 app = FastAPI(title="CodeKG Architecture Console")
@@ -253,6 +253,7 @@ app.include_router(hygiene.router)
 app.include_router(agent_index.router)
 app.include_router(telemetry.router)
 app.include_router(config.router)
+app.include_router(getstarted.router)
 
 
 @app.get("/health")
