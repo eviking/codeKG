@@ -12,6 +12,8 @@ import git
 from parser.java_parser import JavaParser
 from parser.python_parser import PythonParser
 from parser.cpp_parser import CppParser, CPP_EXTENSIONS
+from parser.apex_parser import ApexParser, APEX_EXTENSIONS
+from parser.js_parser import JsParser, JS_TS_EXTENSIONS
 from parser.scip_emitter import SCIPEmitter
 from parser.api_extractor import ApiExtractor
 from parser.concurrency_extractor import ConcurrencyExtractor
@@ -162,6 +164,14 @@ def _parse_file_worker(args: tuple) -> dict | None:
             parsed = parser.parse_file(file_path, repo_id)
             pools, asyncs, facts = _extract_cpp_concurrency(file_path, parsed)
 
+        elif ext in APEX_EXTENSIONS:
+            parser = ApexParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
+        elif ext in JS_TS_EXTENSIONS:
+            parser = JsParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
         else:
             return None  # unsupported extension
 
@@ -217,7 +227,9 @@ class IngestionEngine:
             f for f in (
                 list(path.rglob("*.java")) +
                 list(path.rglob("*.py")) +
-                [f for ext in CPP_EXTENSIONS for f in path.rglob(f"*{ext}")]
+                [f for ext in CPP_EXTENSIONS for f in path.rglob(f"*{ext}")] +
+                [f for ext in APEX_EXTENSIONS for f in path.rglob(f"*{ext}")] +
+                [f for ext in JS_TS_EXTENSIONS for f in path.rglob(f"*{ext}")]
             )
             if not _excluded(f)
         ]
@@ -426,7 +438,7 @@ class IngestionEngine:
         repo = git.Repo(repo_path)
         self._writer.current_commit = to_commit
         diff = repo.commit(from_commit).diff(to_commit)
-        _SUPPORTED = {".java", ".py"} | CPP_EXTENSIONS
+        _SUPPORTED = {".java", ".py"} | CPP_EXTENSIONS | APEX_EXTENSIONS | JS_TS_EXTENSIONS
         changed = [d for d in diff
                    if Path(d.a_path or d.b_path or "").suffix.lower() in _SUPPORTED]
 

@@ -657,6 +657,289 @@ def _policy_cpp_deep_include_chains(driver: Driver, repo_id: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Salesforce Apex specific policies
+# ---------------------------------------------------------------------------
+
+def _policy_apex_trigger_without_handler(driver: Driver, repo_id: str) -> list[dict]:
+    """Apex triggers that have no corresponding *Handler or *TriggerHandler class."""
+    rows = _run(driver, """
+        MATCH (t:Class {repo_id: $rid, kind: 'trigger'})
+        WHERE NOT EXISTS {
+            MATCH (h:Class {repo_id: $rid})
+            WHERE h.name = t.name + 'Handler'
+               OR h.name = t.name + 'TriggerHandler'
+               OR (h.name ENDS WITH 'Handler' AND t.name STARTS WITH split(h.name, 'Handler')[0])
+        }
+        RETURN t.fqn AS fqn, t.name AS name
+        ORDER BY t.name
+        LIMIT 50
+    """, rid=repo_id)
+    if not rows:
+        return []
+    pid = _stable_id(repo_id, "apex-trigger-no-handler")
+    cypher = (
+        "MATCH (t:Class {repo_id: $repo_id, kind: 'trigger'})"
+        " WHERE NOT EXISTS {"
+        "   MATCH (h:Class {repo_id: $repo_id})"
+        "   WHERE h.name = t.name + 'Handler' OR h.name = t.name + 'TriggerHandler'"
+        " }"
+        " RETURN t.fqn AS violator"
+    )
+    return [{
+        "policy_id": pid,
+        "title": "Apex Trigger Without Handler Class",
+        "natural_language": (
+            "Every Apex trigger should delegate all logic to a dedicated handler class "
+            "(named <TriggerName>Handler or <TriggerName>TriggerHandler). "
+            "Business logic in triggers is untestable in isolation and violates "
+            "the Salesforce Trigger Framework best practice."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(rows),
+        "sample_violators": [r["fqn"] for r in rows[:5]],
+    }]
+
+
+def _policy_apex_soql_in_loop(driver: Driver, repo_id: str) -> list[dict]:
+    """Methods that issue SOQL queries and also call themselves or iterate — SOQL-in-loop risk."""
+    rows = _run(driver, """
+        MATCH (c:Class {repo_id: $rid})-[:HAS_METHOD]->(m:Method)
+        WHERE EXISTS {
+            MATCH (m)-[:CALLS]->(q)
+            WHERE q.target CONTAINS 'QUERIES' OR type(q) = 'QUERIES'
+        }
+        OR EXISTS {
+            MATCH (m)-[e:CALLS]->()
+            WHERE e.type = 'QUERIES'
+        }
+        RETURN DISTINCT c.fqn AS cls, m.name AS method
+        LIMIT 30
+    """, rid=repo_id)
+    # Simpler fallback: look for methods in Apex files that have QUERIES edges
+    rows2 = _run(driver, """
+        MATCH (src)-[e]->(tgt)
+        WHERE type(e) = 'QUERIES'
+          AND EXISTS { MATCH (c:Class {repo_id: $rid})-[:HAS_METHOD]->(m:Method) WHERE m.fqn = src }
+        RETURN DISTINCT src AS fqn
+        LIMIT 30
+    """, rid=repo_id)
+    all_fqns = list({r.get("fqn", r.get("cls", "")) for r in rows + rows2} - {""})
+    if not all_fqns:
+        return []
+    pid = _stable_id(repo_id, "apex-soql-risk")
+    cypher = (
+        "MATCH (src)-[e {type: 'QUERIES'}]->(tgt)"
+        " WHERE EXISTS { MATCH (c:Class {repo_id: $repo_id})-[:HAS_METHOD]->(m) WHERE m.fqn = src }"
+        " RETURN DISTINCT src AS violator"
+    )
+    return [{
+        "policy_id": pid,
+        "title": "Apex SOQL Query in Method (Possible Loop Risk)",
+        "natural_language": (
+            "Methods that issue SOQL queries should be reviewed for SOQL-in-loop violations. "
+            "Salesforce enforces a 100 SOQL queries per transaction governor limit — a single loop "
+            "iterating over a collection and querying inside will hit this limit instantly on bulk loads. "
+            "Bulkify all triggers and move queries outside loops."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(all_fqns),
+        "sample_violators": all_fqns[:5],
+    }]
+
+
+def _policy_apex_missing_without_sharing(driver: Driver, repo_id: str) -> list[dict]:
+    """Apex classes that don't declare 'with sharing' or 'without sharing' — sharing model ambiguous."""
+    rows = _run(driver, """
+        MATCH (c:Class {repo_id: $rid})
+        WHERE c.kind IN ['class', 'abstract_class']
+          AND c.file_path ENDS WITH '.cls'
+          AND NOT ANY(m IN c.modifiers WHERE m IN ['with sharing', 'without sharing', 'inherited sharing'])
+          AND NOT c.kind IN ['test_class']
+          AND NOT c.fqn CONTAINS 'Test'
+        RETURN c.fqn AS fqn
+        ORDER BY c.fqn
+        LIMIT 50
+    """, rid=repo_id)
+    if not rows:
+        return []
+    pid = _stable_id(repo_id, "apex-missing-sharing")
+    cypher = (
+        "MATCH (c:Class {repo_id: $repo_id})"
+        " WHERE c.kind IN ['class', 'abstract_class'] AND c.file_path ENDS WITH '.cls'"
+        " AND NOT ANY(m IN c.modifiers WHERE m IN ['with sharing','without sharing','inherited sharing'])"
+        " AND NOT c.kind IN ['test_class'] AND NOT c.fqn CONTAINS 'Test'"
+        " RETURN c.fqn AS violator"
+    )
+    return [{
+        "policy_id": pid,
+        "title": "Apex Class Missing Sharing Declaration",
+        "natural_language": (
+            "Every Apex class should explicitly declare 'with sharing', 'without sharing', or "
+            "'inherited sharing'. Omitting the declaration defaults to 'without sharing' in most "
+            "contexts — a silent security risk that bypasses Salesforce record-level access controls. "
+            "Always be explicit about the sharing model."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(rows),
+        "sample_violators": [r["fqn"] for r in rows[:5]],
+    }]
+
+
+# ---------------------------------------------------------------------------
+# JavaScript / TypeScript policies
+# ---------------------------------------------------------------------------
+
+def _policy_js_missing_error_handling(driver: Driver, repo_id: str) -> list[dict]:
+    """
+    Async functions / methods that never reference a try/catch or .catch() — no
+    error handling at all (structurally detectable as methods with 'async' in
+    modifiers and no CALLS edge to a .catch-like callee).
+
+    We approximate this by finding async methods that make zero outgoing CALLS
+    to any callee named 'catch', 'reject', or 'handleError'.
+    """
+    cypher = """
+    MATCH (m:Method {repo_id: $repo_id})
+    WHERE 'async' IN m.modifiers
+    AND NOT EXISTS {
+        MATCH (m)-[:CALLS]->(t)
+        WHERE toLower(t.name) IN ['catch', 'reject', 'handleerror', 'onerror']
+    }
+    RETURN m.fqn AS fqn, m.file_path AS file_path
+    LIMIT 20
+    """
+    rows = _run(driver, cypher, repo_id=repo_id)
+    if len(rows) < 3:
+        return []
+    sample = [r["fqn"] for r in rows[:5]]
+    pid = _stable_id(repo_id, "js-async-no-error-handling")
+    return [{
+        "policy_id": pid,
+        "title": "Async functions missing error handling",
+        "natural_language": (
+            "Every async function should handle rejections explicitly — either with "
+            "try/catch or a .catch() chain. Unhandled promise rejections crash the "
+            "Node.js process (UnhandledPromiseRejectionWarning) and are now fatal "
+            "in Node 15+."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(rows),
+        "sample_violators": sample,
+    }]
+
+
+def _policy_js_class_missing_jsdoc(driver: Driver, repo_id: str) -> list[dict]:
+    """
+    Public classes/modules in JS/TS files that have no JSDoc comment.
+    Approximated by classes with no javadoc and file_path ending in .js/.ts/.jsx/.tsx.
+    """
+    cypher = """
+    MATCH (c:Class {repo_id: $repo_id})
+    WHERE (c.file_path ENDS WITH '.js' OR c.file_path ENDS WITH '.ts'
+        OR c.file_path ENDS WITH '.jsx' OR c.file_path ENDS WITH '.tsx'
+        OR c.file_path ENDS WITH '.mjs' OR c.file_path ENDS WITH '.cjs')
+    AND c.kind IN ['class', 'module']
+    AND (c.javadoc IS NULL OR c.javadoc = '')
+    AND NOT c.name ENDS WITH 'Test'
+    AND NOT c.name ENDS WITH 'Spec'
+    RETURN c.fqn AS fqn, c.file_path AS file_path
+    LIMIT 25
+    """
+    rows = _run(driver, cypher, repo_id=repo_id)
+    if not rows:
+        return []
+    sample = [r["fqn"] for r in rows[:5]]
+    pid = _stable_id(repo_id, "js-class-missing-jsdoc")
+    return [{
+        "policy_id": pid,
+        "title": "JS/TS classes and modules missing JSDoc",
+        "natural_language": (
+            "Public classes and module exports in JavaScript/TypeScript should have "
+            "JSDoc block comments (/** ... */) explaining their purpose, inputs, and "
+            "outputs. This enables IDE tooling, auto-generated docs, and type inference "
+            "in plain JS projects."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "info",
+        "violator_count": len(rows),
+        "sample_violators": sample,
+    }]
+
+
+def _policy_js_large_module_class(driver: Driver, repo_id: str) -> list[dict]:
+    """
+    JS/TS synthetic module classes (kind='module') with more than 20 methods —
+    a sign the file has grown into a god module and should be split.
+    """
+    cypher = """
+    MATCH (c:Class {repo_id: $repo_id, kind: 'module'})
+    WHERE (c.file_path ENDS WITH '.js' OR c.file_path ENDS WITH '.ts'
+        OR c.file_path ENDS WITH '.jsx' OR c.file_path ENDS WITH '.tsx'
+        OR c.file_path ENDS WITH '.mjs' OR c.file_path ENDS WITH '.cjs')
+    WITH c, SIZE([(c)<-[:BELONGS_TO]-(m:Method) | m]) AS method_count
+    WHERE method_count > 20
+    RETURN c.fqn AS fqn, c.file_path AS file_path, method_count
+    ORDER BY method_count DESC
+    LIMIT 20
+    """
+    rows = _run(driver, cypher, repo_id=repo_id)
+    if not rows:
+        return []
+    sample = [r["fqn"] for r in rows[:5]]
+    pid = _stable_id(repo_id, "js-large-module")
+    return [{
+        "policy_id": pid,
+        "title": "JS/TS god module — more than 20 exported functions",
+        "natural_language": (
+            "A single JS/TS file exporting more than 20 functions is a god module "
+            "anti-pattern. It creates high coupling, makes tree-shaking less effective, "
+            "and signals missing domain decomposition. Split into focused modules grouped "
+            "by responsibility."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(rows),
+        "sample_violators": sample,
+    }]
+
+
+def _policy_js_circular_imports(driver: Driver, repo_id: str) -> list[dict]:
+    """
+    Detect JS/TS files that form import cycles via DEPENDS_ON edges between
+    module-kind classes. A two-hop cycle (A → B → A) is the most common case.
+    """
+    cypher = """
+    MATCH (a:Class {repo_id: $repo_id, kind: 'module'})-[:DEPENDS_ON]->(b:Class {repo_id: $repo_id, kind: 'module'})-[:DEPENDS_ON]->(a)
+    WHERE a.fqn < b.fqn
+    RETURN a.fqn AS fqn_a, b.fqn AS fqn_b
+    LIMIT 20
+    """
+    rows = _run(driver, cypher, repo_id=repo_id)
+    if not rows:
+        return []
+    sample = [f"{r['fqn_a']} ↔ {r['fqn_b']}" for r in rows[:5]]
+    pid = _stable_id(repo_id, "js-circular-imports")
+    return [{
+        "policy_id": pid,
+        "title": "Circular import cycles between JS/TS modules",
+        "natural_language": (
+            "Circular imports between JS/TS modules cause subtle initialization bugs "
+            "(undefined values at require time), break tree-shaking, and make refactoring "
+            "harder. Break cycles by introducing an intermediary module, using dependency "
+            "injection, or moving shared types to a separate file."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "error",
+        "violator_count": len(rows),
+        "sample_violators": sample,
+    }]
+
+
+# ---------------------------------------------------------------------------
 # Writer
 # ---------------------------------------------------------------------------
 
@@ -713,6 +996,15 @@ def scan_policies(driver: Driver, repo_id: str) -> list[dict]:
         _policy_cpp_missing_virtual_destructor,
         _policy_cpp_raw_pointer_with_destructor,
         _policy_cpp_deep_include_chains,
+        # Salesforce Apex specific
+        _policy_apex_trigger_without_handler,
+        _policy_apex_soql_in_loop,
+        _policy_apex_missing_without_sharing,
+        # JavaScript / TypeScript specific
+        _policy_js_missing_error_handling,
+        _policy_js_class_missing_jsdoc,
+        _policy_js_large_module_class,
+        _policy_js_circular_imports,
     ]
 
     all_policies: list[dict] = []

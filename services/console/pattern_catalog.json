@@ -7,7 +7,10 @@
     "Python",
     "Custom",
     "PMD",
-    "C++"
+    "C++",
+    "JavaScript",
+    "TypeScript",
+    "Node.js"
   ],
   "patterns": [
     {
@@ -766,6 +769,321 @@
       },
       "anti_pattern": false,
       "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-trigger-handler",
+      "name": "Apex Trigger Handler",
+      "source": "Custom",
+      "category": "Structural",
+      "language": "apex",
+      "intent": "Delegate all trigger logic to a dedicated handler class, keeping the trigger file thin.",
+      "description": "The Apex Trigger Handler pattern keeps trigger files as pure dispatchers — they receive the event and immediately call a handler class (e.g. AccountTriggerHandler). All business logic, governor limit management, and testable code lives in the handler. The trigger file itself contains no if/else, no DML, and no SOQL. This is the Salesforce community standard for maintainable orgs: Kevin O'Hara's TriggerHandler base class is the canonical implementation.",
+      "when_to_apply": "Apply to every trigger without exception. The trigger file should be 5-15 lines: detect event type, call handler method. The handler class implements before/after methods per event type. Write unit tests against the handler directly without needing to fire DML events. Avoid putting any SOQL, DML, or business logic in the trigger file itself.",
+      "signals": {
+        "name_suffix": ["TriggerHandler", "Handler"],
+        "name_prefix": [],
+        "base_class_contains": ["TriggerHandler"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-selector-layer",
+      "name": "Apex Selector (FFLIB / Enterprise Pattern)",
+      "source": "Custom",
+      "category": "Data Access",
+      "language": "apex",
+      "intent": "Centralise all SOQL queries for a given sObject in a dedicated Selector class.",
+      "description": "The Selector pattern (from the Apex Enterprise Patterns / FFLIB library) encapsulates all SOQL queries for one sObject type in a class named <SObject>Selector. Callers never write inline SOQL — they call selector methods like AccountsSelector.newInstance().selectById(ids). This centralises query bulkification, field-list management, and sharing enforcement in one place, making governor limit analysis tractable.",
+      "when_to_apply": "Use in any org with more than a handful of classes querying the same sObject. Each selector should enforce WITH SECURITY_ENFORCED or use stripInaccessible() to respect FLS. Add ordering and field-set support for flexibility. Avoid letting selectors accumulate too many specialised methods — if a selector has 20+ query methods, consider splitting by use case.",
+      "signals": {
+        "name_suffix": ["Selector", "Dao", "Repository"],
+        "name_prefix": [],
+        "base_class_contains": ["Selector", "ApplicationSObjectSelector"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-service-layer",
+      "name": "Apex Service Layer (FFLIB / Enterprise Pattern)",
+      "source": "Custom",
+      "category": "Structural",
+      "language": "apex",
+      "intent": "Encapsulate business logic in a stateless Service class callable from triggers, controllers, and batch jobs.",
+      "description": "The Apex Service pattern provides a stateless, bulkified entry point for business operations (e.g. OrdersService.ship(orderIds)). Services coordinate between selectors (queries), domain classes (business rules), and unit-of-work (DML). They are the primary testability surface — callers inject mocks, service logic is pure Apex with no direct DML or SOQL. This is the 'S' in the Apex Enterprise Patterns stack.",
+      "when_to_apply": "Create a service class for any operation that spans multiple sObjects or requires orchestration across domain boundaries. Keep services stateless and bulkified — always accept Sets/Lists of IDs, never single records. Use a UnitOfWork to batch all DML into one operation at the end. Avoid letting service methods grow beyond ~50 lines; extract helpers or sub-services.",
+      "signals": {
+        "name_suffix": ["Service", "ServiceImpl"],
+        "name_prefix": [],
+        "base_class_contains": ["Service"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-aura-enabled",
+      "name": "AuraEnabled Controller",
+      "source": "Custom",
+      "category": "API",
+      "language": "apex",
+      "intent": "Classes exposing @AuraEnabled methods as the API surface for Lightning Web Components.",
+      "description": "@AuraEnabled methods are the bridge between LWC/Aura components and Apex. They must be static and either global or public. Cacheable=true enables client-side caching for read-only methods. These classes represent an explicit API contract — changing method signatures or return types is a breaking change for the component. Security enforcement (WITH SECURITY_ENFORCED, stripInaccessible, or CRUD/FLS checks) is mandatory.",
+      "when_to_apply": "Create a dedicated controller class per LWC or functional area rather than bloating a service class with @AuraEnabled annotations. Mark read-only methods cacheable=true for performance. Never expose internal sObject fields directly — return typed wrapper classes. Add @AuraEnabled(cacheable=true) only when the data is safe to cache (no session-specific results).",
+      "signals": {
+        "name_suffix": ["Controller", "LwcController", "AuraController"],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": ["@AuraEnabled"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-batch",
+      "name": "Batch Apex",
+      "source": "Custom",
+      "category": "Compute",
+      "language": "apex",
+      "intent": "Classes implementing Database.Batchable to process large data volumes in chunks within governor limits.",
+      "description": "Batch Apex splits large data sets into chunks (up to 2,000 records per chunk by default) and processes each chunk in a separate transaction, resetting governor limits. The three lifecycle methods are start() (returns a QueryLocator or Iterable), execute() (called once per chunk), and finish() (called once after all chunks). Batch jobs are asynchronous — callers get a job ID and poll for completion. They are subject to a daily async limit and a maximum of 5 concurrent batch jobs.",
+      "when_to_apply": "Use for data migrations, mass updates, and any operation touching more than ~10,000 records. Keep execute() simple — avoid nested loops, SOQL inside loops, and callouts (use Database.AllowsCallouts if needed). Set scope size conservatively (200) to avoid heap limits on complex objects. Chain batch jobs via finish() when sequences are needed. Test with Test.startTest()/stopTest() to force synchronous execution.",
+      "signals": {
+        "name_suffix": ["Batch", "BatchJob", "BatchProcessor"],
+        "name_prefix": [],
+        "base_class_contains": ["Batchable", "Database.Batchable"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "antipattern-apex-soql-in-loop",
+      "name": "SOQL in Loop",
+      "source": "Custom",
+      "category": "Anti-pattern",
+      "language": "apex",
+      "intent": "A SOQL query issued inside a for loop — hits the 100 SOQL per transaction governor limit on bulk data.",
+      "description": "Issuing a SOQL query inside a loop is the most common cause of Salesforce governor limit exceptions in production. Each loop iteration consumes one of the 100 synchronous SOQL queries allowed per transaction. In sandbox with 1-2 records this works fine; in production with 200 records in a trigger batch it throws 'Too many SOQL queries: 101'. The fix is always to collect IDs first, query outside the loop with an IN clause, and build a Map for O(1) lookup inside the loop.",
+      "when_to_apply": "This is an anti-pattern. Refactor: collect all IDs before the loop, run one query with WHERE Id IN :idSet outside the loop, store results in a Map<Id, SObject>, then access the map inside the loop. Apply the same pattern to DML (use List + single DML statement). Enforce this with a static analysis tool (PMD Apex ruleset) in CI to prevent regressions.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": true,
+      "severity": "error",
+      "enabled": true
+    },
+    {
+      "id": "antipattern-apex-without-sharing-implicit",
+      "name": "Implicit Without Sharing",
+      "source": "Custom",
+      "category": "Anti-pattern",
+      "language": "apex",
+      "intent": "An Apex class with no sharing declaration defaults to without sharing — bypassing record-level security silently.",
+      "description": "Apex classes without an explicit sharing declaration default to 'without sharing' in most contexts, meaning they can query and DML any record regardless of the running user's record-level access (OWD, sharing rules, manual shares). This is a silent security risk — the developer may not have intended to bypass sharing. Salesforce recommends always declaring the sharing model explicitly. In most business logic classes, 'with sharing' is the correct default; 'without sharing' should be a deliberate, documented exception.",
+      "when_to_apply": "This is an anti-pattern. Add 'with sharing' to all classes unless there is a specific documented reason to bypass sharing (e.g. a system-level batch process that must access all records). Use 'inherited sharing' for utility classes that should respect the sharing context of their caller. Review all 'without sharing' classes in security audits — they are the highest-risk surface for data exposure.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": true,
+      "severity": "warning",
+      "enabled": true
+    },
+    {
+      "id": "js-module-pattern",
+      "name": "ES Module Pattern",
+      "source": "JavaScript",
+      "category": "Structural",
+      "language": "javascript",
+      "intent": "Organise code into focused ES modules with explicit named exports, keeping each file under ~200 lines.",
+      "description": "The ES Module pattern uses `export` / `import` to expose only the public API of a file. Each module owns one concern (e.g. a single class, a set of related utilities). Consumers import by name, which enables tree-shaking, clear dependency graphs, and IDE auto-import. The pattern replaced CommonJS `require()` in modern Node.js and is the standard for browser and Deno code.",
+      "when_to_apply": "Default for any new JS/TS file. Prefer named exports over default exports so consumers can alias meaningfully. Keep each module focused — if you find yourself writing `export const a = ...; export const b = ...; export const c = ...;` for 30+ different things, split the file. Avoid re-exporting everything from an index barrel if it defeats tree-shaking.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": ["@export"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-repository-pattern",
+      "name": "Repository Pattern (Node.js)",
+      "source": "Node.js",
+      "category": "Data Access",
+      "language": "javascript",
+      "intent": "Encapsulate all database access for a domain entity behind a Repository class.",
+      "description": "The Repository pattern abstracts persistence behind a class (e.g. UserRepository) with methods like findById, save, delete. Controllers and services never write raw SQL/ORM queries — they call the repository. This makes it trivial to swap databases, add caching, or mock the data layer in tests. Common in Express/Fastify/NestJS backends.",
+      "when_to_apply": "Create a repository class for each aggregate root or primary entity. Use dependency injection or factory functions to pass the DB client in (not a singleton import), so tests can inject a mock. Repositories should return plain objects or domain models, not ORM instances — this prevents ORM internals from leaking into business logic.",
+      "signals": {
+        "name_suffix": ["Repository", "Repo", "Store", "Dao"],
+        "name_prefix": [],
+        "base_class_contains": ["Repository"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-service-layer",
+      "name": "Service Layer (Node.js)",
+      "source": "Node.js",
+      "category": "Structural",
+      "language": "javascript",
+      "intent": "Encapsulate business logic in a Service class that is independent of the HTTP transport.",
+      "description": "A Service class (e.g. UserService, OrderService) holds all business logic and orchestrates calls to repositories, external APIs, and message queues. Controllers (Express route handlers, NestJS controllers) call service methods but contain no business logic themselves. This decouples the HTTP layer from domain logic, making services reusable from CLI scripts, cron jobs, and tests.",
+      "when_to_apply": "Place all non-trivial logic in service methods. Inject repositories and external clients via the constructor (not module-level singletons) for testability. Keep controllers thin — they should validate input, call one service method, and format the response. Avoid circular service-to-service dependencies; use event emitters or a mediator if two services need to coordinate.",
+      "signals": {
+        "name_suffix": ["Service", "ServiceImpl", "Manager"],
+        "name_prefix": [],
+        "base_class_contains": ["Injectable"],
+        "annotation_contains": ["@Injectable"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-middleware",
+      "name": "Express Middleware",
+      "source": "Node.js",
+      "category": "API",
+      "language": "javascript",
+      "intent": "Functions with (req, res, next) signature that cross-cut request handling concerns.",
+      "description": "Express middleware functions are the primary extension point for the request pipeline. They handle authentication, logging, error formatting, CORS, rate limiting, and request parsing before route handlers run. Middleware is composable and reusable across routes. The error-handling middleware (four-argument: err, req, res, next) must be registered last.",
+      "when_to_apply": "Extract any logic that applies to multiple routes into middleware rather than duplicating it. Keep middleware functions single-purpose. For authentication, always call next() on success and next(err) on failure — never send the response yourself unless the middleware is a terminal handler. Use a named function (not anonymous) so stack traces are readable.",
+      "signals": {
+        "name_suffix": ["Middleware", "Guard", "Interceptor", "Filter"],
+        "name_prefix": [],
+        "base_class_contains": ["NestMiddleware"],
+        "annotation_contains": ["@Injectable"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-nestjs-controller",
+      "name": "NestJS Controller",
+      "source": "TypeScript",
+      "category": "API",
+      "language": "typescript",
+      "intent": "Classes decorated with @Controller that define HTTP route handlers as methods.",
+      "description": "@Controller classes in NestJS bind URL paths to handler methods decorated with @Get, @Post, @Put, @Delete, etc. They are the HTTP entry points and should contain no business logic — just input validation (via DTOs and pipes), a single service call, and response serialization. NestJS wires them via its module system with dependency injection.",
+      "when_to_apply": "One controller per resource or feature area (e.g. UsersController, OrdersController). Use DTOs + class-validator for request body validation. Inject services via the constructor — never instantiate them with new. Use @HttpCode, @Header, and interceptors for response formatting rather than manipulating res directly. For large APIs, group controllers into feature modules.",
+      "signals": {
+        "name_suffix": ["Controller"],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": ["@Controller"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-event-emitter",
+      "name": "Event Emitter Pattern (Node.js)",
+      "source": "Node.js",
+      "category": "Behavioral",
+      "language": "javascript",
+      "intent": "Decouple producers from consumers via Node.js EventEmitter or a custom event bus.",
+      "description": "EventEmitter-based classes publish named events that any number of subscribers can listen to, without the publisher knowing who is listening. This is Node.js's core decoupling mechanism used in streams, HTTP servers, and custom domain events. In NestJS, the EventEmitter2 integration enables typed domain events. The pattern avoids tight coupling between, e.g., a UserService (emits 'user.created') and an EmailService (listens for it).",
+      "when_to_apply": "Use for domain events that multiple consumers may react to (audit log, email, cache invalidation). Avoid for simple request/response flows where a direct service call is clearer. Always remove listeners when components are destroyed (use once() for one-shot handlers, or off() in cleanup logic) to avoid memory leaks — especially in long-lived Node processes.",
+      "signals": {
+        "name_suffix": ["EventEmitter", "EventBus", "Publisher", "Emitter"],
+        "name_prefix": [],
+        "base_class_contains": ["EventEmitter", "EventEmitter2"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "antipattern-js-callback-hell",
+      "name": "Callback Hell",
+      "source": "Node.js",
+      "category": "Anti-pattern",
+      "language": "javascript",
+      "intent": "Deeply nested callback functions that make error handling and readability impossible.",
+      "description": "Callback hell (pyramid of doom) occurs when asynchronous operations are nested inside each other's callback arguments, creating deeply indented, hard-to-read code. Each level of nesting makes error propagation harder and testing nearly impossible. This was the dominant async pattern in Node.js before Promises and async/await were available. No new code should use this pattern.",
+      "when_to_apply": "This is an anti-pattern. Refactor: convert callbacks to Promises using util.promisify() or wrapping the callback in a new Promise(). Then use async/await for sequential flows and Promise.all() for parallel ones. If the underlying library still uses callbacks, wrap it once at the adapter layer and expose a Promise-based API to the rest of the codebase.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": true,
+      "severity": "warning",
+      "enabled": true
+    },
+    {
+      "id": "antipattern-js-any-type",
+      "name": "TypeScript `any` Abuse",
+      "source": "TypeScript",
+      "category": "Anti-pattern",
+      "language": "typescript",
+      "intent": "Overuse of TypeScript `any` type disables type checking and defeats the purpose of TypeScript.",
+      "description": "Using `any` as a type annotation in TypeScript disables all type checking for that value and everything it touches. It propagates through assignments and function calls silently, creating type holes. This is particularly dangerous at system boundaries (API responses, DB results) where incorrect assumptions about shape cause runtime errors that TypeScript would otherwise catch at compile time.",
+      "when_to_apply": "This is an anti-pattern. Replace `any` with: `unknown` (safe unknown input — forces explicit narrowing), a specific interface or type alias, or a generic `<T>`. At true external boundaries (JSON.parse, third-party libs with no types), use `unknown` and add a type guard or Zod schema to validate the shape before use. Enable `noImplicitAny` and `strict` in tsconfig to enforce this automatically.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": true,
+      "severity": "warning",
       "enabled": true
     },
     {

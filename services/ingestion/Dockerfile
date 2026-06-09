@@ -4,6 +4,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y git gcc && rm -rf /var/lib/apt/lists/*
 COPY services/ingestion/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Build tree-sitter-sfapex (Salesforce Apex) grammar from source — no PyPI package exists
+RUN git clone --depth=1 https://github.com/aheber/tree-sitter-sfapex.git /tmp/tree-sitter-sfapex \
+    && gcc -shared -fPIC -o /usr/local/lib/tree_sitter_apex.so \
+       /tmp/tree-sitter-sfapex/apex/src/parser.c \
+    && rm -rf /tmp/tree-sitter-sfapex
 COPY services/ingestion/ .
 COPY shared/ /app/shared/
 ENV PYTHONPATH=/app

@@ -67,7 +67,10 @@ def extract_project_identity(repo_path: str) -> ProjectIdentity:
 
 def _detect_language(root: Path) -> str:
     """Detect primary language by counting source files."""
-    counts: dict[str, int] = {"java": 0, "python": 0, "cpp": 0}
+    counts: dict[str, int] = {
+        "java": 0, "python": 0, "cpp": 0, "apex": 0,
+        "javascript": 0, "typescript": 0,
+    }
     for p in root.rglob("*"):
         if not p.is_file():
             continue
@@ -78,6 +81,12 @@ def _detect_language(root: Path) -> str:
             counts["python"] += 1
         elif s in {".cpp", ".cc", ".cxx", ".c++", ".h", ".hpp", ".hh", ".hxx"}:
             counts["cpp"] += 1
+        elif s in {".cls", ".trigger", ".apex"}:
+            counts["apex"] += 1
+        elif s in {".ts", ".tsx"}:
+            counts["typescript"] += 1
+        elif s in {".js", ".jsx", ".mjs", ".cjs"}:
+            counts["javascript"] += 1
     # Return whichever language has the most files; default java if all zero
     return max(counts, key=lambda k: counts[k]) if any(counts.values()) else "java"
 

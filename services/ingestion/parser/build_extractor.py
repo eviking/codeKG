@@ -117,6 +117,14 @@ class BuildExtractor:
             gf = gradle_kts if gradle_kts.exists() else gradle
             return self._parse_gradle(root, gf)
 
+        # Node.js / JavaScript / TypeScript project
+        if (root / "package.json").exists():
+            return self._parse_package_json(root)
+
+        # Salesforce / Apex project
+        if (root / "sfdx-project.json").exists() or (root / ".forceignore").exists():
+            return self._parse_sfdx(root)
+
         # C++ build systems
         if (root / "CMakeLists.txt").exists():
             return self._parse_cmake(root)
@@ -221,6 +229,139 @@ class BuildExtractor:
                 info.test_framework = "testng"
 
         except OSError:
+            pass
+        return info
+
+    def _parse_package_json(self, root: Path) -> BuildInfo:
+        import json as _json
+        info = BuildInfo(build_tool="npm")
+        try:
+            data = _json.loads((root / "package.json").read_text(errors="replace"))
+        except (OSError, ValueError):
+            return info
+
+        scripts = data.get("scripts", {})
+
+        # Determine package manager
+        if (root / "yarn.lock").exists():
+            info.build_tool = "yarn"
+            pm = "yarn"
+        elif (root / "pnpm-lock.yaml").exists():
+            info.build_tool = "pnpm"
+            pm = "pnpm"
+        elif (root / "bun.lockb").exists():
+            info.build_tool = "bun"
+            pm = "bun"
+        else:
+            pm = "npm"
+
+        # Build commands from scripts
+        run = f"{pm} run" if pm != "npm" else "npm run"
+        for label in ("build", "start", "dev", "test", "lint", "typecheck"):
+            if label in scripts:
+                info.build_commands[label.capitalize()] = f"{run} {label}"
+        if "test" not in scripts:
+            info.build_commands["Test"] = f"{pm} test"
+
+        # Node/engine version
+        engines = data.get("engines", {})
+        if "node" in engines:
+            info.java_version = f"node-{engines['node']}"
+
+        # Key dependencies from package.json deps + devDeps
+        all_deps = {}
+        all_deps.update(data.get("dependencies", {}))
+        all_deps.update(data.get("devDependencies", {}))
+
+        _NODE_SIGNALS = {
+            "express": "Express.js",
+            "fastify": "Fastify",
+            "koa": "Koa",
+            "hapi": "Hapi",
+            "nestjs": "NestJS",
+            "@nestjs/core": "NestJS",
+            "next": "Next.js",
+            "nuxt": "Nuxt",
+            "react": "React",
+            "vue": "Vue",
+            "angular": "Angular",
+            "svelte": "Svelte",
+            "graphql": "GraphQL",
+            "apollo": "Apollo",
+            "typeorm": "TypeORM",
+            "sequelize": "Sequelize",
+            "mongoose": "Mongoose",
+            "prisma": "Prisma",
+            "knex": "Knex",
+            "pg": "PostgreSQL (pg)",
+            "mysql2": "MySQL",
+            "mongodb": "MongoDB",
+            "redis": "Redis",
+            "ioredis": "ioredis",
+            "kafka": "Kafka",
+            "amqplib": "RabbitMQ",
+            "jest": "Jest",
+            "mocha": "Mocha",
+            "vitest": "Vitest",
+            "jasmine": "Jasmine",
+            "chai": "Chai",
+            "supertest": "Supertest",
+            "axios": "Axios",
+            "socket.io": "Socket.IO",
+            "winston": "Winston",
+            "pino": "Pino",
+            "dotenv": "dotenv",
+            "webpack": "Webpack",
+            "vite": "Vite",
+            "esbuild": "esbuild",
+            "typescript": "TypeScript",
+            "zod": "Zod",
+            "joi": "Joi",
+            "passport": "Passport.js",
+            "jsonwebtoken": "JWT",
+            "bcrypt": "bcrypt",
+        }
+        for pkg_name in all_deps:
+            name_lower = pkg_name.lower().lstrip("@")
+            for signal, label in _NODE_SIGNALS.items():
+                if signal in name_lower or name_lower.startswith(signal.lstrip("@")):
+                    if label not in info.key_dependencies:
+                        info.key_dependencies.append(label)
+
+        # Detect test framework
+        if "jest" in all_deps or "vitest" in all_deps or "mocha" in all_deps:
+            info.test_framework = (
+                "jest" if "jest" in all_deps else
+                "vitest" if "vitest" in all_deps else "mocha"
+            )
+
+        return info
+
+    def _parse_sfdx(self, root: Path) -> BuildInfo:
+        import json as _json
+        info = BuildInfo(build_tool="sfdx")
+        info.build_commands = {
+            "Deploy": "sf project deploy start --source-dir force-app",
+            "Deploy (legacy)": "sfdx force:source:deploy -p force-app",
+            "Run tests": "sf apex run test --test-level RunLocalTests",
+            "Pull from org": "sf project retrieve start",
+        }
+        try:
+            sfdx_json = (root / "sfdx-project.json").read_text(errors="replace")
+            data = _json.loads(sfdx_json)
+            # API version
+            api_ver = data.get("sourceApiVersion")
+            if api_ver:
+                info.java_version = f"api-{api_ver}"  # reuse field for API version
+            # Plugins / dependencies
+            plugins = data.get("plugins", {})
+            for key in plugins:
+                info.key_dependencies.append(key)
+            # Package directories
+            pkg_dirs = [p.get("path", "") for p in data.get("packageDirectories", [])]
+            if pkg_dirs:
+                info.key_dependencies.append(f"pkg-dirs: {', '.join(pkg_dirs)}")
+        except (OSError, ValueError):
             pass
         return info
 
@@ -516,6 +657,28 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
             build_tool=fs_build_tool,
         ))
 
+    # ---- Salesforce: package directories from sfdx-project.json ----
+    if not modules:
+        sfdx_json = root / "sfdx-project.json"
+        if sfdx_json.exists():
+            try:
+                import json as _json
+                data = _json.loads(sfdx_json.read_text(errors="replace"))
+                for pkg in data.get("packageDirectories", []):
+                    rel = pkg.get("path", "").strip("/")
+                    if not rel:
+                        continue
+                    sub = root / rel
+                    modules.append(ModuleInfo(
+                        module_id=rel,
+                        name=rel.split("/")[-1],
+                        path=str(sub),
+                        pkg_prefix=rel.split("/")[-1],
+                        build_tool="sfdx",
+                    ))
+            except (OSError, ValueError):
+                pass
+
     # ---- C++: CMake subdirectory discovery ----
     # For C++ repos with no Gradle/Maven modules found above, discover subdirectories
     # that have their own CMakeLists.txt (add_subdirectory pattern).
@@ -555,6 +718,55 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
                         pkg_prefix=subdir.name,
                         build_tool="cmake",
                     ))
+
+    # ---- Node.js workspace module discovery ----
+    # Workspaces field in package.json lists sub-package globs.
+    # Also scan `packages/`, `apps/`, `libs/` directories for nested package.json.
+    if not modules and (root / "package.json").exists():
+        import json as _json
+        try:
+            pkg_data = _json.loads((root / "package.json").read_text(errors="replace"))
+            ws_patterns = pkg_data.get("workspaces", [])
+            # workspaces can be a list of globs OR {"packages": [...]}
+            if isinstance(ws_patterns, dict):
+                ws_patterns = ws_patterns.get("packages", [])
+            seen_paths = {m.path for m in modules}
+            for pattern in ws_patterns:
+                # Simple glob: packages/*, apps/*, etc.
+                base = pattern.rstrip("/*")
+                base_dir = root / base
+                if base_dir.is_dir():
+                    for sub in sorted(base_dir.iterdir()):
+                        if sub.is_dir() and (sub / "package.json").exists():
+                            sub_str = str(sub)
+                            if sub_str not in seen_paths:
+                                seen_paths.add(sub_str)
+                                rel = str(sub.relative_to(root))
+                                modules.append(ModuleInfo(
+                                    module_id=rel,
+                                    name=sub.name,
+                                    path=sub_str,
+                                    pkg_prefix=sub.name,
+                                    build_tool="npm-workspace",
+                                ))
+        except (OSError, ValueError):
+            pass
+        # Fallback: conventional monorepo dirs
+        if not modules:
+            for ws_dir in ("packages", "apps", "libs", "services"):
+                top = root / ws_dir
+                if not top.is_dir():
+                    continue
+                for sub in sorted(top.iterdir()):
+                    if sub.is_dir() and (sub / "package.json").exists():
+                        rel = str(sub.relative_to(root))
+                        modules.append(ModuleInfo(
+                            module_id=rel,
+                            name=sub.name,
+                            path=str(sub),
+                            pkg_prefix=sub.name,
+                            build_tool="npm-workspace",
+                        ))
 
     # ---- Python fallback: top-level packages ----
     # If no build-tool modules found, discover Python packages as modules.
