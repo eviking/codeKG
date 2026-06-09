@@ -75,7 +75,7 @@ git commit pushed
 Claude Code / Cursor
        │  calls MCP tool e.g. get_change_impact
        ▼
-  codekg-mcp (stdio or SSE)
+  codekg-mcp (SSE — http://localhost:8002/sse)
        │  proxies to api via HTTP
        ▼
   codekg-api

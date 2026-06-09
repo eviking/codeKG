@@ -6,13 +6,13 @@
 
 ## What MCP is
 
-MCP is an open protocol for AI agents to call structured tools. The codeKG MCP server runs as a stdio process that Claude Code connects to at session start. Every call is logged to `mcp_audit.db` and surfaced in the console telemetry UI.
+MCP is an open protocol for AI agents to call structured tools. The codeKG MCP server runs as a persistent SSE (Server-Sent Events) service on port 8002. Every call is logged to `mcp_audit.db` and surfaced in the console telemetry UI.
 
 ```
 Claude Code
     │  calls tool: get_change_impact(repo_id="codeKG", changed_files=["..."])
     ▼
-codekg-mcp  (stdio process, per Claude Code session)
+codekg-mcp  (SSE server at http://localhost:8002/sse — persistent, shared)
     │  proxies to: POST http://api:8000/change-impact
     ▼
 codekg-api  (returns JSON)
@@ -28,34 +28,32 @@ Claude Code (receives structured result, uses it without touching source files)
 
 ## Configuration in Claude Code
 
-Add to `.claude/mcp.json` (or Claude Code settings):
+The default transport is **SSE**. Add codeKG once with:
+
+```bash
+claude mcp add codekg --transport sse http://localhost:8002/sse
+```
+
+Or add it to `.mcp.json` in any repo that should use codeKG:
 
 ```json
 {
   "mcpServers": {
     "codekg": {
-      "command": "docker",
-      "args": ["exec", "-i", "codekg-mcp", "python", "main.py"],
-      "env": {}
+      "type": "sse",
+      "url": "http://localhost:8002/sse"
     }
   }
 }
 ```
 
-Or for direct stdio mode (if running locally):
-```json
-{
-  "mcpServers": {
-    "codekg": {
-      "command": "python",
-      "args": ["/path/to/codeKG/services/mcp/main.py"],
-      "env": {
-        "API_URL": "http://localhost:8001"
-      }
-    }
-  }
-}
+Verify it's registered:
+
+```bash
+claude mcp list   # should show: codekg  sse  http://localhost:8002/sse
 ```
+
+> The Get Started wizard at `http://localhost:8080/getstarted` (Step 5) shows this command pre-filled and ready to copy.
 
 ---
 
@@ -301,8 +299,8 @@ Each MCP process gets an 8-character session ID at startup (`SESSION_ID = str(uu
 - The console telemetry view
 
 ```python
-# In stdio mode: one process = one session, SESSION_ID is a global
-# In SSE mode: per-connection context vars (_cv_session_id) are used instead
+# In SSE mode: per-connection context vars (_cv_session_id) are used
+# Each client connection gets its own session ID — the server is shared
 ```
 
 ---
