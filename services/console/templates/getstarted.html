@@ -450,14 +450,10 @@ What are the highest blast-radius classes in this codebase?</div>
       <div class="divider-label">Step C — Capture insights at session end</div>
       <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># At the end of every Claude Code session, run:</span>
 Please capture any non-obvious findings from this session to codeKG using capture_insight, then submit session telemetry</div>
-
-      <div class="divider-label">Step D — Make it automatic (paste into your CLAUDE.md)</div>
-      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># Add this after the codekg:end marker in your repo's CLAUDE.md:</span>
-
-## Session close
-At the end of every session:
-1. Call `capture_insight` for any non-obvious finding discovered this session
-2. Call `submit_session_telemetry` with token usage and a one-paragraph summary</div>
+      <p style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.75rem">
+        The session-close instructions are already written into your <code>CLAUDE.md</code> when you publish
+        the agent index in step 4 — no manual CLAUDE.md edits needed.
+      </p>
 
       <p style="font-size:0.8rem;color:var(--text-2);margin-top:0.75rem">
         Captured insights appear in <a href="/insights">Insights →</a> and are surfaced
