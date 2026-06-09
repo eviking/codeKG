@@ -56,6 +56,18 @@ def _save_env_file(updates: dict[str, str]):
     _ENV_FILE.write_text("\n".join(lines))
 
 
+def _check_ollama() -> tuple[bool, list[str]]:
+    """Try to reach Ollama. Returns (available, model_names)."""
+    import httpx as _hx
+    ollama_url = cfg.llm.ollama_url or "http://host.docker.internal:11434"
+    try:
+        r = _hx.get(f"{ollama_url}/api/tags", timeout=2.0)
+        models = [m["name"] for m in r.json().get("models", [])]
+        return True, models
+    except Exception:
+        return False, []
+
+
 def _wizard_state() -> dict:
     """Compute which steps are done/missing."""
     env = _load_env_file()
@@ -93,17 +105,20 @@ def _wizard_state() -> dict:
     # Step 4: MCP wired (we can't detect this reliably — just track via cookie/session)
     # We return False and let the page show instructions
 
+    ollama_available, ollama_models = _check_ollama()
+
     return {
         "config_ok": config_ok,
         "has_repos": has_repos,
         "repo_scanned": repo_scanned,
         "index_published": index_published,
         "registry": registry,
-        # raw values for the form (redacted display is done in template)
         "anthropic_key_set": bool(anthropic_key),
         "home_mount": home_mount,
         "repos_path": repos_path,
         "neo4j_pw_set": bool(neo4j_pw),
+        "ollama_available": ollama_available,
+        "ollama_models": ollama_models,
     }
 
 
@@ -187,3 +202,10 @@ async def wizard_status():
     """Polled by JS to refresh step completion state."""
     state = _wizard_state()
     return JSONResponse(state)
+
+
+@router.get("/getstarted/ollama-status")
+async def wizard_ollama_status():
+    """Live Ollama availability check — called by the recheck button."""
+    available, models = _check_ollama()
+    return JSONResponse({"available": available, "models": models})

@@ -2,129 +2,134 @@
 {% block title %}Get Started{% endblock %}
 {% block content %}
 <style>
-  .wizard-header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
-  .wizard-header h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
-  .wizard-header p { color: var(--text-2); font-size: 0.9rem; max-width: 540px; margin: 0 auto; }
+  .wizard-header { text-align:center; margin-bottom:2.5rem; }
+  .wizard-header h1 { font-size:1.6rem; margin-bottom:0.5rem; }
+  .wizard-header p { color:var(--text-2); font-size:0.9rem; max-width:540px; margin:0 auto; }
 
-  .steps { display: flex; flex-direction: column; gap: 1.25rem; max-width: 780px; margin: 0 auto; }
+  .steps { display:flex; flex-direction:column; gap:1.25rem; max-width:780px; margin:0 auto; }
 
   .step {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    transition: border-color 0.2s;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-lg); box-shadow:var(--shadow);
+    overflow:hidden; transition:border-color 0.2s;
   }
-  .step.done { border-color: var(--success); }
-  .step.active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22,163,74,.08), var(--shadow-md); }
-  .step.locked { opacity: 0.55; pointer-events: none; }
+  .step.done   { border-color:var(--success); }
+  .step.active { border-color:var(--primary); box-shadow:0 0 0 3px rgba(22,163,74,.08),var(--shadow-md); }
+  .step.locked { opacity:0.55; pointer-events:none; }
 
   .step-head {
-    display: flex; align-items: center; gap: 1rem;
-    padding: 1rem 1.25rem;
-    cursor: pointer;
-    user-select: none;
+    display:flex; align-items:center; gap:1rem;
+    padding:1rem 1.25rem; cursor:pointer; user-select:none;
   }
   .step-num {
-    width: 32px; height: 32px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
-    background: var(--surface-2); color: var(--text-3); border: 2px solid var(--border);
-    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.8rem; font-weight:700; flex-shrink:0;
+    background:var(--surface-2); color:var(--text-3); border:2px solid var(--border);
+    transition:background 0.2s,color 0.2s,border-color 0.2s;
   }
-  .step.done   .step-num { background: var(--success-lt); color: var(--success); border-color: var(--success); }
-  .step.active .step-num { background: var(--primary-lt); color: var(--primary); border-color: var(--primary); }
+  .step.done   .step-num { background:var(--success-lt); color:var(--success); border-color:var(--success); }
+  .step.active .step-num { background:var(--primary-lt); color:var(--primary); border-color:var(--primary); }
 
-  .step-title { flex: 1; }
-  .step-title h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.1rem; }
-  .step-title p { font-size: 0.78rem; color: var(--text-3); margin: 0; }
+  .step-title { flex:1; }
+  .step-title h3 { font-size:0.95rem; font-weight:600; margin-bottom:0.1rem; }
+  .step-title p  { font-size:0.78rem; color:var(--text-3); margin:0; }
 
   .step-badge {
-    font-size: 0.68rem; font-weight: 600; padding: 0.2rem 0.6rem;
-    border-radius: 20px; flex-shrink: 0;
+    font-size:0.68rem; font-weight:600; padding:0.2rem 0.6rem;
+    border-radius:20px; flex-shrink:0;
   }
-  .step-badge.done    { background: var(--success-lt); color: var(--success); border: 1px solid #86efac; }
-  .step-badge.pending { background: var(--warning-lt); color: var(--warning); border: 1px solid #fcd34d; }
-  .step-badge.todo    { background: var(--surface-2); color: var(--text-3); border: 1px solid var(--border); }
-  .step-badge.opt     { background: var(--purple-lt); color: var(--purple); border: 1px solid #ddd6fe; }
+  .step-badge.done    { background:var(--success-lt); color:var(--success);  border:1px solid #86efac; }
+  .step-badge.pending { background:var(--warning-lt); color:var(--warning);  border:1px solid #fcd34d; }
+  .step-badge.todo    { background:var(--surface-2);  color:var(--text-3);   border:1px solid var(--border); }
+  .step-badge.opt     { background:var(--purple-lt);  color:var(--purple);   border:1px solid #ddd6fe; }
 
-  .step-body { padding: 0 1.25rem 1.25rem; }
-  .step-body.hidden { display: none; }
+  .step-body { padding:0 1.25rem 1.25rem; }
+  .step-body.hidden { display:none; }
 
-  .step-desc { font-size: 0.84rem; color: var(--text-2); margin-bottom: 1rem; line-height: 1.6; }
+  .step-desc { font-size:0.84rem; color:var(--text-2); margin-bottom:1rem; line-height:1.6; }
 
-  .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
-  @media (max-width: 560px) { .field-group { grid-template-columns: 1fr; } }
+  .field-group { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem; }
+  @media (max-width:560px) { .field-group { grid-template-columns:1fr; } }
 
-  .field-hint { font-size: 0.72rem; color: var(--text-3); margin-top: 0.2rem; }
+  .field-hint { font-size:0.72rem; color:var(--text-3); margin-top:0.2rem; }
 
-  .step-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+  .step-actions { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:1rem; }
 
   .step-msg {
-    font-size: 0.8rem; padding: 0.5rem 0.875rem;
-    border-radius: var(--radius); display: none;
+    font-size:0.8rem; padding:0.5rem 0.875rem;
+    border-radius:var(--radius); display:none;
   }
-  .step-msg.ok  { background: var(--success-lt); color: var(--success); border: 1px solid #86efac; }
-  .step-msg.err { background: var(--danger-lt);  color: var(--danger);  border: 1px solid #fca5a5; }
-  .step-msg.warn{ background: var(--warning-lt); color: var(--warning); border: 1px solid #fcd34d; }
-  .step-msg.show { display: block; }
+  .step-msg.ok   { background:var(--success-lt); color:var(--success); border:1px solid #86efac; }
+  .step-msg.err  { background:var(--danger-lt);  color:var(--danger);  border:1px solid #fca5a5; }
+  .step-msg.warn { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .step-msg.show { display:block; }
 
-  .scan-spinner { display: none; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-3); }
-  .scan-spinner.show { display: flex; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .scan-spinner { display:none; align-items:center; gap:0.5rem; font-size:0.8rem; color:var(--text-3); }
+  .scan-spinner.show { display:flex; }
+  @keyframes spin { to { transform:rotate(360deg); } }
   .spinner-ring {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid var(--border); border-top-color: var(--primary);
-    animation: spin 0.8s linear infinite;
+    width:16px; height:16px; border-radius:50%;
+    border:2px solid var(--border); border-top-color:var(--primary);
+    animation:spin 0.8s linear infinite;
   }
 
   .code-block {
-    background: #1e1e2e; color: #cdd6f4;
-    border: 1px solid #313244; border-radius: var(--radius);
-    padding: 0.875rem 1.1rem; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem; line-height: 1.65; overflow-x: auto;
-    margin-bottom: 0.75rem; position: relative;
+    background:#1e1e2e; color:#cdd6f4;
+    border:1px solid #313244; border-radius:var(--radius);
+    padding:0.875rem 1.1rem; font-family:'JetBrains Mono',monospace;
+    font-size:0.78rem; line-height:1.65; overflow-x:auto;
+    margin-bottom:0.75rem; position:relative; white-space:pre;
   }
-  .code-block .comment { color: #6c7086; }
+  .code-block .comment { color:#6c7086; }
   .copy-btn {
-    position: absolute; top: 0.5rem; right: 0.5rem;
-    background: #313244; color: #cdd6f4; border: none; border-radius: 4px;
-    font-size: 0.68rem; padding: 0.2rem 0.5rem; cursor: pointer;
-    font-family: inherit; transition: background 0.15s;
+    position:absolute; top:0.5rem; right:0.5rem;
+    background:#313244; color:#cdd6f4; border:none; border-radius:4px;
+    font-size:0.68rem; padding:0.2rem 0.5rem; cursor:pointer;
+    font-family:inherit; transition:background 0.15s;
   }
-  .copy-btn:hover { background: #45475a; }
+  .copy-btn:hover { background:#45475a; }
 
   .divider-label {
-    display: flex; align-items: center; gap: 0.75rem;
-    font-size: 0.72rem; color: var(--text-3); font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.06em;
-    margin: 1rem 0 0.75rem;
+    display:flex; align-items:center; gap:0.75rem;
+    font-size:0.72rem; color:var(--text-3); font-weight:600;
+    text-transform:uppercase; letter-spacing:0.06em;
+    margin:1rem 0 0.75rem;
   }
   .divider-label::before, .divider-label::after {
-    content: ''; flex: 1; height: 1px; background: var(--border);
+    content:''; flex:1; height:1px; background:var(--border);
   }
 
-  .progress-bar-wrap { background: var(--surface-2); border-radius: 20px; height: 6px; margin-bottom: 1.5rem; max-width: 780px; margin-left: auto; margin-right: auto; }
-  .progress-bar { height: 6px; border-radius: 20px; background: var(--primary); transition: width 0.4s ease; }
+  .progress-bar-wrap { background:var(--surface-2); border-radius:20px; height:6px; margin-bottom:1.5rem; max-width:780px; margin-left:auto; margin-right:auto; }
+  .progress-bar { height:6px; border-radius:20px; background:var(--primary); transition:width 0.4s ease; }
 
   .all-done-banner {
-    text-align: center; padding: 2rem; max-width: 780px; margin: 0 auto;
-    background: var(--success-lt); border: 1px solid #86efac; border-radius: var(--radius-lg);
-    display: none;
+    text-align:center; padding:2rem; max-width:780px; margin:0 auto;
+    background:var(--success-lt); border:1px solid #86efac; border-radius:var(--radius-lg);
+    display:none;
   }
-  .all-done-banner.show { display: block; }
-  .all-done-banner h2 { color: var(--success); font-size: 1.3rem; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal; }
-  .all-done-banner p { color: var(--text-2); font-size: 0.88rem; margin-bottom: 1rem; }
+  .all-done-banner.show { display:block; }
+  .all-done-banner h2 { color:var(--success); font-size:1.3rem; margin-bottom:0.5rem; text-transform:none; letter-spacing:normal; }
+  .all-done-banner p { color:var(--text-2); font-size:0.88rem; margin-bottom:1rem; }
 
-  .inline-check {
-    display: inline-flex; align-items: center; gap: 0.3rem;
-    font-size: 0.75rem; color: var(--success); font-weight: 600;
+  .ollama-status {
+    display:inline-flex; align-items:center; gap:0.4rem;
+    font-size:0.75rem; font-weight:600; padding:0.2rem 0.6rem;
+    border-radius:20px; margin-bottom:0.75rem;
   }
-  .inline-check svg { width: 14px; height: 14px; }
+  .ollama-status.up   { background:var(--success-lt); color:var(--success); border:1px solid #86efac; }
+  .ollama-status.down { background:var(--warning-lt); color:var(--warning); border:1px solid #fcd34d; }
+  .ollama-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+
+  .provider-tabs { display:flex; gap:0.5rem; margin-bottom:1rem; }
+  .ptab {
+    padding:0.3rem 0.875rem; border-radius:20px; font-size:0.78rem; font-weight:600;
+    cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2);
+    transition:background 0.15s,border-color 0.15s;
+  }
+  .ptab.active { background:var(--primary-lt); color:var(--primary); border-color:var(--primary); }
+  .provider-panel { display:none; }
+  .provider-panel.active { display:block; }
 </style>
 
 <div class="wizard-header">
@@ -132,9 +137,8 @@
   <p>Follow these steps to connect your first repository and start giving AI agents complete architectural understanding of your codebase.</p>
 </div>
 
-{# Progress bar #}
 <div class="progress-bar-wrap">
-  <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+  <div class="progress-bar" id="progress-bar" style="width:0%"></div>
 </div>
 
 <div id="all-done-banner" class="all-done-banner">
@@ -145,8 +149,8 @@
 
 <div class="steps" id="wizard-steps">
 
-  {# ── Step 1: Configuration ────────────────────────────────────────── #}
-  <div class="step {% if config_ok %}done{% else %}active{% endif %}" id="step-1" data-step="1">
+  {# ── Step 1: Configuration ── #}
+  <div class="step {% if config_ok %}done{% else %}active{% endif %}" id="step-1">
     <div class="step-head" onclick="toggleStep(1)">
       <div class="step-num" id="step-1-num">{% if config_ok %}✓{% else %}1{% endif %}</div>
       <div class="step-title">
@@ -165,28 +169,22 @@
       </p>
       <form id="step-1-form" onsubmit="saveConfig(event)">
         <div class="field-group">
-          <label>
-            Anthropic API key *
+          <label>Anthropic API key *
             <input type="password" name="anthropic_api_key" placeholder="sk-ant-…"
-              {% if anthropic_key_set %}value="••••••••"{% endif %}
-              autocomplete="off">
+              {% if anthropic_key_set %}value="••••••••"{% endif %} autocomplete="off">
             <span class="field-hint">From console.anthropic.com → API keys</span>
           </label>
-          <label>
-            Home directory path *
+          <label>Home directory path *
             <input type="text" name="home_mount" value="{{ home_mount }}" placeholder="/Users/yourname">
             <span class="field-hint">The path that contains your code repos — mounted read-only into containers</span>
           </label>
-          <label>
-            Repos / data path
+          <label>Repos / data path
             <input type="text" name="repos_path" value="{{ repos_path }}" placeholder="/Users/yourname/codekg-data">
             <span class="field-hint">Where codeKG stores scan logs and databases (leave blank for default)</span>
           </label>
-          <label>
-            Neo4j password
+          <label>Neo4j password
             <input type="password" name="neo4j_password" placeholder="change-me"
-              {% if neo4j_pw_set %}value="••••••••"{% endif %}
-              autocomplete="new-password">
+              {% if neo4j_pw_set %}value="••••••••"{% endif %} autocomplete="new-password">
             <span class="field-hint">Set a strong password for any non-localhost deployment</span>
           </label>
         </div>
@@ -197,19 +195,19 @@
       </form>
       {% if config_ok %}
       <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--success);font-weight:500">
-        ✓ Configuration looks good — Anthropic API key and HOME_MOUNT are set.
+        ✓ Configuration looks good.
         <a href="/config" style="color:var(--text-3);margin-left:0.5rem">Edit all settings →</a>
       </p>
       {% endif %}
     </div>
   </div>
 
-  {# ── Step 2: Register & scan ─────────────────────────────────────── #}
-  <div class="step {% if repo_scanned %}done{% elif has_repos %}active{% elif config_ok %}active{% else %}locked{% endif %}" id="step-2" data-step="2">
+  {# ── Step 2: Register & scan ── #}
+  <div class="step {% if repo_scanned %}done{% elif has_repos %}active{% elif config_ok %}active{% else %}locked{% endif %}" id="step-2">
     <div class="step-head" onclick="toggleStep(2)">
       <div class="step-num" id="step-2-num">{% if repo_scanned %}✓{% else %}2{% endif %}</div>
       <div class="step-title">
-        <h3>Register & scan a repository</h3>
+        <h3>Register &amp; scan a repository</h3>
         <p>Point codeKG at a local git repo and trigger an initial scan</p>
       </div>
       <span class="step-badge {% if repo_scanned %}done{% elif has_repos %}pending{% else %}todo{% endif %}" id="step-2-badge">
@@ -218,21 +216,17 @@
     </div>
     <div class="step-body {% if repo_scanned %}hidden{% endif %}" id="step-2-body">
       <p class="step-desc">
-        Register a git repository by its path on your machine. codeKG will launch a Docker container
-        that parses every file and writes the knowledge graph. Large repos can take 5–10 minutes.
+        Register a git repository by its absolute path on your machine. codeKG launches a Docker
+        container that parses every file and writes the knowledge graph. Large repos take 5–10 min.
         The path must be inside your <strong>HOME_MOUNT</strong> directory.
       </p>
       <form id="step-2-form" onsubmit="registerRepo(event)">
         <div class="field-group">
-          <label>
-            Repository ID *
-            <input type="text" name="repo_id" placeholder="my-service" required
-              pattern="[a-zA-Z0-9_/\-]+"
-              title="Letters, numbers, hyphens, underscores, and forward slashes only">
+          <label>Repository ID *
+            <input type="text" name="repo_id" placeholder="my-service" required pattern="[a-zA-Z0-9_/\-]+">
             <span class="field-hint">Short unique name, e.g. <code>my-service</code> or <code>org/api</code></span>
           </label>
-          <label>
-            Local path *
+          <label>Local path *
             <input type="text" name="repo_path" placeholder="{{ home_mount }}/code/my-service" required>
             <span class="field-hint">Absolute path to the repo root on your machine</span>
           </label>
@@ -241,174 +235,238 @@
           <button type="submit" class="btn" id="step-2-btn">Register &amp; scan →</button>
           <div class="scan-spinner" id="step-2-spinner">
             <div class="spinner-ring"></div>
-            Scan running — this may take a few minutes for large repos…
+            Scan running — updates when complete…
           </div>
           <span id="step-2-msg" class="step-msg"></span>
         </div>
       </form>
       {% if has_repos %}
-      <div class="divider-label">or continue with an existing repo</div>
-      <p style="font-size:0.82rem;color:var(--text-2)">
+      <div style="margin-top:1rem;font-size:0.82rem;color:var(--text-2)">
         Already registered:
-        {% for rid in registry %}
-        <a href="/repos/{{ rid }}"><code>{{ rid }}</code></a>{% if not loop.last %}, {% endif %}
-        {% endfor %}
+        {% for rid in registry %}<a href="/repos/{{ rid }}"><code>{{ rid }}</code></a>{% if not loop.last %}, {% endif %}{% endfor %}
         — <a href="/repos">manage repos →</a>
-      </p>
+      </div>
       {% endif %}
     </div>
   </div>
 
-  {# ── Step 3: Publish agent index ─────────────────────────────────── #}
-  <div class="step {% if index_published %}done{% elif repo_scanned %}active{% else %}locked{% endif %}" id="step-3" data-step="3">
+  {# ── Step 3: NL summaries (moved up, optional) ── #}
+  <div class="step {% if repo_scanned %}active{% else %}locked{% endif %}" id="step-3">
     <div class="step-head" onclick="toggleStep(3)">
-      <div class="step-num" id="step-3-num">{% if index_published %}✓{% else %}3{% endif %}</div>
+      <div class="step-num" id="step-3-num">3</div>
       <div class="step-title">
-        <h3>Publish agent index to your repo</h3>
-        <p>Commit <code>.codekg/</code> and write <code>CLAUDE.md</code> / <code>AGENTS.md</code> instructions</p>
+        <h3>Generate NL class summaries <em style="font-weight:400;color:var(--text-3)">(optional)</em></h3>
+        <p>One-sentence descriptions per class — improves Ask quality and hygiene score</p>
       </div>
-      <span class="step-badge {% if index_published %}done{% elif repo_scanned %}pending{% else %}todo{% endif %}" id="step-3-badge">
-        {% if index_published %}Done{% elif repo_scanned %}Ready{% else %}To do{% endif %}
-      </span>
+      <span class="step-badge opt" id="step-3-badge">Optional</span>
     </div>
-    <div class="step-body {% if index_published %}hidden{% endif %}" id="step-3-body">
-      <p class="step-desc">
-        Publishing commits a <code>.codekg/</code> directory into your repo containing pre-computed intelligence
-        files for every module. It also writes <code>CLAUDE.md</code> and <code>AGENTS.md</code> at the repo root
-        telling agents to read the index before touching any file. Create empty placeholder files first if you
-        want them at the root level:
-      </p>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        <span class="comment"># Run this in your repo root before publishing</span>
-        touch CLAUDE.md AGENTS.md
+    <div class="step-body" id="step-3-body">
+
+      {# Ollama availability indicator #}
+      <div id="ollama-status-badge" class="ollama-status {% if ollama_available %}up{% else %}down{% endif %}">
+        <span class="ollama-dot"></span>
+        {% if ollama_available %}
+          Ollama detected — {{ ollama_models | length }} model(s) available
+        {% else %}
+          Ollama not detected — will use Claude
+        {% endif %}
+        <button onclick="recheckOllama()" style="background:none;border:none;cursor:pointer;font-size:0.68rem;color:inherit;padding:0;margin-left:0.3rem;font-family:inherit;font-weight:600">↺ recheck</button>
       </div>
-      <div class="step-actions">
-        <button class="btn" onclick="publishIndex()">Publish to repo →</button>
-        <a href="/agent-index" class="btn btn-ghost btn-sm">Open Agent Index page</a>
-        <span id="step-3-msg" class="step-msg"></span>
+
+      <p class="step-desc">
+        Summarisation attaches a natural-language description to every class node. Not required,
+        but meaningfully improves <code>answer_question</code> results and the documentation
+        dimension of your hygiene score.
+        {% if ollama_available %}
+          Ollama is available — choose a local model below for zero API cost.
+        {% else %}
+          Ollama is not running — Claude will be used (costs API tokens).
+          <a href="https://ollama.com" target="_blank" rel="noopener">Install Ollama</a> to use free local models.
+        {% endif %}
+      </p>
+
+      {# Provider tabs #}
+      <div class="provider-tabs" id="provider-tabs">
+        {% if ollama_available %}
+        <div class="ptab active" onclick="switchProvider('ollama')">Ollama (local, free)</div>
+        <div class="ptab" onclick="switchProvider('claude')">Claude (API)</div>
+        {% else %}
+        <div class="ptab" onclick="switchProvider('ollama')">Ollama (not running)</div>
+        <div class="ptab active" onclick="switchProvider('claude')">Claude (API)</div>
+        {% endif %}
+      </div>
+
+      {# Ollama panel #}
+      <div class="provider-panel {% if ollama_available %}active{% endif %}" id="panel-ollama">
+        <div class="divider-label">1 — Install Ollama &amp; pull a model (if not done)</div>
+        <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># Install from https://ollama.com then pull a coding model:</span>
+ollama pull qwen2.5-coder:7b</div>
+        <div class="divider-label">2 — Choose model &amp; run</div>
+        <label style="margin-bottom:0.75rem;max-width:320px">
+          Ollama model
+          <select id="ollama-model-select">
+            {% for m in ollama_models %}
+            <option value="{{ m }}" {% if 'qwen2.5-coder' in m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+            {% if not ollama_models %}
+            <option value="qwen2.5-coder:7b">qwen2.5-coder:7b (default)</option>
+            {% endif %}
+          </select>
+          <span class="field-hint">Or type a model name not listed above</span>
+        </label>
+        <div class="step-actions">
+          <a href="/classes" class="btn btn-ghost">Open Classes → Run NL summaries ↓</a>
+          <span style="font-size:0.78rem;color:var(--text-3)">Select the model above before starting</span>
+        </div>
+      </div>
+
+      {# Claude panel #}
+      <div class="provider-panel {% if not ollama_available %}active{% endif %}" id="panel-claude">
+        <div class="divider-label">Choose Claude model</div>
+        <label style="margin-bottom:0.75rem;max-width:320px">
+          Model
+          <select id="claude-model-select">
+            <option value="claude-haiku-4-5-20251001" selected>claude-haiku-4-5 (fast, cheap)</option>
+            <option value="claude-sonnet-4-5">claude-sonnet-4-5 (better quality)</option>
+            <option value="claude-opus-4-8">claude-opus-4-8 (highest quality)</option>
+          </select>
+        </label>
+        <p style="font-size:0.8rem;color:var(--warning);margin-bottom:0.75rem">
+          Running Claude over thousands of classes uses significant API tokens.
+          Start with a limit of 50 to check quality first.
+        </p>
+        <div class="step-actions">
+          <a href="/classes" class="btn btn-ghost">Open Classes → Run NL summaries ↓</a>
+        </div>
+      </div>
+
+      <div class="step-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost btn-sm" onclick="markStepDone(3)">Skip / mark done →</button>
       </div>
     </div>
   </div>
 
-  {# ── Step 4: Connect MCP ─────────────────────────────────────────── #}
-  <div class="step {% if repo_scanned %}active{% else %}locked{% endif %}" id="step-4" data-step="4">
+  {# ── Step 4: Publish agent index ── #}
+  <div class="step {% if index_published %}done{% elif repo_scanned %}active{% else %}locked{% endif %}" id="step-4">
     <div class="step-head" onclick="toggleStep(4)">
-      <div class="step-num" id="step-4-num">4</div>
+      <div class="step-num" id="step-4-num">{% if index_published %}✓{% else %}4{% endif %}</div>
       <div class="step-title">
-        <h3>Connect the MCP server to Claude Code</h3>
-        <p>Run one command — then AI agents can call codeKG tools directly</p>
+        <h3>Publish agent index to your repo</h3>
+        <p>Commit <code>.codekg/</code> and write <code>CLAUDE.md</code> / <code>AGENTS.md</code></p>
       </div>
-      <span class="step-badge todo" id="step-4-badge">Run this command</span>
+      <span class="step-badge {% if index_published %}done{% elif repo_scanned %}pending{% else %}todo{% endif %}" id="step-4-badge">
+        {% if index_published %}Done{% elif repo_scanned %}Ready{% else %}To do{% endif %}
+      </span>
     </div>
-    <div class="step-body" id="step-4-body">
+    <div class="step-body {% if index_published %}hidden{% endif %}" id="step-4-body">
       <p class="step-desc">
-        Run this once in your terminal to register codeKG as an MCP server in Claude Code.
-        Use <code>! command</code> in the Claude Code prompt to run it directly in this session.
+        Publishing commits a <code>.codekg/</code> directory into your repo with pre-computed intelligence
+        for every module, plus <code>CLAUDE.md</code> and <code>AGENTS.md</code> that tell agents to read
+        the index before touching any file. Create placeholder files first if you want them at the root:
       </p>
-      <div class="divider-label">Add MCP server</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        claude mcp add codekg --transport stdio -- docker exec -i codekg-mcp python main.py
-      </div>
-      <div class="divider-label">Verify it's registered</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        claude mcp list
-        <span class="comment"># Should show:  codekg   stdio   docker exec -i codekg-mcp python main.py</span>
-      </div>
-      <div class="divider-label">Test it — ask something about your codebase</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        <span class="comment"># Open a Claude Code session inside your indexed repo and ask:</span>
-        What are the highest blast-radius classes in this codebase?
-      </div>
-      <p style="font-size:0.8rem;color:var(--text-2);margin-top:0.75rem">
-        Claude should call <code>answer_question</code> via MCP instead of opening source files.
-        You'll see the call appear in <a href="/mcp-audit">MCP Audit →</a>
-      </p>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># Run in your repo root before publishing:</span>
+touch CLAUDE.md AGENTS.md</div>
       <div class="step-actions">
-        <button class="btn btn-ghost" onclick="markMcpDone()">Mark as done →</button>
+        <button class="btn" onclick="publishIndex()">Publish to repo →</button>
+        <a href="/agent-index" class="btn btn-ghost btn-sm">Open Agent Index page</a>
         <span id="step-4-msg" class="step-msg"></span>
       </div>
     </div>
   </div>
 
-  {# ── Step 5: Send insights back (key commands) ───────────────────── #}
-  <div class="step {% if repo_scanned %}active{% else %}locked{% endif %}" id="step-5" data-step="5">
+  {# ── Step 5: Connect MCP ── #}
+  <div class="step {% if repo_scanned %}active{% else %}locked{% endif %}" id="step-5">
     <div class="step-head" onclick="toggleStep(5)">
       <div class="step-num" id="step-5-num">5</div>
       <div class="step-title">
-        <h3>Send insights back to codeKG</h3>
-        <p>At the end of every session, capture what you learned so future agents benefit</p>
+        <h3>Connect the MCP server to Claude Code</h3>
+        <p>Add codeKG as an MCP server — agents call it directly via SSE</p>
       </div>
-      <span class="step-badge todo" id="step-5-badge">In every session</span>
+      <span class="step-badge todo" id="step-5-badge">Run this command</span>
     </div>
     <div class="step-body" id="step-5-body">
       <p class="step-desc">
-        codeKG accumulates tribal knowledge across sessions. Every time you finish working in a repo,
-        tell Claude Code to capture any non-obvious findings. This is what makes codeKG smarter over time —
-        future agents start with your hard-won knowledge already loaded.
+        codeKG's MCP server runs in SSE mode on port 8002. Add it to Claude Code once and every
+        session in this repo will have access to all codeKG tools.
+        Use <code>! command</code> in the Claude Code prompt to run terminal commands directly.
       </p>
-      <div class="divider-label">Capture a specific insight</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        <span class="comment"># Run this at the end of a Claude Code session:</span>
-        Please capture any non-obvious findings from this session to codeKG using capture_insight
-      </div>
-      <div class="divider-label">Submit full session telemetry (token usage + learnings)</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        <span class="comment"># Submits token counts, tool calls, and session summary to codeKG:</span>
-        Submit session telemetry to codeKG now — include token usage and a summary of what we did
-      </div>
-      <div class="divider-label">Add to your CLAUDE.md so every session does this automatically</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        <span class="comment"># Paste this into your CLAUDE.md (after the codekg:end marker):</span>
-
-        ## Session close
-        At the end of every session:
-        1. Call `capture_insight` for any non-obvious finding discovered
-        2. Call `submit_session_telemetry` with token usage summary
-      </div>
+      <div class="divider-label">Add the MCP server</div>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button>claude mcp add codekg --transport sse http://localhost:8002/sse</div>
+      <div class="divider-label">Verify it's registered</div>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button>claude mcp list
+<span class="comment"># Should show:  codekg   sse   http://localhost:8002/sse</span></div>
+      <div class="divider-label">Test — ask something about your codebase</div>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># Open Claude Code inside your indexed repo and ask:</span>
+What are the highest blast-radius classes in this codebase?</div>
       <p style="font-size:0.8rem;color:var(--text-2);margin-top:0.75rem">
-        Captured insights appear in <a href="/insights">Insights →</a> and are automatically surfaced
-        in the agent index for future sessions.
+        Claude should call <code>answer_question</code> via MCP without opening source files.
+        You'll see the call in <a href="/mcp-audit">MCP Audit →</a>
       </p>
+      <div class="step-actions">
+        <button class="btn btn-ghost" onclick="markMcpDone()">Mark as done →</button>
+        <span id="step-5-msg" class="step-msg"></span>
+      </div>
     </div>
   </div>
 
-  {# ── Step 6: NL summaries (optional) ─────────────────────────────── #}
-  <div class="step {% if repo_scanned %}active{% else %}locked{% endif %}" id="step-6" data-step="6">
+  {# ── Step 6: Memory + insights setup ── #}
+  <div class="step {% if repo_scanned %}active{% else %}locked{% endif %}" id="step-6">
     <div class="step-head" onclick="toggleStep(6)">
       <div class="step-num" id="step-6-num">6</div>
       <div class="step-title">
-        <h3>Generate NL class summaries <em style="font-weight:400;color:var(--text-3)">(optional)</em></h3>
-        <p>Attach one-sentence descriptions to every class — improves Ask quality and hygiene score</p>
+        <h3>Set up memory &amp; insights</h3>
+        <p>Wire Claude Code to capture learnings back to codeKG every session</p>
       </div>
-      <span class="step-badge opt" id="step-6-badge">Optional</span>
+      <span class="step-badge todo" id="step-6-badge">In every session</span>
     </div>
     <div class="step-body" id="step-6-body">
       <p class="step-desc">
-        NL summaries run a local Ollama model over every class in the knowledge graph.
-        They're not required, but they meaningfully improve the quality of <code>answer_question</code>
-        results and lift the documentation dimension of your hygiene score.
-        <strong>Requires Ollama running on your machine.</strong>
+        codeKG accumulates tribal knowledge across sessions. The two steps below wire your
+        Claude Code memory so it enforces the Insights habit automatically — and so future
+        agents start with every hard-won finding already loaded.
       </p>
-      <div class="divider-label">1 — Install and pull a model (once)</div>
-      <div class="code-block">
-        <button class="copy-btn" onclick="copyCode(this)">copy</button>
-        <span class="comment"># Install Ollama from https://ollama.com then pull a model:</span>
-        ollama pull qwen2.5-coder:7b
-      </div>
-      <div class="divider-label">2 — Run summaries from the console</div>
+
+      <div class="divider-label">Step A — Install the Insights memory hook</div>
       <p style="font-size:0.82rem;color:var(--text-2);margin-bottom:0.75rem">
-        Go to <a href="/classes">Classes →</a> and click <strong>"Run NL summaries ↓"</strong>.
-        Set a limit of 50 for a first run to check quality, then remove the limit.
+        Download the hook file and save it to your project-scoped Claude Code memory directory.
+        Run this in your Claude Code session prompt (prefix with <code>!</code> to run as a shell command):
       </p>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># Paste into Claude Code prompt (the ! runs it as a shell command):</span>
+! curl -sL https://raw.githubusercontent.com/eviking/codeKG/main/docs/memory-hook.md \
+    -o ~/.claude/projects/$(basename $PWD)/memory/feedback_insights_section.md</div>
+      <p style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.75rem">
+        Or ask Claude Code directly — paste this as a prompt:
+      </p>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button>Download https://raw.githubusercontent.com/eviking/codeKG/main/docs/memory-hook.md and save it to my project-scoped memory directory</div>
+
+      <div class="divider-label">Step B — Add the Insights rule to memory</div>
+      <p style="font-size:0.82rem;color:var(--text-2);margin-bottom:0.75rem">
+        This tells Claude Code that every response must end with an Insights section written
+        as a senior engineer explaining a gotcha to a junior engineer (fact → why → what it means for future work).
+        Paste this as a Claude Code prompt:
+      </p>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button>Add to memory: Every response must end with **Insights:** written as a senior engineer explaining a gotcha to a junior engineer (fact → why → what it means for future work)</div>
+
+      <div class="divider-label">Step C — Capture insights at session end</div>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># At the end of every Claude Code session, run:</span>
+Please capture any non-obvious findings from this session to codeKG using capture_insight, then submit session telemetry</div>
+
+      <div class="divider-label">Step D — Make it automatic (paste into your CLAUDE.md)</div>
+      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="comment"># Add this after the codekg:end marker in your repo's CLAUDE.md:</span>
+
+## Session close
+At the end of every session:
+1. Call `capture_insight` for any non-obvious finding discovered this session
+2. Call `submit_session_telemetry` with token usage and a one-paragraph summary</div>
+
+      <p style="font-size:0.8rem;color:var(--text-2);margin-top:0.75rem">
+        Captured insights appear in <a href="/insights">Insights →</a> and are surfaced
+        automatically in the agent index for future sessions.
+      </p>
+
       <div class="step-actions">
-        <a href="/classes" class="btn btn-ghost">Open Classes page →</a>
+        <button class="btn btn-ghost" onclick="markStepDone(6)">Mark as done →</button>
+        <span id="step-6-msg" class="step-msg"></span>
       </div>
     </div>
   </div>
@@ -416,186 +474,149 @@
 </div>
 
 <script>
-// ── Toggle step open/closed ───────────────────────────────────────────────────
 function toggleStep(n) {
-  const body = document.getElementById(`step-${n}-body`);
-  body.classList.toggle('hidden');
+  document.getElementById(`step-${n}-body`).classList.toggle('hidden');
 }
 
-// ── Progress ──────────────────────────────────────────────────────────────────
 function updateProgress() {
-  const steps = document.querySelectorAll('.step');
   const done  = document.querySelectorAll('.step.done').length;
-  const total = steps.length;
-  const pct   = Math.round(done / total * 100);
-  document.getElementById('progress-bar').style.width = pct + '%';
-
-  if (done >= 4) {   // steps 1-4 are the minimum viable path
-    document.getElementById('all-done-banner').classList.add('show');
-  }
+  const total = document.querySelectorAll('.step').length;
+  document.getElementById('progress-bar').style.width = Math.round(done / total * 100) + '%';
+  if (done >= 4) document.getElementById('all-done-banner').classList.add('show');
 }
 
-// ── Step 1: Save config ───────────────────────────────────────────────────────
 async function saveConfig(e) {
   e.preventDefault();
-  const form = document.getElementById('step-1-form');
-  const data = new FormData(form);
-  const msg  = document.getElementById('step-1-msg');
-  // Skip fields that still show redacted placeholder
-  for (const [k, v] of [...data.entries()]) {
-    if (v === '••••••••') data.delete(k);
-  }
+  const data = new FormData(document.getElementById('step-1-form'));
+  for (const [k, v] of [...data.entries()]) { if (v === '••••••••') data.delete(k); }
+  const msg = document.getElementById('step-1-msg');
   try {
-    const r = await fetch('/getstarted/config', { method: 'POST', body: data });
+    const r = await fetch('/getstarted/config', { method:'POST', body:data });
     const j = await r.json();
-    if (j.ok) {
-      showMsg(msg, `Saved: ${j.saved.join(', ')}. Restart containers to apply.`, 'warn');
-      markStepDone(1);
-    } else {
-      showMsg(msg, j.detail || 'Save failed', 'err');
-    }
-  } catch (ex) {
-    showMsg(msg, String(ex), 'err');
-  }
+    if (j.ok) { showMsg(msg, `Saved: ${j.saved.join(', ')}. Restart containers to apply.`, 'warn'); markStepDone(1); }
+    else showMsg(msg, j.detail || 'Save failed', 'err');
+  } catch (ex) { showMsg(msg, String(ex), 'err'); }
 }
 
-// ── Step 2: Register repo ─────────────────────────────────────────────────────
 async function registerRepo(e) {
   e.preventDefault();
-  const form = document.getElementById('step-2-form');
-  const data = new FormData(form);
+  const data = new FormData(document.getElementById('step-2-form'));
   const msg  = document.getElementById('step-2-msg');
   const btn  = document.getElementById('step-2-btn');
   const spin = document.getElementById('step-2-spinner');
-
-  btn.disabled = true;
-  spin.classList.add('show');
-  msg.classList.remove('show');
-
+  btn.disabled = true; spin.classList.add('show');
   try {
-    const r = await fetch('/getstarted/register', { method: 'POST', body: data });
+    const r = await fetch('/getstarted/register', { method:'POST', body:data });
     const j = await r.json();
     if (j.ok) {
-      if (j.scanning) {
-        showMsg(msg, 'Registered! Scan is running — this page will update when complete.', 'ok');
-        pollScanDone();
-      } else {
-        const w = j.warning || 'Registered, but scan could not be launched automatically. Go to Repositories to start it.';
-        showMsg(msg, w, 'warn');
-        spin.classList.remove('show');
-        btn.disabled = false;
-      }
-    } else {
-      showMsg(msg, j.error || 'Registration failed', 'err');
-      spin.classList.remove('show');
-      btn.disabled = false;
-    }
-  } catch (ex) {
-    showMsg(msg, String(ex), 'err');
-    spin.classList.remove('show');
-    btn.disabled = false;
-  }
+      if (j.scanning) { showMsg(msg, 'Registered! Scan running — page will update when complete.', 'ok'); pollScanDone(); }
+      else { showMsg(msg, j.warning || 'Registered — go to Repositories to start a scan.', 'warn'); spin.classList.remove('show'); btn.disabled = false; }
+    } else { showMsg(msg, j.error || 'Registration failed', 'err'); spin.classList.remove('show'); btn.disabled = false; }
+  } catch (ex) { showMsg(msg, String(ex), 'err'); spin.classList.remove('show'); btn.disabled = false; }
 }
 
 function pollScanDone() {
-  const interval = setInterval(async () => {
+  const iv = setInterval(async () => {
     try {
-      const r = await fetch('/getstarted/status');
-      const j = await r.json();
+      const j = await (await fetch('/getstarted/status')).json();
       if (j.repo_scanned) {
-        clearInterval(interval);
+        clearInterval(iv);
         document.getElementById('step-2-spinner').classList.remove('show');
         markStepDone(2);
-        // unlock step 3
-        const s3 = document.getElementById('step-3');
-        s3.classList.remove('locked');
-        s3.classList.add('active');
+        ['step-3','step-4','step-5','step-6'].forEach(id => {
+          const s = document.getElementById(id);
+          s.classList.remove('locked'); s.classList.add('active');
+        });
         document.getElementById('step-3-body').classList.remove('hidden');
       }
-    } catch (_) {}
+    } catch(_) {}
   }, 8000);
 }
 
-// ── Step 3: Publish index ─────────────────────────────────────────────────────
 async function publishIndex() {
-  const msg = document.getElementById('step-3-msg');
+  const msg = document.getElementById('step-4-msg');
   try {
-    const r = await fetch('/getstarted/publish', { method: 'POST' });
+    const r = await fetch('/getstarted/publish', { method:'POST' });
     const j = await r.json();
-    if (j.ok) {
-      showMsg(msg, `Published for repo "${j.repo_id}". .codekg/ is now committed.`, 'ok');
-      setTimeout(() => markStepDone(3), 600);
-    } else {
-      showMsg(msg, j.error || 'Publish failed', 'err');
-    }
-  } catch (ex) {
-    showMsg(msg, String(ex), 'err');
-  }
+    if (j.ok) { showMsg(msg, `Published for repo "${j.repo_id}". .codekg/ committed.`, 'ok'); setTimeout(() => markStepDone(4), 600); }
+    else showMsg(msg, j.error || 'Publish failed', 'err');
+  } catch (ex) { showMsg(msg, String(ex), 'err'); }
 }
 
-// ── Step 4: Mark MCP done (user self-reports) ─────────────────────────────────
 function markMcpDone() {
   localStorage.setItem('kg_mcp_done', '1');
-  markStepDone(4);
-  showMsg(document.getElementById('step-4-msg'), 'Noted — MCP is connected.', 'ok');
+  markStepDone(5);
+  showMsg(document.getElementById('step-5-msg'), 'MCP connected.', 'ok');
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function markStepDone(n) {
-  const step = document.getElementById(`step-${n}`);
-  step.classList.remove('active', 'locked');
-  step.classList.add('done');
-  const num = document.getElementById(`step-${n}-num`);
-  num.textContent = '✓';
+  const step  = document.getElementById(`step-${n}`);
+  step.classList.remove('active','locked'); step.classList.add('done');
+  document.getElementById(`step-${n}-num`).textContent = '✓';
   const badge = document.getElementById(`step-${n}-badge`);
-  badge.className = 'step-badge done';
-  badge.textContent = 'Done';
+  badge.className = 'step-badge done'; badge.textContent = 'Done';
   document.getElementById(`step-${n}-body`).classList.add('hidden');
   updateProgress();
 }
 
 function showMsg(el, text, type) {
-  el.textContent = text;
-  el.className = `step-msg ${type} show`;
+  el.textContent = text; el.className = `step-msg ${type} show`;
+}
+
+function switchProvider(p) {
+  document.querySelectorAll('.ptab').forEach((t, i) => {
+    const providers = ['ollama','claude'];
+    t.classList.toggle('active', providers[i] === p);
+  });
+  document.querySelectorAll('.provider-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `panel-${p}`);
+  });
+}
+
+async function recheckOllama() {
+  const badge = document.getElementById('ollama-status-badge');
+  badge.innerHTML = '<span class="ollama-dot"></span> Checking…';
+  try {
+    const r = await fetch('/getstarted/ollama-status');
+    const j = await r.json();
+    if (j.available) {
+      badge.className = 'ollama-status up';
+      badge.innerHTML = `<span class="ollama-dot"></span> Ollama detected — ${j.models.length} model(s) available <button onclick="recheckOllama()" style="background:none;border:none;cursor:pointer;font-size:0.68rem;color:inherit;padding:0;margin-left:0.3rem;font-family:inherit;font-weight:600">↺ recheck</button>`;
+      // Repopulate model list
+      const sel = document.getElementById('ollama-model-select');
+      sel.innerHTML = j.models.map(m => `<option value="${m}" ${m.includes('qwen2.5-coder') ? 'selected' : ''}>${m}</option>`).join('');
+      switchProvider('ollama');
+    } else {
+      badge.className = 'ollama-status down';
+      badge.innerHTML = `<span class="ollama-dot"></span> Ollama not detected — using Claude <button onclick="recheckOllama()" style="background:none;border:none;cursor:pointer;font-size:0.68rem;color:inherit;padding:0;margin-left:0.3rem;font-family:inherit;font-weight:600">↺ recheck</button>`;
+      switchProvider('claude');
+    }
+  } catch(_) {}
 }
 
 function copyCode(btn) {
   const block = btn.parentElement;
-  // Collect text, skip the copy button and comment spans
   let text = '';
   block.childNodes.forEach(node => {
     if (node === btn) return;
-    if (node.nodeType === 3) text += node.textContent;  // text node
-    else if (node.tagName === 'SPAN' && node.classList.contains('comment')) {
-      text += node.textContent;
-    } else {
-      text += node.textContent;
-    }
+    text += node.textContent;
   });
   navigator.clipboard.writeText(text.trim()).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = 'copied!';
+    const orig = btn.textContent; btn.textContent = 'copied!';
     setTimeout(() => { btn.textContent = orig; }, 1500);
   });
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
 (function init() {
   updateProgress();
-
-  // If user previously marked MCP done, reflect it
   if (localStorage.getItem('kg_mcp_done') === '1') {
-    const s4 = document.getElementById('step-4');
-    if (!s4.classList.contains('done')) {
-      s4.classList.add('done');
-      document.getElementById('step-4-num').textContent = '✓';
-      const b = document.getElementById('step-4-badge');
-      b.className = 'step-badge done'; b.textContent = 'Done';
-      updateProgress();
-    }
+    const s5 = document.getElementById('step-5');
+    if (!s5.classList.contains('done')) { markStepDone(5); }
   }
-
-  // If scan is already running (has_repos but not yet scanned), start polling
+  if (localStorage.getItem('kg_insights_done') === '1') {
+    const s6 = document.getElementById('step-6');
+    if (!s6.classList.contains('done')) { markStepDone(6); }
+  }
   {% if has_repos and not repo_scanned %}
   pollScanDone();
   document.getElementById('step-2-spinner').classList.add('show');
