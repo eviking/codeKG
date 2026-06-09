@@ -56,30 +56,6 @@
   .tag.maven   { background: #fefce8; border-color: #fef08a; color: #a16207; }
   .tag.policies { background: var(--purple-lt); border-color: #ddd6fe; color: var(--purple); }
 
-  .event-list { list-style:none; padding:0; margin:0; }
-  .event-item { display:flex; align-items:flex-start; gap:0.75rem; padding:0.75rem 0; border-bottom:1px solid var(--border); }
-  .event-item:last-child { border-bottom:none; }
-  .event-icon {
-    width: 28px; height: 28px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem; flex-shrink: 0; margin-top: 0.1rem;
-  }
-  .event-icon.scan    { background: var(--info-lt); color: var(--info); }
-  .event-icon.policy  { background: var(--purple-lt); color: var(--purple); }
-  .event-icon.violation { background: var(--danger-lt); color: var(--danger); }
-  .event-icon.violation.warning { background: var(--warning-lt); color: var(--warning); }
-  .event-body { flex:1; min-width:0; }
-  .event-msg { font-size: 0.84rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .event-sub { font-size: 0.72rem; color: var(--text-3); margin-top: 0.15rem; }
-  .event-repo {
-    font-size: 0.68rem;
-    color: var(--primary);
-    background: var(--primary-lt);
-    border: 1px solid #c7d2fe;
-    border-radius: 20px;
-    padding: 0.05rem 0.45rem;
-    font-weight: 500;
-  }
 </style>
 
 <h1>Dashboard</h1>
@@ -141,12 +117,6 @@
   <div class="summary-chip alert">
     <span class="chip-val">{{ gc.get('violations', 0) }}</span>
     <span class="chip-lbl">Open violations</span>
-  </div>
-  {% endif %}
-  {% if token_savings %}
-  <div class="summary-chip highlight" title="Fresh input tokens consumed by codeKG calls as % of total input — the direct token cost of using the KG">
-    <span class="chip-val">{{ token_savings.input_pct }}%</span>
-    <span class="chip-lbl">Input via KG</span>
   </div>
   {% endif %}
   {% if tk_total > 0 %}
@@ -234,47 +204,4 @@
   {% endif %}
 </div>
 
-{# ── Recent events ── #}
-<div class="section">
-  <h2>Recent events</h2>
-  <div class="card" style="padding:0 1rem;">
-    {% if recent_events %}
-    <ul class="event-list">
-      {% for ev in recent_events %}
-      <li class="event-item">
-        <div class="event-icon {{ ev.type }}{% if ev.type == 'violation' and ev.get('severity') == 'warning' %} warning{% endif %}">
-          {% if ev.type == 'scan' %}⟳
-          {% elif ev.type == 'policy' %}⚑
-          {% else %}✕{% endif %}
-        </div>
-        <div class="event-body">
-          <div class="event-msg">
-            {% if ev.type == 'scan' %}
-              Scan complete — {{ ev.repo_name }}
-            {% elif ev.type == 'policy' %}
-              <a href="/policies/{{ ev.policy_id }}" style="color:var(--purple)">{{ ev.message }}</a>
-            {% else %}
-              <a href="/policies/{{ ev.policy_id }}" style="color:var(--danger)">{{ ev.message }}</a>
-            {% endif %}
-          </div>
-          <div class="event-sub">
-            <span class="event-repo">{{ ev.repo_id }}</span>
-            &nbsp;{{ ev.detail }}
-          </div>
-        </div>
-        {% if ev.type == 'scan' %}
-        <a href="/repos/{{ ev.repo_id }}" style="font-size:0.72rem;color:var(--text-3);flex-shrink:0">details →</a>
-        {% elif ev.type in ('policy', 'violation') %}
-        {% if ev.get('severity') %}
-        <span class="badge badge-{{ ev.severity }}" style="flex-shrink:0">{{ ev.severity }}</span>
-        {% endif %}
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <div class="empty" style="padding:1rem 0">No events yet. Run a scan to get started.</div>
-    {% endif %}
-  </div>
-</div>
 {% endblock %}

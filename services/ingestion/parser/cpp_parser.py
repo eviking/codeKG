@@ -476,13 +476,29 @@ class CppParser:
         return_type = _text(type_node, src) if type_node else None
         doxygen = _extract_doxygen(node, src)
 
+        # Extract parameters (same logic as _handle_method)
+        params = []
+        if declarator.type == "function_declarator":
+            params_node = declarator.child_by_field_name("parameters")
+            if params_node:
+                for p in params_node.children:
+                    if p.type == "parameter_declaration":
+                        ptype_node = p.child_by_field_name("type")
+                        pdecl_node = p.child_by_field_name("declarator")
+                        ptype = _text(ptype_node, src) if ptype_node else ""
+                        pname = ""
+                        if pdecl_node:
+                            raw = _text(pdecl_node, src)
+                            pname = re.sub(r"[*&\s]", "", raw.split("=")[0]).strip()
+                        params.append(f"{ptype} {pname}".strip() if ptype else pname)
+
         result.methods.append({
             "fqn": fqn,
             "name": name,
             "class_fqn": module_fqn,
             "repo_id": result.repo_id,
             "return_type": return_type,
-            "parameters": [],
+            "parameters": params,
             "modifiers": ["public"],
             "annotations": [],
             "start_line": node.start_point[0] + 1,

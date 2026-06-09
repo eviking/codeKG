@@ -542,6 +542,121 @@ def _policy_duplicate_class_names(driver: Driver, repo_id: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# C++ specific policies
+# ---------------------------------------------------------------------------
+
+def _policy_cpp_missing_virtual_destructor(driver: Driver, repo_id: str) -> list[dict]:
+    """C++ classes with virtual methods but no virtual destructor."""
+    rows = _run(driver, """
+        MATCH (c:Class {repo_id: $rid})
+        WHERE c.kind IN ['class', 'template_class', 'struct']
+          AND ANY(m IN [(c)-[:HAS_METHOD]->(m) | m.modifiers] WHERE 'virtual' IN m)
+          AND NOT ANY(m IN [(c)-[:HAS_METHOD]->(m) | m.modifiers] WHERE 'destructor' IN m AND 'virtual' IN m)
+          AND NOT c.fqn CONTAINS 'Test'
+        RETURN c.fqn AS fqn
+        ORDER BY c.fqn
+        LIMIT 50
+    """, rid=repo_id)
+    if not rows:
+        return []
+    pid = _stable_id(repo_id, "cpp-missing-virtual-destructor")
+    cypher = (
+        "MATCH (c:Class {repo_id: $repo_id})"
+        " WHERE c.kind IN ['class', 'template_class', 'struct']"
+        " AND ANY(m IN [(c)-[:HAS_METHOD]->(m) | m.modifiers] WHERE 'virtual' IN m)"
+        " AND NOT ANY(m IN [(c)-[:HAS_METHOD]->(m) | m.modifiers] WHERE 'destructor' IN m AND 'virtual' IN m)"
+        " RETURN c.fqn AS violator"
+    )
+    return [{
+        "policy_id": pid,
+        "title": "C++: Missing Virtual Destructor",
+        "natural_language": (
+            "Any C++ class with virtual methods must declare a virtual destructor. "
+            "Deleting a derived object through a base pointer without a virtual destructor "
+            "is undefined behaviour and causes resource leaks."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "error",
+        "violator_count": len(rows),
+        "sample_violators": [r["fqn"] for r in rows[:5]],
+    }]
+
+
+def _policy_cpp_raw_pointer_with_destructor(driver: Driver, repo_id: str) -> list[dict]:
+    """C++ classes that have both a destructor and raw pointer fields — likely manual memory management."""
+    rows = _run(driver, """
+        MATCH (c:Class {repo_id: $rid})-[:HAS_METHOD]->(m:Method)
+        WHERE c.kind IN ['class', 'struct', 'template_class']
+          AND 'destructor' IN m.modifiers
+          AND NOT c.fqn CONTAINS 'Test'
+        MATCH (c)-[:HAS_FIELD]->(f:Field)
+        WHERE f.type ENDS WITH '*' OR f.type CONTAINS '* '
+        RETURN DISTINCT c.fqn AS fqn
+        ORDER BY c.fqn
+        LIMIT 50
+    """, rid=repo_id)
+    if not rows:
+        return []
+    pid = _stable_id(repo_id, "cpp-raw-pointer-ownership")
+    cypher = (
+        "MATCH (c:Class {repo_id: $repo_id})-[:HAS_METHOD]->(m:Method)"
+        " WHERE c.kind IN ['class', 'struct', 'template_class']"
+        " AND 'destructor' IN m.modifiers"
+        " MATCH (c)-[:HAS_FIELD]->(f:Field)"
+        " WHERE f.type ENDS WITH '*' OR f.type CONTAINS '* '"
+        " RETURN DISTINCT c.fqn AS violator"
+    )
+    return [{
+        "policy_id": pid,
+        "title": "C++: Raw Owning Pointer (Rule of Five candidate)",
+        "natural_language": (
+            "C++ classes with both a custom destructor and raw pointer fields are likely "
+            "managing memory manually. Prefer std::unique_ptr or std::shared_ptr to avoid "
+            "leaks, double-free, and Rule-of-Five violations."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(rows),
+        "sample_violators": [r["fqn"] for r in rows[:5]],
+    }]
+
+
+def _policy_cpp_deep_include_chains(driver: Driver, repo_id: str) -> list[dict]:
+    """C++ files that include more than 30 headers — signals over-inclusion and slow builds."""
+    rows = _run(driver, """
+        MATCH (c:Class {repo_id: $rid})-[:IMPORTS]->(i)
+        WHERE c.kind IN ['class', 'struct', 'module', 'template_class']
+        WITH c, count(i) AS inc_count
+        WHERE inc_count > 30
+        RETURN c.fqn AS fqn, inc_count
+        ORDER BY inc_count DESC
+        LIMIT 30
+    """, rid=repo_id)
+    if not rows:
+        return []
+    pid = _stable_id(repo_id, "cpp-deep-include-chains")
+    cypher = (
+        "MATCH (c:Class {repo_id: $repo_id})-[:IMPORTS]->(i)"
+        " WHERE c.kind IN ['class', 'struct', 'module', 'template_class']"
+        " WITH c, count(i) AS inc_count WHERE inc_count > 30"
+        " RETURN c.fqn AS violator"
+    )
+    return [{
+        "policy_id": pid,
+        "title": "C++: Excessive Header Includes (> 30)",
+        "natural_language": (
+            "A C++ source file including more than 30 headers is a build-time smell. "
+            "Over-inclusion slows compilation, creates hidden dependencies, and makes "
+            "forward declarations and include-what-you-use discipline harder to enforce."
+        ),
+        "cypher_constraint": cypher,
+        "severity": "warning",
+        "violator_count": len(rows),
+        "sample_violators": [f"{r['fqn']} ({r['inc_count']} includes)" for r in rows[:5]],
+    }]
+
+
+# ---------------------------------------------------------------------------
 # Writer
 # ---------------------------------------------------------------------------
 
@@ -594,6 +709,10 @@ def scan_policies(driver: Driver, repo_id: str) -> list[dict]:
         _policy_console_imports_ingestion,
         _policy_mcp_imports_neo4j,
         _policy_duplicate_class_names,
+        # C++ specific
+        _policy_cpp_missing_virtual_destructor,
+        _policy_cpp_raw_pointer_with_destructor,
+        _policy_cpp_deep_include_chains,
     ]
 
     all_policies: list[dict] = []

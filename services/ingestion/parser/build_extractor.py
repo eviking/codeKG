@@ -117,6 +117,18 @@ class BuildExtractor:
             gf = gradle_kts if gradle_kts.exists() else gradle
             return self._parse_gradle(root, gf)
 
+        # C++ build systems
+        if (root / "CMakeLists.txt").exists():
+            return self._parse_cmake(root)
+        if (root / "meson.build").exists():
+            return self._parse_meson(root)
+        if (root / "BUILD").exists() or (root / "BUILD.bazel").exists() or (root / "WORKSPACE").exists():
+            return self._parse_bazel(root)
+        if (root / "Makefile").exists() or (root / "makefile").exists() or (root / "GNUmakefile").exists():
+            return self._parse_makefile(root)
+        if (root / "conanfile.txt").exists() or (root / "conanfile.py").exists():
+            return BuildInfo(build_tool="conan")
+
         return BuildInfo(build_tool="unknown")
 
     def _parse_pom(self, pom: Path) -> BuildInfo:
@@ -210,6 +222,98 @@ class BuildExtractor:
 
         except OSError:
             pass
+        return info
+
+    def _parse_cmake(self, root: Path) -> BuildInfo:
+        info = BuildInfo(build_tool="cmake")
+        info.build_commands = {
+            "Configure": "cmake -B build -DCMAKE_BUILD_TYPE=Release",
+            "Build": "cmake --build build",
+            "Test": "ctest --test-dir build",
+            "Clean": "cmake --build build --target clean",
+        }
+        try:
+            text = (root / "CMakeLists.txt").read_text(errors="replace")
+            m = re.search(r"cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)", text, re.IGNORECASE)
+            if m:
+                info.java_version = f"cmake-{m.group(1)}"  # reuse java_version field for cmake version
+            m = re.search(r'project\s*\(\s*(\w+)', text, re.IGNORECASE)
+            if m:
+                pass  # project name could be stored if needed
+            # Detect C++ standard
+            for std in ("23", "20", "17", "14", "11"):
+                if f"CMAKE_CXX_STANDARD {std}" in text or f"cxx_std_{std}" in text:
+                    info.key_dependencies.append(f"C++{std}")
+                    break
+            # Detect test frameworks in CMakeLists
+            if "gtest" in text.lower() or "googletest" in text.lower():
+                info.test_framework = "gtest"
+                info.key_dependencies.append("GoogleTest")
+            elif "catch2" in text.lower():
+                info.test_framework = "catch2"
+                info.key_dependencies.append("Catch2")
+            elif "boost_test" in text.lower() or "boost::unit_test" in text.lower():
+                info.test_framework = "boost-test"
+                info.key_dependencies.append("Boost.Test")
+            # Common dependencies
+            for signal, label in [
+                ("boost", "Boost"), ("qt5", "Qt5"), ("qt6", "Qt6"),
+                ("openssl", "OpenSSL"), ("protobuf", "Protobuf"),
+                ("grpc", "gRPC"), ("abseil", "Abseil"), ("fmt", "fmtlib"),
+                ("spdlog", "spdlog"), ("eigen", "Eigen"), ("opencv", "OpenCV"),
+            ]:
+                if signal in text.lower() and label not in info.key_dependencies:
+                    info.key_dependencies.append(label)
+        except OSError:
+            pass
+        return info
+
+    def _parse_meson(self, root: Path) -> BuildInfo:
+        info = BuildInfo(build_tool="meson")
+        info.build_commands = {
+            "Configure": "meson setup builddir",
+            "Build": "meson compile -C builddir",
+            "Test": "meson test -C builddir",
+        }
+        try:
+            text = (root / "meson.build").read_text(errors="replace")
+            for std in ("c++23", "c++20", "c++17", "c++14", "c++11"):
+                if std in text:
+                    info.key_dependencies.append(std.upper())
+                    break
+        except OSError:
+            pass
+        return info
+
+    def _parse_bazel(self, root: Path) -> BuildInfo:
+        info = BuildInfo(build_tool="bazel")
+        info.build_commands = {
+            "Build": "bazel build //...",
+            "Test": "bazel test //...",
+            "Run": "bazel run //:target",
+        }
+        return info
+
+    def _parse_makefile(self, root: Path) -> BuildInfo:
+        info = BuildInfo(build_tool="make")
+        for name in ("Makefile", "makefile", "GNUmakefile"):
+            mf = root / name
+            if not mf.exists():
+                continue
+            try:
+                text = mf.read_text(errors="replace")
+                info.build_commands = {"Build": "make", "Test": "make test", "Clean": "make clean"}
+                for std in ("c++23", "c++20", "c++17", "c++14", "c++11",
+                            "-std=c++2b", "-std=c++20", "-std=c++17", "-std=c++14"):
+                    if std in text:
+                        label = std.replace("-std=", "").replace("c++2b", "C++23").upper()
+                        if not label.startswith("C++"):
+                            label = "C++" + label[3:]
+                        info.key_dependencies.append(label)
+                        break
+            except OSError:
+                pass
+            break
         return info
 
     def _extract_test_categories(self, root: Path, build_info: BuildInfo) -> list[TestCategory]:
@@ -411,6 +515,46 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
             pkg_prefix=_path_to_pkg_prefix(rel),
             build_tool=fs_build_tool,
         ))
+
+    # ---- C++: CMake subdirectory discovery ----
+    # For C++ repos with no Gradle/Maven modules found above, discover subdirectories
+    # that have their own CMakeLists.txt (add_subdirectory pattern).
+    if not modules:
+        cmake_root = root / "CMakeLists.txt"
+        if cmake_root.exists():
+            try:
+                text = cmake_root.read_text(errors="replace")
+                for m in re.finditer(r'add_subdirectory\s*\(\s*([^\s)]+)', text):
+                    rel = m.group(1).strip()
+                    sub = root / rel
+                    if sub.is_dir():
+                        modules.append(ModuleInfo(
+                            module_id=rel,
+                            name=rel.split("/")[-1],
+                            path=str(sub),
+                            pkg_prefix=rel.split("/")[-1],
+                            build_tool="cmake",
+                        ))
+            except OSError:
+                pass
+        # Fallback: any subdirectory containing CMakeLists.txt is a module
+        if not modules:
+            for cmake_file in root.rglob("CMakeLists.txt"):
+                subdir = cmake_file.parent
+                if subdir == root:
+                    continue
+                parts = subdir.parts
+                if any(p.startswith(".") or p in ("build", "out", "_build") for p in parts):
+                    continue
+                rel = str(subdir.relative_to(root))
+                if rel not in {m.module_id for m in modules}:
+                    modules.append(ModuleInfo(
+                        module_id=rel,
+                        name=subdir.name,
+                        path=str(subdir),
+                        pkg_prefix=subdir.name,
+                        build_tool="cmake",
+                    ))
 
     # ---- Python fallback: top-level packages ----
     # If no build-tool modules found, discover Python packages as modules.

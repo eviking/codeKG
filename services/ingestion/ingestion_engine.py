@@ -48,6 +48,81 @@ log = get_logger(__name__, service="ingestion")
 
 
 # ------------------------------------------------------------------
+# C++ concurrency extractor (regex-based, no Java AST)
+# ------------------------------------------------------------------
+
+def _extract_cpp_concurrency(file_path, parsed) -> tuple:
+    """
+    Regex scan a C++ source file for std::thread, std::mutex, std::async,
+    std::future, and thread-safety comments. Returns (pools, asyncs, facts)
+    in the same format as ConcurrencyExtractor for Java.
+    """
+    from parser.concurrency_extractor import ThreadPoolDeclaration, AsyncMethod, ConcurrencyFact
+    import re as _re
+
+    pools: list = []
+    asyncs: list = []
+    facts: list = []
+
+    try:
+        text = file_path.read_text(errors="replace")
+    except OSError:
+        return pools, asyncs, facts
+
+    file_str = str(file_path)
+
+    # For FQN attribution — use first class in file, else filename stem
+    default_fqn = parsed.classes[0]["fqn"] if parsed.classes else file_path.stem
+
+    # Thread pools: std::thread, ThreadPool, std::jthread
+    for m in _re.finditer(r'\bstd::(thread|jthread)\b', text):
+        line = text[:m.start()].count("\n") + 1
+        pools.append(ThreadPoolDeclaration(
+            class_fqn=default_fqn,
+            field_name="thread",
+            pool_type=f"std::{m.group(1)}",
+            file_path=file_str,
+            line=line,
+        ))
+
+    # Async: std::async, std::future, std::promise
+    for pattern, mechanism in [
+        (r'\bstd::async\b', "std::async"),
+        (r'\bstd::future\b', "std::future"),
+        (r'\bstd::promise\b', "std::promise"),
+    ]:
+        for m in _re.finditer(pattern, text):
+            line = text[:m.start()].count("\n") + 1
+            asyncs.append(AsyncMethod(
+                class_fqn=default_fqn,
+                method_name=mechanism,
+                mechanism=mechanism,
+                file_path=file_str,
+                line=line,
+            ))
+            break  # one signal per file per type is enough
+
+    # Synchronization facts: std::mutex, std::lock_guard, std::unique_lock, std::atomic
+    for pattern, fact_type in [
+        (r'\bstd::mutex\b', "synchronized_method"),
+        (r'\bstd::lock_guard\b', "synchronized_method"),
+        (r'\bstd::unique_lock\b', "synchronized_method"),
+        (r'\bstd::shared_mutex\b', "synchronized_method"),
+        (r'\bstd::atomic\b', "volatile_field"),
+        (r'\bvolatile\b', "volatile_field"),
+    ]:
+        if _re.search(pattern, text):
+            facts.append(ConcurrencyFact(
+                class_fqn=default_fqn,
+                fact_type=fact_type,
+                detail=pattern.strip(r"\b").replace("\\b", ""),
+                file_path=file_str,
+            ))
+
+    return pools, asyncs, facts
+
+
+# ------------------------------------------------------------------
 # Top-level worker function — must be defined at module level so
 # multiprocessing can pickle it. Each worker gets its own parser
 # instances (Tree-sitter parsers are not process-safe to share).
@@ -85,6 +160,7 @@ def _parse_file_worker(args: tuple) -> dict | None:
         elif ext in CPP_EXTENSIONS:
             parser = CppParser()
             parsed = parser.parse_file(file_path, repo_id)
+            pools, asyncs, facts = _extract_cpp_concurrency(file_path, parsed)
 
         else:
             return None  # unsupported extension

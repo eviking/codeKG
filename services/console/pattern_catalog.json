@@ -6,7 +6,8 @@
     "Django",
     "Python",
     "Custom",
-    "PMD"
+    "PMD",
+    "C++"
   ],
   "patterns": [
     {
@@ -809,6 +810,156 @@
       },
       "anti_pattern": true,
       "severity": "warning",
+      "enabled": true
+    },
+    {
+      "id": "cpp-raii",
+      "name": "RAII (Resource Acquisition Is Initialization)",
+      "source": "Custom",
+      "category": "Resource Management",
+      "language": "cpp",
+      "intent": "Bind resource lifetime to object lifetime so resources are always released, even under exceptions.",
+      "description": "RAII ties the acquisition and release of a resource (memory, file handle, mutex, socket) to the constructor and destructor of a class. The C++ runtime guarantees destructors run when an object goes out of scope — including during stack unwinding from exceptions. This eliminates resource leaks without try/finally blocks. The standard library applies RAII throughout: std::unique_ptr, std::lock_guard, std::fstream, std::vector.",
+      "when_to_apply": "Apply to any class that owns a resource that must be released deterministically. Prefer RAII over manual new/delete, raw FILE*, or explicit lock()/unlock() calls. Use std::unique_ptr/shared_ptr instead of raw pointers. Use std::lock_guard or std::scoped_lock instead of manual mutex.lock()/unlock(). Write custom RAII wrappers for C APIs (e.g. wrapping a POSIX fd). Avoid RAII for resources that must outlive their lexical scope — use a shared_ptr or explicit lifetime management instead.",
+      "signals": {
+        "name_suffix": ["Guard", "Lock", "Handle", "Wrapper", "Owner", "Scope"],
+        "name_prefix": ["Scoped", "Auto", "Unique"],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "cpp-pimpl",
+      "name": "Pimpl (Pointer to Implementation)",
+      "source": "Custom",
+      "category": "Structural",
+      "language": "cpp",
+      "intent": "Hide private implementation details behind an opaque pointer to reduce compile-time coupling and binary compatibility issues.",
+      "description": "Pimpl (also called d-pointer or Cheshire Cat) places all private data members and private methods in a separate implementation class whose definition lives only in the .cpp file. The public header only sees a forward-declared pointer. This breaks physical dependencies: changing private members no longer recompiles callers. It also enables ABI stability because the public class layout never changes. Widely used in Qt (QPrivate), KDE, and any library that needs to guarantee binary compatibility across releases.",
+      "when_to_apply": "Use in library code that must maintain ABI compatibility across releases, when compilation times are unacceptably slow due to heavy private includes, or when you want to prevent clients from depending on private types. Pair with std::unique_ptr<Impl> for automatic cleanup. Avoid in performance-critical hot paths — the extra pointer indirection and heap allocation have measurable cost. Not needed for header-only libraries.",
+      "signals": {
+        "name_suffix": ["Impl", "Private", "Priv"],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": ["Impl", "Private"],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "cpp-crtp",
+      "name": "CRTP (Curiously Recurring Template Pattern)",
+      "source": "Custom",
+      "category": "Structural",
+      "language": "cpp",
+      "intent": "Achieve static (compile-time) polymorphism by having a base class template parameterised on its derived class.",
+      "description": "CRTP uses the form `class Derived : public Base<Derived>`. The base class can call derived class methods via static_cast<Derived*>(this), achieving polymorphic dispatch without virtual functions. This eliminates vtable lookup overhead and enables zero-cost abstractions. Common uses: adding comparison operators via a mixin base (enable_shared_from_this), fluent builder interfaces, compile-time interface enforcement, and the Barton–Nackman trick for operator injection.",
+      "when_to_apply": "Use in performance-sensitive code where virtual dispatch overhead is measurable, when the complete class hierarchy is known at compile time, and when adding reusable behaviour (operators, clone(), serialisation) to a family of types via a base class mixin. Avoid when the set of derived types is open (unknown at compile time) — that is the use case for runtime polymorphism. CRTP significantly increases template error message complexity; ensure the gain is worth the readability cost.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": ["Base", "Mixin", "CRTP"],
+        "base_class_contains": ["Base", "Mixin"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "cpp-rule-of-five",
+      "name": "Rule of Five",
+      "source": "Custom",
+      "category": "Resource Management",
+      "language": "cpp",
+      "intent": "Classes that define any one of destructor, copy constructor, copy assignment, move constructor, or move assignment should explicitly define all five.",
+      "description": "C++11 extended the Rule of Three (destructor + copy constructor + copy assignment) to the Rule of Five by adding move constructor and move assignment. If a class manages a resource (raw pointer, file handle, lock) and defines a custom destructor to release it, the compiler-generated copies will do a shallow copy of the pointer — causing double-free. Defining all five ensures correct resource ownership semantics. The Rule of Zero is the preferred modern alternative: own resources only through RAII types (unique_ptr, vector) so the compiler-generated five are always correct.",
+      "when_to_apply": "Whenever a class owns a raw resource — raw pointer with new/delete, POSIX file descriptor, socket, mutex. Check: if you wrote a destructor, you need all five. Prefer the Rule of Zero: replace raw owning pointers with std::unique_ptr and the compiler generates correct semantics automatically. If a class should not be copyable (e.g. mutex wrapper), explicitly =delete the copy constructor and copy assignment. Always = default or = delete explicitly rather than relying on compiler generation rules.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "method_name_contains": ["~", "operator="],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "cpp-singleton",
+      "name": "C++ Singleton (Meyer's)",
+      "source": "Custom",
+      "category": "Creational",
+      "language": "cpp",
+      "intent": "Ensure a class has exactly one instance using a static local variable (Meyer's idiom) which is thread-safe since C++11.",
+      "description": "The Meyer's Singleton uses a static local variable inside a static getInstance() method. In C++11 and later the initialization of static local variables is guaranteed to be thread-safe by the standard (magic statics). This is simpler and safer than double-checked locking. The singleton can be destroyed by the runtime at process exit, which can cause issues with global destructors — use Phoenix Singleton or std::atexit if destruction order matters.",
+      "when_to_apply": "Use for truly global services with no useful alternative: logging sinks, configuration objects, hardware interface wrappers. In most cases, prefer dependency injection — passing the shared object through constructors — over global singletons. Singletons make unit testing hard because they carry state between tests. Avoid for anything that needs to be reset or replaced between tests. Consider std::call_once + std::once_flag for thread-safe one-time initialization that doesn't require a class.",
+      "signals": {
+        "name_suffix": ["Registry", "Manager", "Instance"],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "method_name_contains": ["getInstance", "instance", "get_instance"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "antipattern-cpp-raw-pointer-ownership",
+      "name": "Raw Owning Pointer",
+      "source": "Custom",
+      "category": "Anti-pattern",
+      "language": "cpp",
+      "intent": "Classes using raw pointers (T*) for ownership rather than std::unique_ptr or std::shared_ptr.",
+      "description": "Raw owning pointers (T* where the class is responsible for deleting the object) are a primary source of memory leaks, use-after-free, and double-free bugs in C++. Modern C++ (C++11+) provides std::unique_ptr for exclusive ownership and std::shared_ptr for shared ownership, both of which release resources automatically and work correctly in the presence of exceptions. Raw pointers are still appropriate for non-owning references (observing pointers), but ownership must be expressed through smart pointers.",
+      "when_to_apply": "This is an anti-pattern. Migrate raw owning pointers to std::unique_ptr (exclusive) or std::shared_ptr (shared). Use T* only for non-owning references. Apply static analysis tools (clang-tidy, cppcheck) and AddressSanitizer to catch remaining raw pointer bugs. In code reviews, require a comment explaining why a raw pointer is non-owning whenever T* appears as a class member. Add a CodeKG policy to flag classes with destructor + raw pointer fields.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false,
+        "method_name_contains": ["delete", "free"]
+      },
+      "anti_pattern": true,
+      "severity": "warning",
+      "enabled": true
+    },
+    {
+      "id": "antipattern-cpp-missing-virtual-destructor",
+      "name": "Missing Virtual Destructor",
+      "source": "Custom",
+      "category": "Anti-pattern",
+      "language": "cpp",
+      "intent": "A class with virtual methods does not declare a virtual destructor, causing undefined behaviour when deleting via a base pointer.",
+      "description": "Deleting a derived-class object through a base-class pointer is undefined behaviour if the base class does not have a virtual destructor. The derived destructor is never called, leaking any resources the derived class owns. This is a silent correctness bug: code compiles, runs, and often appears to work until a leak is detected by a sanitizer or the program is run under valgrind. The fix is trivial: declare `virtual ~Base() = default;` in any class that has virtual methods or is intended to be used polymorphically.",
+      "when_to_apply": "This is an anti-pattern. Any class that has at least one virtual method (and is therefore intended to be used polymorphically) must declare a virtual destructor. If the class is not intended to be used as a base class, declare it `final` to prevent inheritance. If a base class destructor should not do anything, use `virtual ~Base() = default;`. Static analysis tools (clang-tidy: cppcoreguidelines-virtual-class-destructor) catch this automatically — add this check to CI.",
+      "signals": {
+        "name_suffix": [],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": true,
+      "severity": "error",
       "enabled": true
     },
     {
