@@ -76,7 +76,7 @@ jobs:
       - name: Build tree-sitter-sfapex (Salesforce Apex grammar)
         run: |
           git clone --depth=1 https://github.com/aheber/tree-sitter-sfapex.git /tmp/tree-sitter-sfapex
-          gcc -shared -fPIC -o /usr/local/lib/tree_sitter_apex.so \
+          gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_apex.so \
             /tmp/tree-sitter-sfapex/apex/src/parser.c
       - name: Install dependencies
         run: |
