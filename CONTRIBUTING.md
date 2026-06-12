@@ -152,6 +152,13 @@ gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_apex.so \
   /tmp/tree-sitter-sfapex/apex/src/parser.c
 ```
 
+**Local setup for ABAP grammar (one-time):**
+```bash
+git clone --depth=1 https://github.com/kennyhml/tree-sitter-abap.git /tmp/ts-abap
+gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_abap.so \
+  /tmp/ts-abap/src/parser.c /tmp/ts-abap/src/scanner.c
+```
+
 ---
 
 ## Adding a new MCP tool

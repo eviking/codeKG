@@ -896,6 +896,69 @@
       "enabled": true
     },
     {
+      "id": "abap-bopf-business-object",
+      "name": "BOPF Business Object",
+      "source": "Custom",
+      "category": "SAP",
+      "language": "abap",
+      "intent": "A class implementing a BOPF node or action — the SAP Business Object Processing Framework pattern for encapsulating business logic on transactional business objects.",
+      "description": "BOPF (Business Object Processing Framework) structures SAP business object logic into nodes, actions, validations, determinations, and queries. Classes following this pattern typically implement IF_BOPF_ACTION~EXECUTE or IF_BOPF_DETERMINATION~EXECUTE. They receive a transactional container and access business object data via the BOPF service manager rather than direct database access.",
+      "when_to_apply": "Use for any business object logic in SAP S/4HANA that needs to participate in the BOPF transaction model. Keep action classes focused on a single business operation. Access data only via the BOPF container — never via direct SELECT. Always implement error handling through the messages parameter of EXECUTE.",
+      "signals": {
+        "name_suffix": ["Action", "Validation", "Determination", "Query"],
+        "name_prefix": [],
+        "base_class_contains": ["IF_BOPF_ACTION", "IF_BOPF_DETERMINATION", "IF_BOPF_VALIDATION"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "abap-clean-abap-service",
+      "name": "Clean ABAP Service Class",
+      "source": "Custom",
+      "category": "SAP",
+      "language": "abap",
+      "intent": "A stateless service class following Clean ABAP conventions — small methods, no side effects, dependency injection via constructor.",
+      "description": "Clean ABAP service classes follow the Clean Code guidelines published by SAP (github.com/SAP/styleguides). They are final, inject dependencies via the constructor, use meaningful names without Hungarian notation, and keep methods short (under 20 lines). They avoid static state, global variables, and FORM routines in favor of object-oriented design.",
+      "when_to_apply": "Apply to all new ABAP development. Mark service classes FINAL unless designed for extension. Inject all dependencies (database access, external services) via constructor parameters typed to interfaces — this enables unit testing with test doubles. Follow the ZIF_/ZCL_ naming convention for custom development.",
+      "signals": {
+        "name_suffix": ["Service", "Manager", "Processor", "Handler", "Validator"],
+        "name_prefix": ["ZCL_", "YCL_", "LCL_"],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "abap-test-class",
+      "name": "ABAP Unit Test Class",
+      "source": "Custom",
+      "category": "Testing",
+      "language": "abap",
+      "intent": "A local or global test class using ABAP Unit — the built-in xUnit framework for ABAP.",
+      "description": "ABAP Unit test classes are annotated with FOR TESTING and contain test methods annotated with FOR TESTING. Setup and teardown use SETUP and TEARDOWN methods. Test doubles are created with the ABAP Test Double Framework (CL_ABAP_TESTDOUBLE) or hand-rolled implementations of interfaces. Tests run in isolation — no Customizing, no productive data.",
+      "when_to_apply": "Write ABAP Unit tests for every service class and complex method. Use local test classes (defined in the test include of the same class pool) for unit tests. Use global test classes for integration tests that span multiple objects. Inject test doubles via constructor to avoid real database access in unit tests. Target 80%+ statement coverage.",
+      "signals": {
+        "name_suffix": ["Test", "Tests", "TestCase", "Test_Case"],
+        "name_prefix": ["LTC_", "ZCL_TEST_", "LCL_TEST_"],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
       "id": "antipattern-god-class",
       "name": "God Class",
       "source": "PMD",

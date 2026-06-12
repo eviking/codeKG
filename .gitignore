@@ -28,6 +28,7 @@ logs/
 
 # ── Compiled native grammars (platform-specific, built locally or in Docker) ───
 services/ingestion/parser/tree_sitter_apex.so
+services/ingestion/parser/tree_sitter_abap.so
 
 # ── Python ─────────────────────────────────────────────────────────────────────
 __pycache__/

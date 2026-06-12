@@ -78,6 +78,12 @@ jobs:
           git clone --depth=1 https://github.com/aheber/tree-sitter-sfapex.git /tmp/tree-sitter-sfapex
           gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_apex.so \
             /tmp/tree-sitter-sfapex/apex/src/parser.c
+      - name: Build tree-sitter-abap (SAP ABAP grammar)
+        run: |
+          git clone --depth=1 https://github.com/kennyhml/tree-sitter-abap.git /tmp/tree-sitter-abap
+          gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_abap.so \
+            /tmp/tree-sitter-abap/src/parser.c \
+            /tmp/tree-sitter-abap/src/scanner.c
       - name: Install dependencies
         run: |
           pip install -q \

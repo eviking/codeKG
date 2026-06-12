@@ -14,6 +14,7 @@ from parser.python_parser import PythonParser
 from parser.cpp_parser import CppParser, CPP_EXTENSIONS
 from parser.apex_parser import ApexParser, APEX_EXTENSIONS
 from parser.js_parser import JsParser, JS_TS_EXTENSIONS
+from parser.abap_parser import AbapParser, ABAP_EXTENSIONS
 from parser.scip_emitter import SCIPEmitter
 from parser.api_extractor import ApiExtractor
 from parser.concurrency_extractor import ConcurrencyExtractor
@@ -166,6 +167,10 @@ def _parse_file_worker(args: tuple) -> dict | None:
 
         elif ext in APEX_EXTENSIONS:
             parser = ApexParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
+        elif ext in ABAP_EXTENSIONS:
+            parser = AbapParser()
             parsed = parser.parse_file(file_path, repo_id)
 
         elif ext in JS_TS_EXTENSIONS:

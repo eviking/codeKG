@@ -121,6 +121,10 @@ class BuildExtractor:
         if (root / "package.json").exists():
             return self._parse_package_json(root)
 
+        # SAP ABAP project
+        if (root / ".abapgit.xml").exists() or any(root.glob("*.abap")):
+            return BuildInfo(build_tool="abapgit")
+
         # Salesforce / Apex project
         if (root / "sfdx-project.json").exists() or (root / ".forceignore").exists():
             return self._parse_sfdx(root)

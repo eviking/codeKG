@@ -135,6 +135,30 @@ Uses tree-sitter-sfapex (compiled from source — no PyPI package). Extracts:
 >   /tmp/tree-sitter-sfapex/apex/src/parser.c
 > ```
 
+### SAP ABAP parser (`parser/abap_parser.py`)
+
+Uses tree-sitter-abap (compiled from source — no PyPI package). Extracts:
+- Classes (`CLASS ... DEFINITION`) and interfaces (`INTERFACE`)
+- `INHERITING FROM` → `EXTENDS` edges
+- `INTERFACES` declarations → `IMPLEMENTS` edges
+- Methods from `IMPLEMENTATION` section with parameters, return types, and visibility modifiers
+- Constructor (`METHOD constructor`) → `<init>`
+- `DATA` and `CLASS-DATA` field declarations
+- `FORM` subroutines (legacy ABAP) collected under a synthetic module class
+- `CALL METHOD` and `->method()` call chains → `CALLS` edges
+- `"` comment lines directly above a definition (docstrings)
+
+> **Dependency note:** tree-sitter-abap has no PyPI package. Compiled from [kennyhml/tree-sitter-abap](https://github.com/kennyhml/tree-sitter-abap). The `.so` lives in `services/ingestion/parser/` and is `.gitignore`d.
+>
+> **Local setup (one-time):**
+> ```bash
+> git clone --depth=1 https://github.com/kennyhml/tree-sitter-abap.git /tmp/ts-abap
+> gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_abap.so \
+>   /tmp/ts-abap/src/parser.c /tmp/ts-abap/src/scanner.c
+> ```
+
+**Build detection:** A repo is identified as ABAP when `.abapgit.xml` or any `.abap` file is present at the root. Build tool is reported as `abapgit`.
+
 ### Java parser (`parser/java_parser.py`)
 
 Uses tree-sitter-java. Extracts:
