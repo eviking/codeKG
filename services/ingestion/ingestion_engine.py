@@ -169,8 +169,7 @@ def _parse_file_worker(args: tuple) -> dict | None:
             parsed = parser.parse_file(file_path, repo_id)
 
         elif ext in JS_TS_EXTENSIONS:
-            from parser.concurrency_extractor import AsyncMethod, ConcurrencyFact
-            import re as _re
+            from parser.concurrency_extractor import AsyncMethod
             parser = JsParser()
             parsed = parser.parse_file(file_path, repo_id)
             # Detect async/Promise-based concurrency from parsed method modifiers
