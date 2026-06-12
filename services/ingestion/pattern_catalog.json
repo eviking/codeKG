@@ -5,6 +5,8 @@
     "EIP",
     "Django",
     "Python",
+    "JavaScript",
+    "Apex",
     "Custom",
     "PMD"
   ],
@@ -760,6 +762,132 @@
         "name_prefix": [],
         "base_class_contains": [],
         "annotation_contains": ["@ServerlessScope"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-react-component",
+      "name": "React Component",
+      "source": "Custom",
+      "category": "UI",
+      "language": "javascript",
+      "intent": "A class or function that renders UI by returning JSX — the primary building block of React applications.",
+      "description": "React components are the units of UI composition. Class components extend React.Component and implement a render() method. Function components (the modern norm) are plain functions returning JSX. Both receive props and can manage local state (useState) and side effects (useEffect). Components should be pure with respect to their props and state — the same inputs always produce the same output.",
+      "when_to_apply": "Use function components with hooks for all new code. Class components are legacy and should be migrated when touched. Keep components focused on rendering — extract data-fetching and complex state logic into custom hooks or service modules. Small, composable components are easier to test and reuse than large monolithic ones.",
+      "signals": {
+        "name_suffix": ["Component", "View", "Page", "Screen", "Panel", "Modal", "Dialog"],
+        "name_prefix": [],
+        "base_class_contains": ["Component", "PureComponent"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-service-class",
+      "name": "Service",
+      "source": "Custom",
+      "category": "Application",
+      "language": "javascript",
+      "intent": "A class encapsulating business logic or external API calls, injectable into components or other services.",
+      "description": "Service classes in JS/TS act as the application layer — they contain business logic, orchestrate API calls, and manage domain state. In Angular they are decorated with @Injectable(); in NestJS with @Injectable() as well. In plain Node.js projects they are conventional classes instantiated once and passed by reference. Services should not know about the UI layer.",
+      "when_to_apply": "Use when logic would otherwise leak into components or route handlers. Keep services focused on a single domain concern. In frameworks that support DI (Angular, NestJS), always register services as injectables rather than using module-level singletons — this makes testing with mocks straightforward.",
+      "signals": {
+        "name_suffix": ["Service", "Client", "Api", "Repository", "Store", "Manager"],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": ["Injectable", "Service"],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "js-test-suite",
+      "name": "Test Suite",
+      "source": "Custom",
+      "category": "Testing",
+      "language": "javascript",
+      "intent": "Files or classes containing Jest / Vitest / Mocha test cases for JavaScript or TypeScript code.",
+      "description": "JavaScript test suites group related test cases under a describe() block and use it() / test() for individual assertions. Jest and Vitest are the dominant test runners. Test files are conventionally named *.test.ts, *.spec.ts, or placed in __tests__/ directories. Mocking is done with jest.fn(), jest.mock(), or vi.mock(). Setup and teardown use beforeEach / afterEach hooks.",
+      "when_to_apply": "Place test files alongside the source files they test (co-located) rather than in a separate top-level test directory — it keeps tests discoverable and makes it obvious when source is deleted without removing tests. Use describe blocks to group related tests. Keep each test focused on one behaviour. Mock at the module boundary, not deep inside the implementation.",
+      "signals": {
+        "name_suffix": ["Test", "Spec", "Tests"],
+        "name_prefix": ["Test"],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-trigger-handler",
+      "name": "Apex Trigger Handler",
+      "source": "Custom",
+      "category": "Salesforce",
+      "language": "apex",
+      "intent": "A class that encapsulates trigger logic and is called from a thin trigger file, keeping business logic out of the trigger itself.",
+      "description": "The Trigger Handler pattern separates Salesforce trigger logic from business logic. A thin trigger file (*.trigger) calls a dedicated handler class, keeping the trigger file to a few lines. The handler class has methods per event type (beforeInsert, afterUpdate, etc.) and calls service or domain classes for actual business logic. This makes logic testable without needing trigger context setup and prevents the trigger-per-object anti-pattern.",
+      "when_to_apply": "Use for every Apex trigger. A trigger file should contain only the handler instantiation and event dispatch — never business logic. Use a framework like Kevin O'Hara's TriggerHandler base class or a similar pattern to standardise event dispatch. Enforce via ArchPolicy that no DML or SOQL appears directly in trigger files.",
+      "signals": {
+        "name_suffix": ["TriggerHandler", "Handler", "TriggerService"],
+        "name_prefix": [],
+        "base_class_contains": ["TriggerHandler"],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-service-layer",
+      "name": "Apex Service",
+      "source": "Custom",
+      "category": "Salesforce",
+      "language": "apex",
+      "intent": "A class containing business logic callable from triggers, batch jobs, and LWC/Aura controllers.",
+      "description": "The Apex Service layer encapsulates business logic that can be called from multiple entry points — triggers, batch jobs, REST endpoints, and Aura/LWC controllers. Services use `with sharing` by default to respect FLS. They call Selector classes for SOQL and Domain classes for DML, following the FFLIB enterprise pattern. Static methods are the norm for stateless operations.",
+      "when_to_apply": "Put all reusable business logic in service classes, not in triggers or controllers directly. Mark service classes `with sharing` unless there is a documented reason not to. Keep service methods transactional — if one step fails, the whole operation should roll back. Avoid SOQL inside loops; use Selector classes that bulk-query before the service method starts.",
+      "signals": {
+        "name_suffix": ["Service", "Services"],
+        "name_prefix": [],
+        "base_class_contains": [],
+        "annotation_contains": [],
+        "has_inner_class_suffix": [],
+        "generated_path": false
+      },
+      "anti_pattern": false,
+      "severity": "info",
+      "enabled": true
+    },
+    {
+      "id": "apex-test-class",
+      "name": "Apex Test Class",
+      "source": "Custom",
+      "category": "Testing",
+      "language": "apex",
+      "intent": "A class annotated @IsTest containing unit and integration tests for Apex code.",
+      "description": "Apex test classes use the @IsTest annotation on the class and @IsTest or @TestMethod on individual methods. Test methods run in an isolated context; DML is rolled back after each test. Test.startTest() / Test.stopTest() reset governor limits mid-test and allow async operations to complete. Test.setMock() stubs HTTP callouts. All test classes must use SeeAllData=false (the default) unless testing against org data is explicitly required.",
+      "when_to_apply": "Every Apex class must have a corresponding test class achieving at least 75% code coverage (Salesforce deployment requirement). Aim for 90%+ and test behaviour, not just coverage lines. Use @TestSetup to create shared test data once per class. Never use SeeAllData=true — create all required data in the test itself to ensure isolation.",
+      "signals": {
+        "name_suffix": ["Test", "Tests", "TestSuite"],
+        "name_prefix": ["Test"],
+        "base_class_contains": [],
+        "annotation_contains": ["@IsTest", "IsTest"],
         "has_inner_class_suffix": [],
         "generated_path": false
       },

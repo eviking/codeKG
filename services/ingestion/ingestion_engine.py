@@ -169,8 +169,22 @@ def _parse_file_worker(args: tuple) -> dict | None:
             parsed = parser.parse_file(file_path, repo_id)
 
         elif ext in JS_TS_EXTENSIONS:
+            from parser.concurrency_extractor import AsyncMethod, ConcurrencyFact
+            import re as _re
             parser = JsParser()
             parsed = parser.parse_file(file_path, repo_id)
+            # Detect async/Promise-based concurrency from parsed method modifiers
+            for cls in parsed.classes:
+                fqn = cls.get("fqn", file_path.stem)
+                for m in parsed.methods:
+                    if m.get("class_fqn") == fqn and "async" in m.get("modifiers", []):
+                        asyncs.append(AsyncMethod(
+                            class_fqn=fqn,
+                            method_name=m["name"],
+                            mechanism="async/await",
+                            file_path=str(file_path),
+                            line=m.get("start_line", 0),
+                        ))
 
         else:
             return None  # unsupported extension

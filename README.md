@@ -197,9 +197,9 @@ The console's **Analyse quality** button runs an AI review to detect conflicts, 
 | Java | ✅ | ✅ | ✅ | ✅ | ✅ | Maven, Gradle | ✅ |
 | Python | ✅ | ✅ | ✅ | ✅ | ✅ | pip, setuptools | — |
 | C++ | ✅ | ✅ | ✅ | ✅ | ✅ | CMake, Make, Meson, Bazel, Conan | ✅ |
-| JavaScript | ✅ | ✅ | ✅ | ✅ | — | — | — |
-| TypeScript | ✅ | ✅ | ✅ | ✅ | — | — | — |
-| Salesforce Apex | ✅ | ✅ | — | ✅ | — | — | ✅ |
+| JavaScript | ✅ | ✅ | ✅ | ✅ | ✅ | npm, yarn, pnpm, bun | ✅ |
+| TypeScript | ✅ | ✅ | ✅ | ✅ | ✅ | npm, yarn, pnpm, bun | ✅ |
+| Salesforce Apex | ✅ | ✅ | — | ✅ | ✅ | SFDX / sf CLI | — |
 
 ---
 
