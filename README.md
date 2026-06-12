@@ -19,7 +19,7 @@ Every agent session starts from scratch. Nothing is retained between sessions. T
 
 codeKG is a self-hosted service that runs alongside your repositories. It:
 
-1. **Parses** your codebase (Java, Python, C++) and builds a Neo4j knowledge graph of every class, method, module, dependency, call chain, and architectural pattern
+1. **Parses** your codebase (Java, Python, C++, JavaScript, TypeScript, Apex) and builds a Neo4j knowledge graph of every class, method, module, dependency, call chain, and architectural pattern
 2. **Publishes** a `.codekg/` directory into your repo — pre-computed markdown files containing complete structural intelligence, committed on every push and always current
 3. **Serves** that intelligence to AI agents via an MCP server with tools like `get_change_impact`, `answer_question`, and `check_violations`
 4. **Enforces** architectural policies automatically — Cypher queries that run after every scan and flag violations
@@ -65,7 +65,7 @@ watcher detects new HEAD
     │
     ▼
 ephemeral ingestion container
-    │  parses Java / Python / C++ via tree-sitter
+    │  parses Java / Python / C++ / JS / TS / Apex via tree-sitter
     │  writes Class, Method, Module, Package nodes to Neo4j
     │  resolves IMPORTS, CALLS, HAS_METHOD edges
     │  scores blast radius and hygiene grades
@@ -197,6 +197,9 @@ The console's **Analyse quality** button runs an AI review to detect conflicts, 
 | Java | ✅ | ✅ | ✅ | ✅ | ✅ | Maven, Gradle | ✅ |
 | Python | ✅ | ✅ | ✅ | ✅ | ✅ | pip, setuptools | — |
 | C++ | ✅ | ✅ | ✅ | ✅ | ✅ | CMake, Make, Meson, Bazel, Conan | ✅ |
+| JavaScript | ✅ | ✅ | ✅ | ✅ | — | — | — |
+| TypeScript | ✅ | ✅ | ✅ | ✅ | — | — | — |
+| Salesforce Apex | ✅ | ✅ | — | ✅ | — | — | ✅ |
 
 ---
 

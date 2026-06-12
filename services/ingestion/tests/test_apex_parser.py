@@ -29,14 +29,15 @@ if _SVC_ROOT not in sys.path:
 
 # Skip the entire module if the Apex grammar .so is not available
 try:
-    from parser.apex_parser import ApexParser, APEX_EXTENSIONS
+    from parser.apex_parser import ApexParser, APEX_EXTENSIONS, _load_apex_language
+    _load_apex_language()   # probe: raises ImportError if .so is absent
     _APEX_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     _APEX_AVAILABLE = False
 
 pytestmark = pytest.mark.skipif(
     not _APEX_AVAILABLE,
-    reason="tree_sitter_apex.so not compiled — rebuild ingestion Docker image"
+    reason="tree_sitter_apex.so not compiled — rebuild ingestion Docker image",
 )
 
 

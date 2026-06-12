@@ -39,7 +39,7 @@ Enter a short unique **repo ID** (e.g. `my-service`) and the **absolute path** o
 Click **Register & Scan**. codeKG launches an ingestion container immediately. A status badge polls every 8 seconds and turns green when the scan completes. Large repos (>100k LOC) can take a few minutes.
 
 What ingestion does:
-- Parses every Java, Python, and C++ source file via tree-sitter
+- Parses every Java, Python, C++, JavaScript, TypeScript, and Salesforce Apex source file via tree-sitter
 - Writes Class, Method, Module, Package, and Field nodes to Neo4j
 - Resolves IMPORTS, CALLS, HAS_METHOD, and EXTENDS edges
 - Scores blast radius and hygiene grades for every class

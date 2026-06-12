@@ -128,14 +128,29 @@ docs: document SCAN_REPO_ID env var in .env.example
 1. Create `services/ingestion/parser/<lang>_parser.py`
 2. Implement the same interface as `JavaParser` and `PythonParser`:
    - `EXTENSIONS: frozenset[str]` — file extensions to handle
-   - `parse(path: Path, repo_root: Path) -> list[ParsedClass]`
+   - `parse_file(path: Path, repo_id: str) -> ParsedFile`
 3. Register in `services/ingestion/ingestion_engine.py` alongside the existing parsers
 4. Add tests in `services/ingestion/tests/test_<lang>_parser.py` covering:
    - Class with methods (verify FQN, method names, parameter types, return types)
    - Inheritance / implements
    - Annotations / decorators
-   - Empty file (should return `[]`, not raise)
+   - Empty file (should not raise)
+   - Add a skip guard so tests are skipped gracefully when the grammar is absent
 5. Update the supported languages table in `README.md`
+
+**If the grammar has no PyPI package** (like Salesforce Apex), use the lazy-load pattern:
+- Do **not** import the native grammar at module level — wrap it in a `_load_<lang>_language()` function called only on first parser instantiation
+- Support a `TREE_SITTER_<LANG>_SO` env var to override the `.so` path; default to the `parser/` directory first, then the Docker path (`/usr/local/lib/`)
+- Add the compiled `.so` to `.gitignore`
+- Add `gcc` + compile steps to the Dockerfile and `.github/workflows/ci.yml`
+- In the test skip guard, probe by **calling the loader function** (not just importing the module) — a bare import succeeds even when the `.so` is absent
+
+**Local setup for Apex grammar (one-time):**
+```bash
+git clone --depth=1 https://github.com/aheber/tree-sitter-sfapex.git /tmp/tree-sitter-sfapex
+gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_apex.so \
+  /tmp/tree-sitter-sfapex/apex/src/parser.c
+```
 
 ---
 

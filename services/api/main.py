@@ -1288,7 +1288,7 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
     dangling_refs = _validate_index_refs(visible)
 
     try:
-        subprocess.run(["git", "-C", repo_path, "add", ".codekg/"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", repo_path, "add", "-f", ".codekg/"], check=True, capture_output=True, text=True)
         result = subprocess.run(
             ["git", "-C", repo_path, "commit",
              "-m", "chore: update CodeKG agent index [skip ci]", "--allow-empty"],
@@ -1310,13 +1310,13 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
                     _fpath.write_text(_patched, encoding="utf-8")
         # Amend the commit to include the patched SHA references
         subprocess.run(
-            ["git", "-C", repo_path, "add", ".codekg/INDEX.md",
+            ["git", "-C", repo_path, "add", "-f", ".codekg/INDEX.md",
              ".codekg/architecture/recent_changes.md"],
-            capture_output=True,
+            capture_output=True, text=True,
         )
         subprocess.run(
             ["git", "-C", repo_path, "commit", "--amend", "--no-edit"],
-            capture_output=True,
+            capture_output=True, text=True,
         )
         # Re-read SHA after amend
         sha = subprocess.run(
@@ -1334,7 +1334,10 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
             ]
         return result_payload
     except subprocess.CalledProcessError as e:
-        return {"ok": False, "error": e.stderr or str(e)}
+        stderr = e.stderr
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        return {"ok": False, "error": stderr or str(e)}
 
 
 class _RegenRequest(_BaseModel):

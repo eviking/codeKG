@@ -84,6 +84,57 @@ result = parser.parse_source(source, "services/api/impact/engine.py", "codeKG")
 # result.classes[0].methods[0].return_type == "ImpactReport"
 ```
 
+### C++ parser (`parser/cpp_parser.py`)
+
+Uses tree-sitter-cpp. Extracts:
+- Classes, structs, templates, enums
+- Inheritance (`EXTENDS` edges) for single and multiple bases
+- Methods with return types, parameters, and modifiers (`virtual`, `static`, `const`, access specifiers)
+- Constructors and destructors
+- Member fields
+- Free functions (collected under a synthetic module class)
+- `#include` directives for `IMPORTS` edges
+- `CALLS` edges from method bodies
+- Doxygen `/** */` and `///` doc comments
+
+### JavaScript / TypeScript parser (`parser/js_parser.py`)
+
+Uses tree-sitter-javascript and tree-sitter-typescript. Extracts:
+- ES6 classes, TypeScript interfaces, enums, and type aliases
+- Inheritance (`EXTENDS`) and interface implementation (`IMPLEMENTS`) edges
+- Methods with modifiers (`async`, `static`, `get`, `set`) and TS return types
+- TypeScript decorators on classes and methods
+- Class fields (including TS access modifiers)
+- Module-level function declarations and arrow/function-expression `const` assignments
+- `export` and `module.exports` patterns
+- ES module `import` statements for `IMPORTS` edges
+- `CALLS` edges from method bodies
+- JSDoc `/** */` comments
+
+> **Dependency note:** tree-sitter-javascript and tree-sitter-typescript are installed via PyPI (`pip install tree-sitter-javascript tree-sitter-typescript`). They are compiled wheels — no system tooling required.
+
+### Salesforce Apex parser (`parser/apex_parser.py`)
+
+Uses tree-sitter-sfapex (compiled from source — no PyPI package). Extracts:
+- Classes, interfaces, enums, triggers
+- Sharing model (`with sharing` / `without sharing` / `inherited sharing`) in modifiers
+- Abstract and `@IsTest` classes (`kind = abstract_class` / `test_class`)
+- Methods with return types, parameters, and Apex annotations (`@AuraEnabled`, `@InvocableMethod`, etc.)
+- Constructors
+- Inner classes
+- `SOQL` queries detected in method bodies → `QUERIES` edges
+- `CALLS` edges from method bodies
+- Triggers: emitted as synthetic classes (`kind = trigger`); sObject and events stored as annotations
+
+> **Dependency note:** tree-sitter-sfapex has no PyPI package. The grammar `.so` is compiled from [aheber/tree-sitter-sfapex](https://github.com/aheber/tree-sitter-sfapex) using `gcc`. For local development, the compiled `tree_sitter_apex.so` lives in `services/ingestion/parser/` alongside the parser source (it is `.gitignore`d — each developer must compile it once). In Docker / CI, the Dockerfile and CI workflow compile it automatically.
+>
+> **Local setup (one-time):**
+> ```bash
+> git clone --depth=1 https://github.com/aheber/tree-sitter-sfapex.git /tmp/tree-sitter-sfapex
+> gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_apex.so \
+>   /tmp/tree-sitter-sfapex/apex/src/parser.c
+> ```
+
 ### Java parser (`parser/java_parser.py`)
 
 Uses tree-sitter-java. Extracts:
@@ -252,6 +303,13 @@ The watcher checks for a running container with `codekg.repo_id` Docker label be
 2. Register it in `ingestion_engine.py` extension dispatch
 3. Add tree-sitter grammar to `requirements.txt`
 4. KGWriter handles the rest — it is language-agnostic
+
+**If the grammar has no PyPI package** (like Apex), use the lazy-load + native `.so` pattern:
+- Wrap grammar initialisation in a `_load_<lang>_language()` function; do **not** call it at import time
+- Support an env var override for the `.so` path, with the parser directory as the local default
+- Add the compiled `.so` to `.gitignore`
+- Add `gcc` + compile steps to both the Dockerfile and `.github/workflows/ci.yml`
+- In tests, probe by calling the loader function inside a `try/except` block — a bare `import` will succeed even when the `.so` is absent
 
 ---
 

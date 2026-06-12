@@ -1713,18 +1713,69 @@ def apply_claude_md_section(existing_content: str, snippet: str) -> str:
 
 import re as _re_screens
 
-_SCREEN_TECH = {
-    # Framework / rendering
-    "framework":   "FastAPI (Python)",
-    "templating":  "Jinja2 — server-side rendered HTML, no JS framework",
-    "styling":     "Inline `<style>` blocks per template — CSS custom properties from base.html :root",
-    "fonts":       "Inter (UI), JetBrains Mono (code/numbers) via Google Fonts",
-    "nav":         "Sticky top nav defined in base.html; all pages extend base.html via `{% extends %}`",
-    "forms":       "Standard HTML forms with method=GET/POST — no AJAX except where noted",
-    "http_client": "httpx.Client (sync) for console → API calls; all calls to http://api:8000",
-    "hot_reload":  "None — templates baked into Docker image at build time; changes require docker compose up --build console",
-    "css_tokens":  "--bg, --surface, --surface-2, --border, --text, --text-2, --text-3, --primary, --success, --warning, --danger, --info, --purple, --radius, --radius-lg, --shadow",
-}
+def _detect_tech_stack(repo_path: str) -> dict[str, str]:
+    """Infer technology stack from the repo's actual source files."""
+    import os as _os_ts
+    tech: dict[str, str] = {}
+
+    if not repo_path or not _os_ts.path.isdir(repo_path):
+        return tech
+
+    # Collect requirements files and package manifests
+    req_text = ""
+    for root, dirs, files in _os_ts.walk(repo_path):
+        dirs[:] = [d for d in dirs if d not in {"__pycache__", ".venv", "venv", "node_modules", ".git"}]
+        for fname in files:
+            if fname in ("requirements.txt", "requirements-dev.txt", "pyproject.toml", "setup.py",
+                         "package.json", "build.gradle", "pom.xml", "Gemfile", "go.mod"):
+                try:
+                    req_text += open(_os_ts.path.join(root, fname), encoding="utf-8", errors="replace").read()
+                except OSError:
+                    pass
+        if len(req_text) > 50_000:
+            break
+
+    req_lower = req_text.lower()
+
+    # Detect web framework
+    if "fastapi" in req_lower:
+        tech["framework"] = "FastAPI (Python)"
+    elif "django" in req_lower:
+        tech["framework"] = "Django (Python)"
+    elif "flask" in req_lower:
+        tech["framework"] = "Flask (Python)"
+    elif "rails" in req_lower or "actionpack" in req_lower:
+        tech["framework"] = "Ruby on Rails"
+    elif "spring-boot" in req_lower or "spring-web" in req_lower:
+        tech["framework"] = "Spring Boot (Java)"
+    elif "express" in req_lower:
+        tech["framework"] = "Express.js (Node)"
+    elif "next" in req_lower and "react" in req_lower:
+        tech["framework"] = "Next.js / React"
+    elif "react" in req_lower:
+        tech["framework"] = "React"
+    elif "vue" in req_lower:
+        tech["framework"] = "Vue.js"
+    elif "angular" in req_lower:
+        tech["framework"] = "Angular"
+
+    # Detect templating
+    if "jinja2" in req_lower:
+        tech["templating"] = "Jinja2 (server-side HTML)"
+    elif "mako" in req_lower:
+        tech["templating"] = "Mako"
+    elif "handlebars" in req_lower:
+        tech["templating"] = "Handlebars"
+
+    # Detect HTTP client
+    if "httpx" in req_lower:
+        tech["http_client"] = "httpx"
+    elif "requests" in req_lower:
+        tech["http_client"] = "requests"
+    elif "axios" in req_lower:
+        tech["http_client"] = "axios"
+
+    return tech
 
 # Patterns to detect what a route handler does
 _HTTPX_CALL_RE    = _re_screens.compile(r'_http\.\w+\(\s*[f"]([^"\']+)["\']')
@@ -1931,38 +1982,77 @@ def _collect_screens(repo_path: str) -> list[dict]:
 
 def _screen_description(url: str, template: str | None) -> str:
     """Best-effort human description from URL + template name."""
-    _KNOWN: dict[str, str] = {
-        "/":                         "Dashboard — repo overview, class counts, KG stats, token savings summary",
-        "/repos":                    "Repository list — registered repos with scan status and last commit",
-        "/repos/{repo_id:path}":     "Repository detail — scan history, module breakdown, quick-scan trigger",
-        "/modules":                  "Module list — all logical modules for the selected repo with class counts",
-        "/modules/{module_id:path}": "Module detail — classes, methods, dependencies, insights for one module",
-        "/classes":                  "Class browser — searchable/sortable class list with hygiene grade and blast radius",
-        "/classes/{fqn:path}":       "Class detail — full method signatures, javadoc, summary, policy violations",
-        "/patterns":                 "Pattern detector — run detection and view results for the selected repo",
-        "/pattern-catalog":          "Pattern catalog — manage which patterns are active and their config",
-        "/hygiene":                  "Hygiene overview — per-repo grade distribution and worst offenders",
-        "/hygiene/{repo_id:path}":   "Hygiene detail — per-class grades, scores, and method counts for one repo",
-        "/policies":                 "Policy list — active architectural policies with severity and violation counts",
-        "/policies/{policy_id}":     "Policy detail — full policy definition, targets, and current violations",
-        "/ask":                      "Ask — natural language Q&A over the knowledge graph using Claude",
-        "/audit":                    "LLM Audit — log of every Claude API call: tokens, cost, cache rate, latency",
-        "/mcp-audit":                "MCP Audit — log of every MCP tool call from Claude Code sessions",
-        "/mcp-audit/{call_id}":      "MCP call detail — full input/output for one MCP tool invocation",
-        "/insights":                  "Insights — non-obvious facts captured from coding sessions",
-        "/telemetry":                "Telemetry — Claude Code session list with token counts and cache hit rates",
-        "/telemetry/{session_id}":   "Telemetry detail — per-turn tool calls, token breakdown, CodeKG savings, query plan",
-        "/agent-index":              "Agent Index — browse, regenerate, and publish the .codekg/ index files",
-        "/agent-index/file/{file_key:path}": "Agent index file viewer — rendered content of one .codekg/ index file",
-        "/system-health":            "System health — service status, DB connectivity, scan log summary",
-    }
-    if url in _KNOWN:
-        return _KNOWN[url]
-    # Fallback from template name
+    # Derive from template name when available
     if template:
         name = template.replace(".html", "").replace("_", " ").title()
         return f"{name} page"
+    # Derive from URL path segments
+    parts = [p for p in url.strip("/").split("/") if p and not p.startswith("{")]
+    if parts:
+        return " / ".join(p.replace("-", " ").replace("_", " ").title() for p in parts) + " page"
+    if url == "/":
+        return "Home / Dashboard"
     return url
+
+
+def _collect_nav_links(repo_path: str) -> list[str]:
+    """Extract href links from a base template (base.html or layout equivalent)."""
+    import os as _os_nav
+    if not repo_path or not _os_nav.path.isdir(repo_path):
+        return []
+    # Walk looking for a base template
+    for root, dirs, files in _os_nav.walk(repo_path):
+        dirs[:] = [d for d in dirs if d not in {"__pycache__", ".venv", "venv", "node_modules", ".git"}]
+        for fname in files:
+            if fname in ("base.html", "layout.html", "_layout.html", "base.jinja2",
+                         "application.html.erb", "base.njk"):
+                try:
+                    src = open(_os_nav.path.join(root, fname), encoding="utf-8", errors="replace").read()
+                    links = _re_screens.findall(r"""href=['"](/[^'"?#]{1,60})""", src)
+                    # Deduplicate preserving order, skip static/asset paths
+                    seen: set[str] = set()
+                    result = []
+                    for lnk in links:
+                        if lnk not in seen and not lnk.startswith("/static"):
+                            seen.add(lnk)
+                            result.append(lnk)
+                    return result[:30]
+                except OSError:
+                    pass
+    return []
+
+
+def _detect_conventions(screens: list[dict]) -> list[str]:
+    """Derive observable coding conventions from the parsed screen list."""
+    conventions = []
+    if not screens:
+        return conventions
+
+    methods = {s["method"] for s in screens}
+    has_get_post = "GET" in methods and "POST" in methods
+    has_template = any(s.get("template") for s in screens)
+    has_api_calls = any(s.get("api_calls") for s in screens)
+    has_neo4j = any(s.get("neo4j") for s in screens)
+    has_sqlite = any(s.get("direct_db") for s in screens)
+    has_redirects = any(s.get("redirects") for s in screens)
+    path_params = [s for s in screens if "{" in s.get("url", "")]
+
+    if has_template:
+        conventions.append("**Server-side rendering**: routes return `TemplateResponse` with Jinja2 templates")
+    if has_get_post:
+        conventions.append("**Form pattern**: HTML `<form method=POST>` — POST handlers redirect or re-render")
+    if has_api_calls:
+        conventions.append("**Service calls**: some routes proxy to a downstream API via HTTP client")
+    if has_neo4j:
+        conventions.append("**Graph DB**: pages query Neo4j directly via `run_query()`")
+    if has_sqlite:
+        conventions.append("**SQLite**: some routes use direct SQLite connections for local data")
+    if has_redirects:
+        conventions.append("**Post-redirect-get**: mutating POST handlers redirect on success")
+    if path_params:
+        conventions.append(f"**Path parameters**: {len(path_params)} routes use path params (e.g. `{{id}}`, `{{id:path}}`)")
+
+    return conventions
 
 
 def generate_screens_index(repo_id: str, repo_path: str) -> str:
@@ -1979,6 +2069,8 @@ def generate_screens_index(repo_id: str, repo_path: str) -> str:
     pages   = [s for s in screens if s.get("is_page") or s.get("template")]
     apis    = [s for s in screens if not (s.get("is_page") or s.get("template"))]
 
+    tech = _detect_tech_stack(repo_path)
+
     lines = [
         f"# Screen & Page Catalog — {repo_id}",
         f"_Generated {_TS()}_",
@@ -1987,37 +2079,35 @@ def generate_screens_index(repo_id: str, repo_path: str) -> str:
         "Covers URL patterns, templates, navigation links, downstream calls, and data access.",
         "Read this before adding, renaming, or linking pages.",
         "",
-        "## Technology stack",
-        "",
-        "| Concern | Detail |",
-        "|---------|--------|",
     ]
-    for k, v in _SCREEN_TECH.items():
-        lines.append(f"| **{k.replace('_', ' ').title()}** | {v} |")
+
+    if tech:
+        lines += [
+            "## Technology stack",
+            "",
+            "| Concern | Detail |",
+            "|---------|--------|",
+        ]
+        for k, v in tech.items():
+            lines.append(f"| **{k.replace('_', ' ').title()}** | {v} |")
+        lines.append("")
+
+    # Derive nav links from base.html or equivalent — do not hardcode
+    nav_links = _collect_nav_links(repo_path)
+    if nav_links:
+        lines += [
+            "## Navigation graph",
+            "",
+            f"_Top-level nav links extracted from base template ({len(nav_links)} links)._",
+            "",
+            "| URL |",
+            "|-----|",
+        ]
+        for link in nav_links:
+            lines.append(f"| `{link}` |")
+        lines.append("")
 
     lines += [
-        "",
-        "## Navigation graph",
-        "",
-        "_Top-level nav links defined in `base.html` — all pages extend this template._",
-        "",
-        "| Label | URL | Active when |",
-        "|-------|-----|-------------|",
-        "| Dashboard | `/` | path == `/` |",
-        "| Repositories | `/repos` | path starts with `/repos` |",
-        "| Modules | `/modules` | path starts with `/modules` |",
-        "| Classes | `/classes` | path starts with `/classes` |",
-        "| Patterns | `/patterns` | path starts with `/pattern` |",
-        "| Hygiene | `/hygiene` | path starts with `/hygiene` |",
-        "| Policies | `/policies` | path starts with `/policies` |",
-        "| Ask | `/ask` | path starts with `/ask` |",
-        "| LLM Audit | `/audit` | path starts with `/audit` |",
-        "| MCP Audit | `/mcp-audit` | path starts with `/mcp-audit` |",
-        "| Insights | `/insights` | path starts with `/insights` |",
-        "| Telemetry | `/telemetry` | path starts with `/telemetry` |",
-        "| Agent Indexing | `/agent-index` | path starts with `/agent-index` |",
-        "| Health | `/system-health` | path starts with `/system-health` |",
-        "",
         "## Pages (HTML responses)",
         "",
         f"_{len(pages)} page endpoint(s) detected._",
@@ -2086,10 +2176,10 @@ def generate_screens_index(repo_id: str, repo_path: str) -> str:
                 lines.append("**Form actions (POST):** " + ", ".join(f"`{a}`" for a in sorted(set(form_actions))[:10]))
                 lines.append("")
 
-            # Downstream API calls (console → API service)
+            # Downstream API calls detected in handler source
             api_calls = s.get("api_calls", [])
             if api_calls:
-                lines.append("**Calls API (`http://api:8000`):**")
+                lines.append("**Calls downstream API:**")
                 for c in sorted(set(api_calls)):
                     lines.append(f"  - `{c}`")
                 lines.append("")
@@ -2114,7 +2204,7 @@ def generate_screens_index(repo_id: str, repo_path: str) -> str:
         lines += [
             "## API endpoints (non-HTML)",
             "",
-            f"_{len(apis)} JSON/plain-text endpoint(s) — consumed by the console UI, MCP server, or CI._",
+            f"_{len(apis)} JSON/plain-text endpoint(s)_",
             "",
             "| Method | URL | Route file | Notes |",
             "|--------|-----|------------|-------|",
@@ -2128,20 +2218,12 @@ def generate_screens_index(repo_id: str, repo_path: str) -> str:
             lines.append(f"| `{s['method']}` | `{s['url']}` | `{rf}` | {'; '.join(notes) or '—'} |")
         lines.append("")
 
-    lines += [
-        "## Key patterns & conventions",
-        "",
-        "- **URL parameters**: FastAPI path params use `{name}` or `{name:path}` (`:path` allows slashes)",
-        "- **Repo context**: selected repo tracked via `?repo_id=` query param, stored in session cookie `repo_id`",
-        "- **Template context**: every page receives `current_path`, `repos`, `effective_repo` via `_template_ctx()`",
-        "- **Error pages**: 404 and 500 errors rendered inline — no separate error templates",
-        "- **Console → API**: all cross-service calls use `httpx.Client` at `http://api:8000` (env: `API_URL`)",
-        "- **No hot reload**: any template or route change requires `docker compose up --build console`",
-        "- **CSS**: all styles inline per template — use `var(--token)` from base.html, never raw hex",
-        "- **Forms**: standard HTML `<form>` — POST actions re-render the same template or redirect",
-        "- **HTMX / JS**: minimal vanilla JS only (toggle visibility, expand rows) — no framework",
-        "- **Nav active state**: set via Jinja2 `{{ 'active' if condition }}` in base.html nav links",
-    ]
+    conventions = _detect_conventions(screens)
+    if conventions:
+        lines += ["## Key patterns & conventions", ""]
+        for c in conventions:
+            lines.append(f"- {c}")
+        lines.append("")
 
     return _cap("\n".join(lines), _CAP["screens"])
 

@@ -33,17 +33,39 @@ import re
 from pathlib import Path
 from typing import Optional
 
-import tree_sitter_javascript as tsjs
-import tree_sitter_typescript as tsts
 from tree_sitter import Language, Parser, Node
-
-JS_LANGUAGE = Language(tsjs.language())
-TS_LANGUAGE = Language(tsts.language_typescript())
-TSX_LANGUAGE = Language(tsts.language_tsx())
 
 JS_EXTENSIONS = {".js", ".jsx", ".mjs", ".cjs"}
 TS_EXTENSIONS = {".ts", ".tsx"}
 JS_TS_EXTENSIONS = JS_EXTENSIONS | TS_EXTENSIONS
+
+# Languages are loaded lazily so ingestion_engine.py can be imported
+# even when the tree-sitter JS/TS packages are absent.
+_JS_LANGUAGE = None
+_TS_LANGUAGE = None
+_TSX_LANGUAGE = None
+
+
+def _get_js_language() -> Language:
+    global _JS_LANGUAGE
+    if _JS_LANGUAGE is None:
+        import tree_sitter_javascript as tsjs  # noqa: PLC0415
+        _JS_LANGUAGE = Language(tsjs.language())
+    return _JS_LANGUAGE
+
+
+def _get_ts_language() -> Language:
+    global _TS_LANGUAGE, _TSX_LANGUAGE
+    if _TS_LANGUAGE is None:
+        import tree_sitter_typescript as tsts  # noqa: PLC0415
+        _TS_LANGUAGE = Language(tsts.language_typescript())
+        _TSX_LANGUAGE = Language(tsts.language_tsx())
+    return _TS_LANGUAGE
+
+
+def _get_tsx_language() -> Language:
+    _get_ts_language()  # ensures _TSX_LANGUAGE is set
+    return _TSX_LANGUAGE
 
 # Node types that introduce a callable body we want to track
 _FUNC_TYPES = frozenset({
@@ -104,9 +126,9 @@ class JsParser:
     """
 
     def __init__(self):
-        self._js_parser = Parser(JS_LANGUAGE)
-        self._ts_parser = Parser(TS_LANGUAGE)
-        self._tsx_parser = Parser(TSX_LANGUAGE)
+        self._js_parser = Parser(_get_js_language())
+        self._ts_parser = Parser(_get_ts_language())
+        self._tsx_parser = Parser(_get_tsx_language())
 
     def parse_file(self, path: Path, repo_id: str) -> ParsedFile:
         src = path.read_bytes()
@@ -218,7 +240,6 @@ class JsParser:
             modifiers.append("abstract")
 
         # Superclass — class_heritage > extends > identifier
-        heritage = node.child_by_field_name("heritage") or node.child_by_field_name("body")
         heritage_node = next(
             (c for c in node.children if c.type == "class_heritage"), None
         )

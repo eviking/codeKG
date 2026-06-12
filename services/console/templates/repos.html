@@ -199,7 +199,7 @@ async function startClone() {
   const dest    = document.getElementById('clone-dest').value.trim();
   const scan    = document.getElementById('clone-scan').checked ? 'yes' : 'no';
 
-  if (!repoId || !url || !dest) { appToast('Fill in all fields', false); return; }
+  if (!repoId || !url || !dest) { showError('Fill in all fields (Repo ID, GitHub URL, and Clone destination).'); return; }
 
   document.getElementById('clone-btn').disabled = true;
   document.getElementById('clone-error').style.display   = 'none';

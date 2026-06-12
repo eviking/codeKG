@@ -169,7 +169,14 @@ class CppParser:
             self._handle_free_function(node, src, result, namespace=namespace)
         elif node.type == "template_declaration":
             # template<typename T> class Foo { ... }
+            # tree-sitter stores the inner declaration as a direct child, not a named field
             inner = node.child_by_field_name("declaration") or node.child_by_field_name("definition")
+            if inner is None:
+                for child in node.children:
+                    if child.type in ("class_specifier", "struct_specifier",
+                                      "function_definition"):
+                        inner = child
+                        break
             if inner and inner.type in ("class_specifier", "struct_specifier"):
                 self._handle_class(inner, src, result, namespace=namespace,
                                    is_template=True)
@@ -275,7 +282,7 @@ class CppParser:
             elif member.type == "function_definition":
                 self._handle_method(member, src, result, class_fqn=fqn,
                                     access=current_access)
-            elif member.type == "declaration":
+            elif member.type in ("declaration", "field_declaration"):
                 self._handle_member_declaration(member, src, result,
                                                 class_fqn=fqn, access=current_access)
             elif member.type == "template_declaration":
@@ -385,25 +392,29 @@ class CppParser:
         """Extract field declarations and pure virtual method declarations."""
         type_node = node.child_by_field_name("type")
         ftype = _text(type_node, src) if type_node else "auto"
-        # Strip template noise
         ftype = re.sub(r"\s+", " ", ftype).strip()
+        node_text = _text(node, src)
 
         for child in node.children:
-            if child.type in ("init_declarator", "declarator",
-                              "pointer_declarator", "reference_declarator",
-                              "function_declarator"):
+            fname = None
+            if child.type == "field_identifier":
+                # field_declaration: primitive_type field_identifier ;
+                fname = _text(child, src).strip()
+            elif child.type in ("init_declarator", "declarator",
+                                "pointer_declarator", "reference_declarator",
+                                "function_declarator"):
                 raw = _text(child, src).split("=")[0].split("(")[0]
                 fname = re.sub(r"[*&\s]", "", raw).strip()
-                if fname and re.match(r"^[a-zA-Z_]\w*$", fname):
-                    modifiers = [access]
-                    if "static" in _text(node, src)[:100]:
-                        modifiers.append("static")
-                    result.fields.append({
-                        "name": fname,
-                        "class_fqn": class_fqn,
-                        "type": ftype,
-                        "modifiers": modifiers,
-                    })
+            if fname and re.match(r"^[a-zA-Z_]\w*$", fname):
+                modifiers = [access]
+                if "static" in node_text[:100]:
+                    modifiers.append("static")
+                result.fields.append({
+                    "name": fname,
+                    "class_fqn": class_fqn,
+                    "type": ftype,
+                    "modifiers": modifiers,
+                })
 
     def _handle_enum(self, node: Node, src: bytes, result: ParsedFile, namespace: str):
         name_node = node.child_by_field_name("name")

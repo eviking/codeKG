@@ -34,7 +34,10 @@ from tree_sitter import Language, Parser, Node
 # Dockerfile and installed to /usr/local/lib/tree_sitter_apex.so
 def _load_apex_language() -> Language:
     import os
-    so_path = os.environ.get("TREE_SITTER_APEX_SO", "/usr/local/lib/tree_sitter_apex.so")
+    _default = os.path.join(os.path.dirname(__file__), "tree_sitter_apex.so")
+    so_path = os.environ.get("TREE_SITTER_APEX_SO") or (
+        _default if os.path.exists(_default) else "/usr/local/lib/tree_sitter_apex.so"
+    )
     if not os.path.exists(so_path):
         raise ImportError(
             f"Apex grammar .so not found at {so_path}. "
@@ -48,10 +51,20 @@ def _load_apex_language() -> Language:
         warnings.simplefilter("ignore", DeprecationWarning)
         return Language(lib.tree_sitter_apex())
 
-APEX_LANGUAGE = _load_apex_language()
-
 # File extensions this parser handles
 APEX_EXTENSIONS = {".cls", ".trigger", ".apex"}
+
+# Loaded lazily on first ApexParser instantiation — not at import time.
+# This allows ingestion_engine.py to import the module even when the
+# Apex grammar .so is absent (e.g. in unit tests run outside the container).
+_APEX_LANGUAGE = None
+
+
+def _get_apex_language() -> "Language":
+    global _APEX_LANGUAGE
+    if _APEX_LANGUAGE is None:
+        _APEX_LANGUAGE = _load_apex_language()
+    return _APEX_LANGUAGE
 
 
 def _text(node: Node, src: bytes) -> str:
@@ -100,7 +113,7 @@ class ApexParser:
     """
 
     def __init__(self):
-        self._parser = Parser(APEX_LANGUAGE)
+        self._parser = Parser(_get_apex_language())
 
     def parse_file(self, path: Path, repo_id: str) -> ParsedFile:
         src = path.read_bytes()
@@ -365,7 +378,6 @@ class ApexParser:
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
-        name = _text(name_node, src)
         fqn = f"{class_fqn}#<init>"
         params = self._extract_params(node, src)
         modifiers, annotations = self._extract_modifiers(node, src)
@@ -373,7 +385,7 @@ class ApexParser:
 
         result.methods.append({
             "fqn": fqn,
-            "name": f"<init>",
+            "name": "<init>",
             "class_fqn": class_fqn,
             "repo_id": result.repo_id,
             "return_type": None,

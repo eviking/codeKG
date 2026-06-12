@@ -721,6 +721,12 @@
     })();
   </script>
 
+  <!-- ── Global toast ── -->
+  <div id="toast" style="position:fixed;bottom:1.5rem;right:1.5rem;padding:0.6rem 1.1rem;border-radius:var(--radius);color:#fff;font-size:0.85rem;font-weight:500;opacity:0;transform:translateY(8px);transition:opacity 0.2s,transform 0.2s;pointer-events:none;z-index:9999"></div>
+  <style>
+    #toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+
   <!-- ── Global confirm modal ── -->
   <div class="modal-backdrop" id="_app-confirm" onclick="if(event.target===this)_confirmReject()">
     <div class="modal" style="max-width:420px">

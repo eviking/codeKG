@@ -39,7 +39,21 @@ _SVC_ROOT = str(Path(__file__).parent.parent)
 if _SVC_ROOT not in sys.path:
     sys.path.insert(0, _SVC_ROOT)
 
-from parser.js_parser import JsParser, JS_TS_EXTENSIONS, JS_EXTENSIONS, TS_EXTENSIONS
+try:
+    from parser.js_parser import (
+        JsParser, JS_TS_EXTENSIONS, JS_EXTENSIONS, TS_EXTENSIONS,
+        _get_js_language, _get_ts_language,
+    )
+    _get_js_language()   # probe: raises ImportError if package absent
+    _get_ts_language()
+    _JS_AVAILABLE = True
+except (ImportError, OSError):
+    _JS_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not _JS_AVAILABLE,
+    reason="tree-sitter-javascript/typescript not installed — run: pip install tree-sitter-javascript tree-sitter-typescript",
+)
 
 
 # ---------------------------------------------------------------------------
