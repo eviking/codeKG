@@ -144,7 +144,60 @@ class JsParser:
         # Derive module FQN from file path (last component without extension)
         module_name = path.stem
         self._visit_program(tree.root_node, src, result, module_name)
+        self._extract_wire_edges(result)
         return result
+
+    def _extract_wire_edges(self, result: ParsedFile) -> None:
+        """
+        Post-process parsed fields to find @wire decorator annotations and emit
+        CALLS edges to the wire adapter and QUERIES edges to referenced sObjects.
+
+        LWC @wire examples (captured as raw decorator strings by the tree-sitter pass):
+          @wire(getRecord, { recordId: '$recordId', fields: [ACCOUNT_NAME] })
+          @wire(getRelatedListRecords, { parentRecordId: '$recordId', relatedListId: 'Contacts' })
+          @wire(apex_getAccounts)   ← Apex wire adapter
+
+        The wire adapter name (first arg) → CALLS edge from the containing class.
+        sObject field references like 'Account.Name' or SCHEMA tokens → QUERIES edge.
+        """
+        # Map class fqn → class dict for annotation lookup
+        class_by_fqn: dict[str, dict] = {c["fqn"]: c for c in result.classes}
+
+        for field in result.fields:
+            class_fqn = field.get("class_fqn", "")
+            annotations_to_scan: list[str] = list(field.get("annotations", []))
+
+            for ann in annotations_to_scan:
+                if not ann.startswith("@wire"):
+                    continue
+                # Extract adapter name: @wire(adapterName, ...) or @wire(adapterName)
+                m = re.match(r'@wire\(\s*([A-Za-z_$][\w$]*)', ann)
+                if not m:
+                    continue
+                adapter = m.group(1)
+                result.edges.append({
+                    "source": class_fqn or result.file_path,
+                    "target": adapter,
+                    "type": "CALLS",
+                    "unresolved": True,
+                })
+
+                # Extract sObject references from field strings like 'Account.Name'
+                sobjects: set[str] = set()
+                for token in re.findall(r"'([A-Z][a-zA-Z0-9_]+\.[A-Za-z0-9_]+)'", ann):
+                    sobject = token.split(".")[0]
+                    sobjects.add(sobject)
+                # Also pick up bare sObject-looking schema imports (ALL_CAPS token)
+                for token in re.findall(r'\b([A-Z][A-Z0-9_]{2,})\b', ann):
+                    if "_" in token:   # schema token like ACCOUNT_NAME likely maps to sObject
+                        sobjects.add(token.split("_")[0].capitalize())
+                for sobject in sobjects:
+                    result.edges.append({
+                        "source": class_fqn or result.file_path,
+                        "target": f"sobject/{sobject}",
+                        "type": "QUERIES",
+                        "unresolved": True,
+                    })
 
     # ------------------------------------------------------------------
     # Top-level program visitor
@@ -298,7 +351,8 @@ class JsParser:
                                         extra_annotations=pending_decorators)
                 pending_decorators = []
             elif member.type in ("public_field_definition", "field_definition"):
-                self._handle_field_def(member, src, result, class_fqn)
+                self._handle_field_def(member, src, result, class_fqn,
+                                       extra_annotations=pending_decorators)
                 pending_decorators = []
             elif member.type == "class_declaration":
                 self._handle_class(member, src, result, namespace=namespace,
@@ -469,21 +523,25 @@ class JsParser:
     # ------------------------------------------------------------------
 
     def _handle_field_def(self, node: Node, src: bytes, result: ParsedFile,
-                          class_fqn: str):
+                          class_fqn: str,
+                          extra_annotations: list[str] | None = None):
         modifiers: list[str] = []
         fname: Optional[str] = None
+        # Collect decorators that are children of this field_definition node
+        # (JS grammar embeds the decorator inside the field node, not as a sibling)
+        field_annotations: list[str] = list(extra_annotations or [])
 
         for child in node.children:
-            if child.type in ("static", "readonly", "abstract", "override",
-                              "declare"):
+            if child.type == "decorator":
+                field_annotations.append(_text(child, src).strip())
+            elif child.type in ("static", "readonly", "abstract", "override",
+                                "declare"):
                 modifiers.append(child.type)
             elif child.type == "accessibility_modifier":
                 modifiers.append(_text(child, src).lower())
             elif child.type in ("property_identifier",
                                 "private_property_identifier"):
-                # JS grammar: name is a bare property_identifier child
                 fname = _text(child, src).strip()
-            # TS: name comes from the "name" field
             elif child.type == "identifier" and fname is None:
                 fname = _text(child, src).strip()
 
@@ -503,6 +561,7 @@ class JsParser:
             "class_fqn": class_fqn,
             "type": ftype,
             "modifiers": modifiers,
+            "annotations": field_annotations,
         })
 
     # ------------------------------------------------------------------

@@ -15,6 +15,11 @@ from parser.cpp_parser import CppParser, CPP_EXTENSIONS
 from parser.apex_parser import ApexParser, APEX_EXTENSIONS
 from parser.js_parser import JsParser, JS_TS_EXTENSIONS
 from parser.abap_parser import AbapParser, ABAP_EXTENSIONS
+from parser.lwc_parser import LwcParser, LWC_EXTENSIONS
+from parser.flow_parser import FlowParser, FLOW_EXTENSIONS
+from parser.sobject_parser import SObjectParser, SOBJECT_EXTENSIONS
+from parser.permission_parser import PermissionParser, PERMISSION_EXTENSIONS
+from parser.aura_parser import AuraParser, AURA_EXTENSIONS
 from parser.scip_emitter import SCIPEmitter
 from parser.api_extractor import ApiExtractor
 from parser.concurrency_extractor import ConcurrencyExtractor
@@ -173,6 +178,30 @@ def _parse_file_worker(args: tuple) -> dict | None:
             parser = AbapParser()
             parsed = parser.parse_file(file_path, repo_id)
 
+        elif ext in LWC_EXTENSIONS or file_path.name.lower().endswith(".js-meta.xml"):
+            parser = LwcParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
+        elif ext == ".xml" and file_path.name.lower().endswith(".flow-meta.xml"):
+            parser = FlowParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
+        elif ext == ".xml" and any(
+            file_path.name.lower().endswith(s) for s in SOBJECT_EXTENSIONS
+        ):
+            parser = SObjectParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
+        elif ext == ".xml" and any(
+            file_path.name.lower().endswith(s) for s in PERMISSION_EXTENSIONS
+        ):
+            parser = PermissionParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
+        elif ext in AURA_EXTENSIONS:
+            parser = AuraParser()
+            parsed = parser.parse_file(file_path, repo_id)
+
         elif ext in JS_TS_EXTENSIONS:
             from parser.concurrency_extractor import AsyncMethod
             parser = JsParser()
@@ -247,7 +276,17 @@ class IngestionEngine:
                 list(path.rglob("*.py")) +
                 [f for ext in CPP_EXTENSIONS for f in path.rglob(f"*{ext}")] +
                 [f for ext in APEX_EXTENSIONS for f in path.rglob(f"*{ext}")] +
-                [f for ext in JS_TS_EXTENSIONS for f in path.rglob(f"*{ext}")]
+                [f for ext in JS_TS_EXTENSIONS for f in path.rglob(f"*{ext}")] +
+                list(path.rglob("*.html")) +
+                list(path.rglob("*.js-meta.xml")) +
+                list(path.rglob("*.flow-meta.xml")) +
+                list(path.rglob("*.object-meta.xml")) +
+                list(path.rglob("*.field-meta.xml")) +
+                list(path.rglob("*.permissionSet-meta.xml")) +
+                list(path.rglob("*.profile-meta.xml")) +
+                list(path.rglob("*.cmp")) +
+                list(path.rglob("*.app")) +
+                list(path.rglob("*.design"))
             )
             if not _excluded(f)
         ]
@@ -456,7 +495,7 @@ class IngestionEngine:
         repo = git.Repo(repo_path)
         self._writer.current_commit = to_commit
         diff = repo.commit(from_commit).diff(to_commit)
-        _SUPPORTED = {".java", ".py"} | CPP_EXTENSIONS | APEX_EXTENSIONS | JS_TS_EXTENSIONS
+        _SUPPORTED = {".java", ".py", ".html", ".xml"} | CPP_EXTENSIONS | APEX_EXTENSIONS | JS_TS_EXTENSIONS | ABAP_EXTENSIONS | AURA_EXTENSIONS
         changed = [d for d in diff
                    if Path(d.a_path or d.b_path or "").suffix.lower() in _SUPPORTED]
 
@@ -558,7 +597,7 @@ class IngestionEngine:
         changed_paths = set()
         for d in diff_items:
             p = d.b_path or d.a_path
-            if p and Path(p).suffix.lower() in ({".java", ".py"} | CPP_EXTENSIONS):
+            if p and Path(p).suffix.lower() in ({".java", ".py", ".html", ".xml"} | CPP_EXTENSIONS | APEX_EXTENSIONS):
                 changed_paths.add(p)
         if not changed_paths:
             return set()

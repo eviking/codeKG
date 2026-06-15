@@ -120,9 +120,8 @@ Uses tree-sitter-sfapex (compiled from source — no PyPI package). Extracts:
 - Sharing model (`with sharing` / `without sharing` / `inherited sharing`) in modifiers
 - Abstract and `@IsTest` classes (`kind = abstract_class` / `test_class`)
 - Methods with return types, parameters, and Apex annotations (`@AuraEnabled`, `@InvocableMethod`, etc.)
-- Constructors
-- Inner classes
-- `SOQL` queries detected in method bodies → `QUERIES` edges
+- Constructors and inner classes
+- SOQL queries detected in method bodies → `QUERIES` edges to the sObject name
 - `CALLS` edges from method bodies
 - Triggers: emitted as synthetic classes (`kind = trigger`); sObject and events stored as annotations
 
@@ -135,18 +134,124 @@ Uses tree-sitter-sfapex (compiled from source — no PyPI package). Extracts:
 >   /tmp/tree-sitter-sfapex/apex/src/parser.c
 > ```
 
+### LWC parser (`parser/lwc_parser.py`)
+
+Handles Lightning Web Component bundle files — no tree-sitter, pure text/XML parsing. Two file types:
+
+**`.html` templates** — extracts:
+- Child component references (`<c-account-card>`, `<lightning-button>`) → `USES` edges
+- Event handler directives (`onselect`, `onclick`) → annotations (`@onselect`)
+- Conditional (`lwc:if`, `if:true`) and iteration (`for:each`, `lwc:for`) directives → annotations
+
+**`.js-meta.xml` metadata** — extracts:
+- Deployment targets (`lightning__RecordPage`, `lightning__AppPage`, etc.) → annotations
+- API version → annotation
+- Components with page/app targets get `exposed` modifier
+
+Both emit a class node with `kind='lwc_component'` and `package_fqn='lwc'`. FQN format: `lwc/<componentName>`.
+
+The `.js` controller is parsed by `js_parser.py` (existing). `@wire` field adapters are post-processed in `js_parser.py` to emit:
+- `CALLS` edge to the wire adapter function (`getRecord`, `getAccounts`, etc.)
+- `QUERIES` edges to referenced sObjects (from string fields like `'Account.Name'` or schema import tokens like `ACCOUNT_NAME`)
+
+### Aura parser (`parser/aura_parser.py`)
+
+Handles legacy Aura (Lightning Component Framework) bundle files — regex/text parsing. Three file types:
+
+**`.cmp` / `.app` markup** — extracts:
+- Child component references (`<c:accountCard>`, `<lightning:button>`) → `USES` edges  
+  (framework tags like `<aura:*>` are excluded)
+- Apex controller (`controller="MyApexClass"`) → `CALLS` edge + annotation
+- `aura:handler` event registrations → annotations (`@handles(init)`)
+- `kind='aura_component'` or `kind='aura_app'`; `package_fqn='aura'`
+
+**`.design` files** — extracts:
+- App Builder attribute names → annotations (`@designAttr(recordId)`)
+- Component label as javadoc
+- `exposed` modifier when design attributes are present
+
+`<lightning:*>` tags are mapped to `lwc/lightning<Name>` FQNs since Lightning base components ship as LWC in modern orgs.
+
+### Flow parser (`parser/flow_parser.py`)
+
+Handles Salesforce Flow metadata (`.flow-meta.xml`) — standard XML, no tree-sitter. Emits one class node per flow with `kind='flow'` and `package_fqn='flow'`. Extracts:
+
+| Element | Edge type | Target |
+|---------|-----------|--------|
+| `actionCalls` (Apex) | `CALLS` | Apex class name |
+| `apexPluginCalls` | `CALLS` | Apex class name |
+| `subflows` | `CALLS` | `flow/<FlowName>` |
+| `recordCreates/Updates/Deletes/Lookups` | `QUERIES` | sObject API name |
+| Screen `fields[componentName]` | `USES` | `lwc/<ComponentName>` |
+
+Record-triggered flows also store `@triggerObject(Case)` and `@triggerEvent(RecordAfterSave)` as annotations. Flow type is stored as `@flowType(AutolaunchedFlow)`.
+
+> **Why flows matter:** `@InvocableMethod` Apex methods are exclusively called from Flows, never from other Apex. Without Flow ingestion, these methods appear as dead code with no callers and produce misleading blast-radius scores.
+
+### sObject schema parser (`parser/sobject_parser.py`)
+
+Handles Salesforce object metadata — XML parsing. Two file types:
+
+**`*.object-meta.xml`** — full custom object definition:
+- Emits a class node with `kind='sobject'`, `package_fqn='sobject'`
+- Each `<fields>` element → field node with type, required/unique modifiers
+- Lookup and MasterDetail fields → `REFERENCES` edges to the target sObject
+- MasterDetail fields get `cascade_delete` modifier
+
+**`*.field-meta.xml`** — standalone field definition (SFDX decomposed format):
+- Infers parent sObject name from directory structure (`objects/<ObjectName>/fields/`)
+- Emits a minimal stub sObject class + the field node
+
+### Permission set / profile parser (`parser/permission_parser.py`)
+
+Handles Salesforce permission metadata — XML parsing. Two file types:
+
+**`*.permissionSet-meta.xml`** → `kind='permission_set'`, `package_fqn='permission_set'`  
+**`*.profile-meta.xml`** → `kind='profile'`, `package_fqn='profile'`
+
+Edges emitted:
+
+| Element | Condition | Edge | Target |
+|---------|-----------|------|--------|
+| `classAccesses` | `enabled=true` | `GRANTS` | Apex class name |
+| `objectPermissions` | `allowRead=true` | `GRANTS` | `sobject/<ObjectName>` |
+| `flowAccesses` | `enabled=true` | `GRANTS` | `flow/<FlowName>` |
+| `pageAccesses` | `enabled=true` | `GRANTS` | `page/<PageName>` |
+
+Field-level security (`fieldPermissions`) is too granular for graph edges — stored as annotations (`@field(Account.Score__c:r+w)`) on the permission set class instead.
+
 ### SAP ABAP parser (`parser/abap_parser.py`)
 
 Uses tree-sitter-abap (compiled from source — no PyPI package). Extracts:
+
+**OO ABAP:**
 - Classes (`CLASS ... DEFINITION`) and interfaces (`INTERFACE`)
 - `INHERITING FROM` → `EXTENDS` edges
 - `INTERFACES` declarations → `IMPLEMENTS` edges
 - Methods from `IMPLEMENTATION` section with parameters, return types, and visibility modifiers
 - Constructor (`METHOD constructor`) → `<init>`
 - `DATA` and `CLASS-DATA` field declarations
-- `FORM` subroutines (legacy ABAP) collected under a synthetic module class
-- `CALL METHOD` and `->method()` call chains → `CALLS` edges
-- `"` comment lines directly above a definition (docstrings)
+- OO method calls (`CALL METHOD`, `->method()`) → `CALLS` edges
+
+**Procedural / report ABAP:**
+- `FORM` subroutines collected under a synthetic module class
+- `PERFORM form_name` → `CALLS` edges (grammar wraps name in `subroutine_spec`)
+- `INCLUDE program_name` → `CALLS` edges (prevents include files appearing as orphans)
+- Top-level event blocks (`START-OF-SELECTION`, etc.) are walked for calls and SQL
+
+**Function modules and BAPIs:**
+- `CALL FUNCTION 'BAPI_SALESORDER_CREATEFROMDAT2'` → `CALLS` edge to the function module name
+- This covers the primary SAP integration surface — BAPIs are string-named so the target is always `unresolved=true` until a matching class/module is indexed
+
+**Open SQL** (regex-based — the tree-sitter-abap grammar does not produce structured SQL nodes):
+- `SELECT … FROM <table>` → `QUERIES` edge
+- `INSERT INTO <table>` → `QUERIES` edge
+- `UPDATE <table> SET` → `QUERIES` edge
+- `DELETE FROM <table>` → `QUERIES` edge
+
+**BAdI detection:**
+- Classes implementing interfaces matching `IF_EX_*` or `ZIF_EX_*` are annotated with `@BAdI(<InterfaceName>)`
+- Without this annotation, BAdI implementation methods appear as dead code (their callers use `CALL BADI <handle>` with no static reference to the implementation class)
 
 > **Dependency note:** tree-sitter-abap has no PyPI package. Compiled from [kennyhml/tree-sitter-abap](https://github.com/kennyhml/tree-sitter-abap). The `.so` lives in `services/ingestion/parser/` and is `.gitignore`d.
 >

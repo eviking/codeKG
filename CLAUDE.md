@@ -19,7 +19,7 @@ Read .codekg/INDEX.md
 ```
 This takes 2 seconds and tells you exactly which files to read next.
 
-### Index mode: **per-module** (repo LOC 11472 — separate files per module)
+### Index mode: **per-module** (repo LOC 12212 — separate files per module)
 Each module has its own index file with full class and method detail.
 Read the relevant module file before writing any code in that area.
 

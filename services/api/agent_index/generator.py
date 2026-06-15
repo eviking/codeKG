@@ -1422,7 +1422,96 @@ _CODEKG_SECTION_START = "<!-- codekg:start -->"
 _CODEKG_SECTION_END   = "<!-- codekg:end -->"
 
 
+def _detect_platform(repo_id: str) -> str:
+    """
+    Return 'salesforce', 'sap', or '' based on the build_tool stored on the Repository node.
+    Called once per snippet generation — cheap single-node lookup.
+    """
+    rows = run_query(
+        "MATCH (r:Repository {repo_id: $repo_id}) RETURN r.build_tool AS build_tool LIMIT 1",
+        repo_id=repo_id,
+    )
+    build_tool = (rows[0].get("build_tool") or "") if rows else ""
+    if build_tool == "sfdx":
+        return "salesforce"
+    if build_tool == "abapgit":
+        return "sap"
+    return ""
+
+
+_SALESFORCE_PLATFORM_GUIDANCE = textwrap.dedent("""
+### Salesforce platform — critical agent guidance
+
+This is a **Salesforce DX** repo. The knowledge graph covers Apex, LWC, Aura, Flows,
+sObjects, and permission sets. Apply these rules before every task:
+
+**Call chain gotchas**
+- `@InvocableMethod` Apex methods are called **only from Flows**, never from other Apex.
+  Do not mark them as dead code — check `flow/` nodes for their callers.
+- `@AuraEnabled` methods are the **LWC/Aura boundary** — their blast radius includes every
+  component that wires to them. Run `get_change_impact` before touching them.
+- `CALL_FUNCTION` edges with `unresolved=true` are external service calls — do not attempt
+  to resolve them inside this repo.
+
+**sObject awareness**
+- `QUERIES` edges point to sObject names (e.g. `sobject/Account`). Look up the sObject node
+  to see its fields and Lookup/MasterDetail `REFERENCES` edges before modifying DML.
+- MasterDetail fields have `cascade_delete` modifier — deleting the parent deletes all children.
+  Always check `REFERENCES` edges on the sObject before adding delete logic.
+
+**Permission & access**
+- Classes and Flows guarded by a permission set may have **zero static callers** — they are not
+  dead code. Check `GRANTS` edges from `permission_set/` or `profile/` nodes first.
+- Field-level security is stored as `@field(Object.Field__c:r+w)` annotations on permission
+  set nodes — check these before adding new fields to an object layout.
+
+**LWC @wire**
+- `@wire` calls emit `CALLS` edges to the adapter (e.g. `getRecord`) and `QUERIES` edges to
+  the sObject. If a LWC component has no outbound `CALLS` edges, check its `.js` file for
+  `@wire` declarations — the graph captures these even when no methods are called directly.
+""").strip()
+
+_SAP_PLATFORM_GUIDANCE = textwrap.dedent("""
+### SAP ABAP platform — critical agent guidance
+
+This is an **abapGit** ABAP repo. The knowledge graph covers OO ABAP classes, function modules,
+FORM subroutines, Open SQL, INCLUDE programs, and BAdI implementations. Apply these rules:
+
+**Dead code is rarely dead**
+- Classes annotated `@BAdI(IF_EX_*)` are **BAdI exit implementations** — their methods are
+  called at runtime via `CALL BADI <handle>`. No static callers will appear in the graph.
+  Never flag these as dead code or delete them.
+- FORM subroutines under a synthetic `<module>` class may be called from report event blocks
+  (`START-OF-SELECTION`, `END-OF-SELECTION`). Check CALLS edges before removing them.
+
+**Function modules and BAPIs**
+- `CALL FUNCTION 'FM_NAME'` edges have `unresolved=true` when the FM is defined in another
+  package or system. This is normal — do not attempt to resolve across system boundaries.
+- RFC-enabled BAPIs (names starting `BAPI_`) are external interfaces. Renaming the underlying
+  logic does not rename the BAPI — the BAPI name is a stable contract with callers.
+
+**Open SQL (table access)**
+- `QUERIES` edges use the ABAP **table name** (e.g. `VBAK`, `MARA`), not a class name.
+  Cross-reference with SAP data dictionary — these are transparent tables or cluster tables.
+- Open SQL is extracted via regex (the ABAP grammar does not produce structured SQL nodes).
+  Complex `SELECT` with inline conditions may occasionally be missed — verify critical table
+  access manually for security-sensitive objects.
+
+**INCLUDE stitching**
+- `INCLUDE` programs are stitched into their host report via `CALLS` edges. An INCLUDE that
+  appears to have no standalone callers is intentional — it is a code fragment, not a program.
+  Always trace INCLUDE callers before modifying shared INCLUDE code.
+
+**Transport and namespace**
+- Objects in customer namespace (`Z*`, `Y*`) are safe to modify.
+  Objects in SAP namespace (`/SAP*/`, `/CORE*/`) should never be modified directly.
+- Changes to function groups affect all function modules in the group. Check all FMs before
+  changing shared data in a function group's `TOP` include.
+""").strip()
+
+
 def generate_claude_md_snippet(repo_id: str, visible_keys: set | None = None) -> str:
+    platform = _detect_platform(repo_id)
     modules = run_query(
         "MATCH (m:Module {repo_id: $repo_id}) RETURN m.module_id AS id, m.name AS name "
         "ORDER BY m.module_id LIMIT 12",
@@ -1550,6 +1639,12 @@ def generate_claude_md_snippet(repo_id: str, visible_keys: set | None = None) ->
         "",
         mcp_note,
     ]
+
+    if platform == "salesforce":
+        parts += ["", _SALESFORCE_PLATFORM_GUIDANCE]
+    elif platform == "sap":
+        parts += ["", _SAP_PLATFORM_GUIDANCE]
+
     body = "\n".join(parts)
     return f"{_CODEKG_SECTION_START}\n{body}\n{_CODEKG_SECTION_END}"
 
@@ -1559,6 +1654,7 @@ def generate_agents_md_snippet(repo_id: str, visible_keys: set | None = None) ->
     # Reuse the claude_md body — it contains no MCP calls in the static text.
     # We only swap the final 'When to call CodeKG MCP tools' section for a
     # shell-command equivalent that Codex can actually execute.
+    platform = _detect_platform(repo_id)
     modules = run_query(
         "MATCH (m:Module {repo_id: $repo_id}) RETURN m.module_id AS id, m.name AS name "
         "ORDER BY m.module_id LIMIT 12",
@@ -1689,6 +1785,12 @@ def generate_agents_md_snippet(repo_id: str, visible_keys: set | None = None) ->
         "",
         shell_note,
     ]
+
+    if platform == "salesforce":
+        parts += ["", _SALESFORCE_PLATFORM_GUIDANCE]
+    elif platform == "sap":
+        parts += ["", _SAP_PLATFORM_GUIDANCE]
+
     body = "\n".join(parts)
     return f"{_CODEKG_SECTION_START}\n{body}\n{_CODEKG_SECTION_END}"
 

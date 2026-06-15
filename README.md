@@ -19,7 +19,7 @@ Every agent session starts from scratch. Nothing is retained between sessions. T
 
 codeKG is a self-hosted service that runs alongside your repositories. It:
 
-1. **Parses** your codebase (Java, Python, C++, JavaScript, TypeScript, Apex, ABAP) and builds a Neo4j knowledge graph of every class, method, module, dependency, call chain, and architectural pattern
+1. **Parses** your codebase (Java, Python, C++, JavaScript, TypeScript, Salesforce Apex/LWC/Aura/Flows/sObjects/Permissions, SAP ABAP) and builds a Neo4j knowledge graph of every class, method, module, dependency, call chain, and architectural pattern
 2. **Publishes** a `.codekg/` directory into your repo — pre-computed markdown files containing complete structural intelligence, committed on every push and always current
 3. **Serves** that intelligence to AI agents via an MCP server with tools like `get_change_impact`, `answer_question`, and `check_violations`
 4. **Enforces** architectural policies automatically — Cypher queries that run after every scan and flag violations
@@ -65,7 +65,7 @@ watcher detects new HEAD
     │
     ▼
 ephemeral ingestion container
-    │  parses Java / Python / C++ / JS / TS / Apex / ABAP via tree-sitter
+    │  parses Java / Python / C++ / JS / TS / Apex / LWC / Aura / Flows / sObjects / Permissions / ABAP via tree-sitter + XML
     │  writes Class, Method, Module, Package nodes to Neo4j
     │  resolves IMPORTS, CALLS, HAS_METHOD edges
     │  scores blast radius and hygiene grades
@@ -192,6 +192,8 @@ The console's **Analyse quality** button runs an AI review to detect conflicts, 
 
 ## Language support
 
+### General languages
+
 | Language | Classes | Methods | Imports | Call chains | Patterns | Build detection | Concurrency |
 |----------|---------|---------|---------|-------------|---------|-----------------|-------------|
 | Java | ✅ | ✅ | ✅ | ✅ | ✅ | Maven, Gradle | ✅ |
@@ -199,8 +201,31 @@ The console's **Analyse quality** button runs an AI review to detect conflicts, 
 | C++ | ✅ | ✅ | ✅ | ✅ | ✅ | CMake, Make, Meson, Bazel, Conan | ✅ |
 | JavaScript | ✅ | ✅ | ✅ | ✅ | ✅ | npm, yarn, pnpm, bun | ✅ |
 | TypeScript | ✅ | ✅ | ✅ | ✅ | ✅ | npm, yarn, pnpm, bun | ✅ |
-| Salesforce Apex | ✅ | ✅ | — | ✅ | ✅ | SFDX / sf CLI | — |
-| SAP ABAP | ✅ | ✅ | — | ✅ | ✅ | abapGit | — |
+
+### Salesforce platform
+
+| Artifact | Parser | What's extracted | Edges emitted |
+|----------|--------|-----------------|---------------|
+| Apex classes / triggers | `apex_parser.py` | Classes, methods, triggers, enums, SOQL | `CALLS`, `QUERIES`, `EXTENDS`, `IMPLEMENTS` |
+| Lightning Web Components (`.html`) | `lwc_parser.py` | Component composition, event handlers, directives | `USES` (child components) |
+| LWC metadata (`.js-meta.xml`) | `lwc_parser.py` | Deployment targets, API version | annotations |
+| LWC `@wire` adapters (`.js`) | `js_parser.py` | Wire adapter calls, referenced sObjects | `CALLS`, `QUERIES` |
+| Aura components (`.cmp`, `.app`) | `aura_parser.py` | Child components, Apex controller, event handlers | `USES`, `CALLS` |
+| Aura design (`.design`) | `aura_parser.py` | App Builder attributes | annotations |
+| Flows (`.flow-meta.xml`) | `flow_parser.py` | Apex actions, subflows, record ops, screen components | `CALLS`, `QUERIES`, `USES` |
+| sObject schema (`.object-meta.xml`, `.field-meta.xml`) | `sobject_parser.py` | Fields, types, lookup/master-detail relationships | `REFERENCES` |
+| Permission sets / profiles | `permission_parser.py` | Apex class access, object permissions, flow access, field-level security | `GRANTS` |
+
+### SAP platform
+
+| Artifact | Parser | What's extracted | Edges emitted |
+|----------|--------|-----------------|---------------|
+| ABAP classes / interfaces | `abap_parser.py` | Classes, interfaces, methods, fields | `EXTENDS`, `IMPLEMENTS`, `CALLS` |
+| ABAP function modules / BAPIs | `abap_parser.py` | `CALL FUNCTION 'FM_NAME'` calls | `CALLS` |
+| ABAP FORM subroutines | `abap_parser.py` | `PERFORM` calls to legacy subroutines | `CALLS` |
+| Open SQL | `abap_parser.py` | `SELECT`/`INSERT`/`UPDATE`/`DELETE` table access | `QUERIES` |
+| ABAP INCLUDE programs | `abap_parser.py` | `INCLUDE` stitching between programs | `CALLS` |
+| BAdI implementations | `abap_parser.py` | Classes implementing `IF_EX_*` exit interfaces | `@BAdI(...)` annotation |
 
 ---
 
@@ -231,6 +256,8 @@ Key `.env` variables — see [.env.example](.env.example) for the full list:
 | [Console](docs/06-console.md) | Web UI features and routes |
 | [Policies](docs/09-policies.md) | Writing and enforcing architectural policies |
 | [Telemetry & Insights](docs/10-telemetry-insights.md) | Session auditing and tribal knowledge |
+| [Salesforce Developer Guide](docs/salesforce-user-guide.md) | Reading the graph, common tasks, and policies for Salesforce DX repos |
+| [SAP ABAP Developer Guide](docs/sap-abap-user-guide.md) | Reading the graph, common tasks, and policies for abapGit repos |
 
 ---
 

@@ -136,6 +136,10 @@ class AbapParser:
             if node.type == "class_definition":
                 cls, extra = self._handle_class_def(node, src, lines, repo_id)
                 if cls:
+                    # Detect BAdI implementations and annotate the class
+                    badi_iface = self._detect_badi_definition(node, src)
+                    if badi_iface:
+                        cls.setdefault("annotations", []).append(f"@BAdI({badi_iface})")
                     result.classes.append(cls)
                     result.edges.extend(extra.get("edges", []))
                     class_specs[cls["name"].upper()] = extra
@@ -144,8 +148,10 @@ class AbapParser:
                 if iface:
                     result.classes.append(iface)
 
-        # Second pass: implementations and FORMs
+        # Second pass: implementations, FORMs, top-level INCLUDEs, and
+        # event blocks (START-OF-SELECTION, etc.) that contain PERFORM/CALL FUNCTION
         free_methods: list[dict] = []
+        include_edges: list[dict] = []
         for node in tree.root_node.named_children:
             if node.type == "class_implementation":
                 self._handle_class_impl(node, src, lines, repo_id,
@@ -155,6 +161,20 @@ class AbapParser:
                 if m:
                     result.edges.extend(m.pop("_edges", []))
                     free_methods.append(m)
+            elif node.type == "include_statement":
+                self._collect_includes(node, src, module_stem, repo_id, include_edges)
+            elif node.type in (
+                "start_of_selection_event", "end_of_selection_event",
+                "at_selection_screen_event", "initialization_event",
+                "load_of_program_event", "top_of_page_event",
+                "end_of_page_event", "at_line_selection_event",
+                "at_user_command_event",
+            ):
+                # ABAP report event blocks — collect CALLS/SQL from their statement blocks
+                for child in node.named_children:
+                    if child.type == "statement_block":
+                        self._collect_calls(child, src, module_stem, repo_id, include_edges)
+                        self._collect_sql(child, src, module_stem, repo_id, include_edges)
 
         if free_methods:
             result.methods.extend(free_methods)
@@ -170,6 +190,8 @@ class AbapParser:
                 "repo_id": repo_id,
                 "file_path": file_path,
             })
+
+        result.edges.extend(include_edges)
 
         return result
 
@@ -322,13 +344,16 @@ class AbapParser:
             modifiers.append("constructor")
 
         edges: list[dict] = []
+        caller = f"{class_fqn}.{name}"
         body = _first_child_of_type(node, "method_body")
         if body:
-            self._collect_calls(body, src, f"{class_fqn}.{name}", repo_id, edges)
+            self._collect_calls(body, src, caller, repo_id, edges)
+            self._collect_sql(body, src, caller, repo_id, edges)
         # Also scan ERROR recovery nodes for method calls
         for child in node.named_children:
             if child.type == "ERROR":
-                self._collect_calls(child, src, f"{class_fqn}.{name}", repo_id, edges)
+                self._collect_calls(child, src, caller, repo_id, edges)
+                self._collect_sql(child, src, caller, repo_id, edges)
 
         return {
             "name": name,
@@ -423,9 +448,11 @@ class AbapParser:
             return None
 
         edges: list[dict] = []
+        caller = f"{module_stem}.{name}"
         body = _first_child_of_type(node, "form_body")
         if body:
-            self._collect_calls(body, src, f"{module_stem}.{name}", repo_id, edges)
+            self._collect_calls(body, src, caller, repo_id, edges)
+            self._collect_sql(body, src, caller, repo_id, edges)
 
         return {
             "name": name,
@@ -472,14 +499,18 @@ class AbapParser:
         }
 
     # ------------------------------------------------------------------
-    # CALLS edge collection — walks recursively, handles both
-    # CALL METHOD <name> and <obj>-><method>( ) patterns
+    # CALLS edge collection — walks recursively, handles:
+    #   CALL METHOD <name>           (OO method call statement)
+    #   <obj>->method( )             (inline chained call)
+    #   CALL FUNCTION 'FM_NAME'      (function module / BAPI call)
+    #   PERFORM <form_name>          (legacy FORM subroutine call)
+    #   CALL BADI <badi_name>        (BAdI invocation)
+    #   GET BADI <badi_handle>       (BAdI instantiation — marks invisible caller)
     # ------------------------------------------------------------------
 
     def _collect_calls(self, node: Node, src: bytes, caller_fqn: str,
                        repo_id: str, edges: list) -> None:
         if node.type == "call_method_statement":
-            # CALL METHOD <identifier> — last identifier is the target
             ids = [c for c in node.named_children if c.type == "identifier"]
             if ids:
                 edges.append({
@@ -489,7 +520,6 @@ class AbapParser:
                     "repo_id": repo_id,
                 })
         elif node.type == "method_call":
-            # <obj>->method( ) — identifiers are [obj, method]; last is target
             ids = [c for c in node.named_children if c.type == "identifier"]
             if len(ids) >= 2:
                 edges.append({
@@ -498,6 +528,154 @@ class AbapParser:
                     "target": _text(ids[-1], src).strip(),
                     "repo_id": repo_id,
                 })
+        elif node.type == "call_function_statement":
+            # CALL FUNCTION 'FM_NAME' — function name is a string_literal child
+            for child in node.named_children:
+                if child.type in ("string_literal", "string"):
+                    fm_name = _text(child, src).strip("'\"").strip()
+                    if fm_name:
+                        edges.append({
+                            "type": "CALLS",
+                            "source": caller_fqn,
+                            "target": fm_name,
+                            "repo_id": repo_id,
+                        })
+                    break
+        elif node.type == "perform_statement":
+            # PERFORM form_name — grammar wraps name in subroutine_spec > identifier
+            for child in node.named_children:
+                if child.type == "subroutine_spec":
+                    form_id = _first_identifier(child, src)
+                    if form_id:
+                        edges.append({
+                            "type": "CALLS",
+                            "source": caller_fqn,
+                            "target": form_id,
+                            "repo_id": repo_id,
+                        })
+                    break
+                elif child.type == "identifier":
+                    # fallback for grammar variants
+                    edges.append({
+                        "type": "CALLS",
+                        "source": caller_fqn,
+                        "target": _text(child, src).strip(),
+                        "repo_id": repo_id,
+                    })
+                    break
+        elif node.type in ("call_badi_statement", "get_badi_statement"):
+            # CALL BADI <handle> / GET BADI <handle> — first identifier is the handle
+            for child in node.named_children:
+                if child.type == "identifier":
+                    badi_name = _text(child, src).strip()
+                    if badi_name:
+                        edges.append({
+                            "type": "CALLS",
+                            "source": caller_fqn,
+                            "target": badi_name,
+                            "repo_id": repo_id,
+                        })
+                    break
 
         for child in node.named_children:
             self._collect_calls(child, src, caller_fqn, repo_id, edges)
+
+    # ------------------------------------------------------------------
+    # Open SQL edge collection — the tree-sitter-abap grammar does NOT
+    # produce structured nodes for SELECT/INSERT/UPDATE/DELETE statements
+    # (they fall into ERROR or assignment nodes). We therefore use regex
+    # on the raw body text, which is reliable for ABAP's fixed-keyword SQL.
+    # ------------------------------------------------------------------
+
+    _SQL_RE = import_re = None  # lazy compile
+
+    @staticmethod
+    def _get_sql_re():
+        import re as _re
+        # Patterns that reliably anchor the table name:
+        #   SELECT ... FROM <table>
+        #   INSERT INTO <table> / INSERT <table>
+        #   UPDATE <table> SET / UPDATE <table> FROM
+        #   DELETE FROM <table>
+        #   MODIFY <table>
+        return _re.compile(
+            r'\b(?:'
+            r'SELECT\b[^.]*?\bFROM\s+([A-Za-z]\w*)'       # SELECT … FROM table
+            r'|INSERT\s+INTO\s+([A-Za-z]\w*)'             # INSERT INTO table
+            r'|INSERT\s+([A-Za-z]\w*)\s+(?:VALUES|FROM)'  # INSERT table VALUES/FROM
+            r'|UPDATE\s+([A-Za-z]\w*)\s+(?:SET|FROM)'     # UPDATE table SET/FROM
+            r'|DELETE\s+FROM\s+([A-Za-z]\w*)'             # DELETE FROM table
+            r'|MODIFY\s+([A-Za-z]\w*)\b'                  # MODIFY table
+            r')',
+            _re.IGNORECASE | _re.DOTALL,
+        )
+
+    def _collect_sql(self, node: Node, src: bytes, caller_fqn: str,
+                     repo_id: str, edges: list) -> None:
+        """Scan the raw text of a method/form body for Open SQL statements."""
+        body_text = src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+        sql_re = self._get_sql_re()
+        seen: set[str] = set()
+        _skip = {"INTO", "TABLE", "WHERE", "SET", "FROM", "SINGLE",
+                 "ALL", "FIELDS", "UP", "CLIENT", "DISTINCT", "INNER",
+                 "LEFT", "RIGHT", "JOIN", "ON", "AS"}
+        for m in sql_re.finditer(body_text):
+            # Multiple capture groups — take the first non-None one
+            table = next((g for g in m.groups() if g), None)
+            if not table:
+                continue
+            table = table.strip().upper()
+            if table in _skip:
+                continue
+            if table not in seen:
+                seen.add(table)
+                edges.append({
+                    "type": "QUERIES",
+                    "source": caller_fqn,
+                    "target": table,
+                    "repo_id": repo_id,
+                })
+
+    # ------------------------------------------------------------------
+    # INCLUDE tracking — emits CALLS edge from the including program/class
+    # to the included object so include files don't appear as orphans.
+    # ------------------------------------------------------------------
+
+    def _collect_includes(self, node: Node, src: bytes, caller_fqn: str,
+                          repo_id: str, edges: list) -> None:
+        if node.type == "include_statement":
+            for child in node.named_children:
+                if child.type == "identifier":
+                    include_name = _text(child, src).strip().upper()
+                    if include_name:
+                        edges.append({
+                            "type": "CALLS",
+                            "source": caller_fqn,
+                            "target": include_name,
+                            "repo_id": repo_id,
+                        })
+                    break
+        for child in node.named_children:
+            self._collect_includes(child, src, caller_fqn, repo_id, edges)
+
+    # ------------------------------------------------------------------
+    # BAdI definition detection — marks a class as a BAdI implementation
+    # so its methods don't appear as dead code even with no direct callers.
+    # ------------------------------------------------------------------
+
+    def _detect_badi_definition(self, node: Node, src: bytes) -> Optional[str]:
+        """Return BAdI name if this class_definition implements a BAdI interface."""
+        if node.type != "class_definition":
+            return None
+        body = _first_child_of_type(node, "class_body")
+        if not body:
+            return None
+        for section in body.named_children:
+            for child in section.named_children:
+                if child.type == "interfaces_declaration":
+                    iface = _first_identifier(child, src)
+                    # BAdI implementations always start with ZCL_IM_ or Y/ZCL_ by convention;
+                    # the interface name starts with ZIF_EX_ or IF_EX_ (exit interface prefix)
+                    if iface and ("_EX_" in iface.upper() or iface.upper().startswith("IF_EX")):
+                        return iface
+        return None
