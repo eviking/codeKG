@@ -2,8 +2,6 @@
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from parser.sobject_parser import SObjectParser
 
 

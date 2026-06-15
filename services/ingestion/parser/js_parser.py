@@ -160,9 +160,6 @@ class JsParser:
         The wire adapter name (first arg) → CALLS edge from the containing class.
         sObject field references like 'Account.Name' or SCHEMA tokens → QUERIES edge.
         """
-        # Map class fqn → class dict for annotation lookup
-        class_by_fqn: dict[str, dict] = {c["fqn"]: c for c in result.classes}
-
         for field in result.fields:
             class_fqn = field.get("class_fqn", "")
             annotations_to_scan: list[str] = list(field.get("annotations", []))

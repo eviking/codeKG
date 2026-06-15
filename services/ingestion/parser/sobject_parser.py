@@ -16,7 +16,6 @@ Output schema matches ParsedFile from java_parser.py — KGWriter unchanged.
 """
 from __future__ import annotations
 
-import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
@@ -141,7 +140,6 @@ class SObjectParser:
             return
 
         ftype    = _child_text(field_el, "type", ns) or "Text"
-        label    = _child_text(field_el, "label", ns) or fname
         required = _child_text(field_el, "required", ns) == "true"
         unique   = _child_text(field_el, "unique", ns) == "true"
 

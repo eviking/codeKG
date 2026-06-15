@@ -7,8 +7,6 @@ Tests for the ABAP parser extensions:
 """
 import textwrap
 
-import pytest
-
 from parser.abap_parser import AbapParser
 
 

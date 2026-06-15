@@ -2,8 +2,6 @@
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from parser.flow_parser import FlowParser, _component_name_to_fqn
 
 

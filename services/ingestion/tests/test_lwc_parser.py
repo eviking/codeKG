@@ -2,8 +2,6 @@
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from parser.lwc_parser import LwcParser, _tag_to_fqn
 
 

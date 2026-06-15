@@ -21,7 +21,6 @@ Output schema matches ParsedFile from java_parser.py — KGWriter unchanged.
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 

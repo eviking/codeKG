@@ -82,7 +82,6 @@ class LwcParser:
         except OSError:
             return
 
-        component_name = path.stem          # e.g. "myComponent"
         component_dir  = path.parent.name   # e.g. "myComponent"
         fqn = f"lwc/{component_dir}"
 

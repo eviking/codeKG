@@ -16,7 +16,7 @@ from parser.apex_parser import ApexParser, APEX_EXTENSIONS
 from parser.js_parser import JsParser, JS_TS_EXTENSIONS
 from parser.abap_parser import AbapParser, ABAP_EXTENSIONS
 from parser.lwc_parser import LwcParser, LWC_EXTENSIONS
-from parser.flow_parser import FlowParser, FLOW_EXTENSIONS
+from parser.flow_parser import FlowParser
 from parser.sobject_parser import SObjectParser, SOBJECT_EXTENSIONS
 from parser.permission_parser import PermissionParser, PERMISSION_EXTENSIONS
 from parser.aura_parser import AuraParser, AURA_EXTENSIONS
