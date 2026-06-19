@@ -28,6 +28,9 @@ from parser.repo_structure import extract_project_identity, extract_repo_map
 from kg.writer import KGWriter
 from pattern_detector import detect_patterns, save_patterns_to_kg
 from shared.config import cfg
+from shared.commit_impact_store import init_db as _init_impact_db, upsert as _upsert_impact
+from shared.impact_config import load_config as _load_impact_config
+from shared.impact_scorer import score_all_vectors as _score_all_vectors
 from policy_scanner import scan_policies
 from kg.object_model import build_object_models
 from kg.enrichment import enrich_classes
@@ -477,6 +480,16 @@ class IngestionEngine:
 
         write_claude_md(self._writer._driver, repo_id, repo_path)
 
+        # Record commit impact for the HEAD commit after a full scan
+        if last_commit and last_commit != "unknown":
+            self._record_commit_impact(
+                repo_id=repo_id,
+                commit_sha=last_commit,
+                parent_sha=None,
+                repo_path=repo_path,
+                changed_files=[str(f) for f in source_files],
+            )
+
         log.info("Full scan complete",
                  repo_id=repo_id,
                  parsed=completed,
@@ -581,6 +594,19 @@ class IngestionEngine:
 
         write_claude_md(self._writer._driver, repo_id, repo_path)
 
+        # Record commit impact — derives changed file list from the same diff
+        changed_file_paths = [
+            str(Path(repo_path) / (d.b_path or d.a_path))
+            for d in changed if d.b_path or d.a_path
+        ]
+        self._record_commit_impact(
+            repo_id=repo_id,
+            commit_sha=to_commit,
+            parent_sha=from_commit,
+            repo_path=repo_path,
+            changed_files=changed_file_paths,
+        )
+
         log.info("Incremental update complete",
                  repo_id=repo_id,
                  from_commit=from_commit[:8],
@@ -588,6 +614,226 @@ class IngestionEngine:
                  changed=len(changed),
                  errors=errors,
                  elapsed_ms=elapsed_ms)
+
+    def _record_commit_impact(
+        self,
+        repo_id: str,
+        commit_sha: str,
+        parent_sha: str | None,
+        repo_path: str,
+        changed_files: list[str],
+        committed_at: str | None = None,
+        author: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        """
+        Run impact analysis using the Neo4j driver (already open) and the git diff,
+        then persist to commit_impact.db on the shared /repos volume.
+        Never raises — impact recording must not abort a scan.
+        """
+        import subprocess
+        MAX = 50
+        driver = self._writer._driver
+
+        def _run(cypher: str, **params) -> list[dict]:
+            with driver.session() as s:
+                return [dict(r) for r in s.run(cypher, **params)]
+
+        try:
+            # ── 1. Graph traversals ───────────────────────────────────────────
+            direct_rows = _run(
+                """
+                MATCH (c)
+                WHERE c.file_path IN $files AND c.repo_id = $repo_id
+                  AND (c:Class OR c:Interface OR c:Enum)
+                RETURN c.fqn AS fqn, c.name AS name,
+                       coalesce(c.kind,'class') AS kind,
+                       c.file_path AS file_path, c.module AS module
+                ORDER BY c.fqn LIMIT $lim
+                """,
+                files=changed_files, repo_id=repo_id, lim=MAX,
+            )
+            direct_fqns = [r["fqn"] for r in direct_rows]
+
+            caller_rows = _run(
+                """
+                MATCH (caller:Method)-[:CALLS]->(callee:Method)
+                WHERE callee.class_fqn IN $fqns
+                MATCH (callerClass)-[:CONTAINS]->(caller)
+                WHERE NOT callerClass.fqn IN $fqns
+                RETURN DISTINCT callerClass.fqn AS fqn, callerClass.name AS name,
+                       coalesce(callerClass.kind,'class') AS kind,
+                       callerClass.file_path AS file_path,
+                       callerClass.module AS module
+                LIMIT $lim
+                """,
+                fqns=direct_fqns, lim=MAX,
+            ) if direct_fqns else []
+
+            transitive_rows = _run(
+                """
+                MATCH path = (dep)-[:IMPORTS*1..2]->(affected)
+                WHERE affected.fqn IN $fqns AND NOT dep.fqn IN $fqns
+                  AND (dep:Class OR dep:Interface)
+                RETURN DISTINCT dep.fqn AS fqn, dep.name AS name,
+                       coalesce(dep.kind,'class') AS kind,
+                       dep.file_path AS file_path, dep.module AS module,
+                       length(path) AS hops
+                ORDER BY hops, dep.fqn LIMIT $lim
+                """,
+                fqns=direct_fqns, lim=MAX,
+            ) if direct_fqns else []
+
+            endpoint_rows = _run(
+                """
+                MATCH (ep:ApiEndpoint)-[:HANDLED_BY]->(c:Class)
+                WHERE c.fqn IN $fqns
+                RETURN ep.endpoint_id AS endpoint_id,
+                       ep.http_method AS http_method, ep.path AS path,
+                       c.fqn AS handler_class
+                LIMIT $lim
+                """,
+                fqns=direct_fqns, lim=MAX,
+            ) if direct_fqns else []
+
+            all_modules = list({
+                r["module"] for r in direct_rows + caller_rows + transitive_rows
+                if r.get("module")
+            })
+            policy_rows = _run(
+                """
+                MATCH (ap:ArchPolicy)-[:TARGETS]->(mod:Module)
+                WHERE mod.module_id IN $modules AND ap.status = 'active'
+                RETURN ap.policy_id AS policy_id, ap.title AS title,
+                       ap.natural_language AS natural_language,
+                       ap.severity AS severity
+                LIMIT 20
+                """,
+                modules=all_modules,
+            ) if all_modules else []
+
+            name_fragments = [r["name"] for r in direct_rows if r.get("name")]
+            test_rows = _run(
+                """
+                MATCH (c:Class {repo_id: $repo_id})
+                WHERE c.role = 'TEST' AND any(n IN $names WHERE c.name CONTAINS n)
+                RETURN c.fqn AS fqn, c.name AS name, c.file_path AS file_path
+                LIMIT 20
+                """,
+                repo_id=repo_id, names=name_fragments,
+            ) if name_fragments else []
+
+            graph = {
+                "direct":     direct_rows,
+                "callers":    caller_rows,
+                "transitive": transitive_rows,
+                "endpoints":  endpoint_rows,
+                "policies":   policy_rows,
+                "tests":      test_rows,
+            }
+
+            # ── 2. Git diff lines ─────────────────────────────────────────────
+            diff_lines: list[str] = []
+            try:
+                if parent_sha:
+                    result = subprocess.run(
+                        ["git", "-C", repo_path, "diff", "--unified=3",
+                         parent_sha, commit_sha],
+                        capture_output=True, text=True, timeout=60,
+                    )
+                else:
+                    result = subprocess.run(
+                        ["git", "-C", repo_path, "show", "--unified=3",
+                         "--format=", commit_sha],
+                        capture_output=True, text=True, timeout=60,
+                    )
+                if result.returncode in (0, 1):
+                    diff_lines = result.stdout.splitlines()
+            except Exception as diff_exc:
+                log.warning("Could not get git diff for impact signals",
+                            repo_id=repo_id, commit=commit_sha[:8], exc=str(diff_exc))
+
+            # ── 3. Load per-repo config and score ────────────────────────────
+            impact_cfg = _load_impact_config(repo_path)
+            scores_dict = _score_all_vectors(diff_lines, graph, impact_cfg)
+
+            # ── 4. Build impact payload ───────────────────────────────────────
+            impact_dict = {
+                "repo_id":      repo_id,
+                "changed_files": changed_files,
+                "commit_sha":   commit_sha,
+                "summary": {
+                    "directly_affected_classes": len(direct_rows),
+                    "callers":                   len(caller_rows),
+                    "transitive_dependents":     len(transitive_rows),
+                    "affected_modules":          all_modules,
+                    "exposed_endpoints":         len(endpoint_rows),
+                    "relevant_policies":         len(policy_rows),
+                    "suggested_tests":           len(test_rows),
+                    "risk_score":                scores_dict["risk_score"],
+                },
+                "directly_affected": direct_rows,
+                "callers":           caller_rows,
+                "transitive_dependents": [
+                    {**r, "hop_distance": r.get("hops", 1), "reason": "transitive-import"}
+                    for r in transitive_rows
+                ],
+                "exposed_endpoints":  endpoint_rows,
+                "relevant_policies":  policy_rows,
+                "suggested_tests":    [
+                    {**r, "reason": "name match with changed class"}
+                    for r in test_rows
+                ],
+                "signals": scores_dict.get("signals", {}),
+            }
+
+            # ── 5. Resolve git metadata if not provided ───────────────────────
+            _author = author
+            _message = message
+            _committed_at = committed_at
+            if not _author or not _message:
+                try:
+                    _repo = git.Repo(repo_path)
+                    _commit = _repo.commit(commit_sha)
+                    _author = _author or f"{_commit.author.name} <{_commit.author.email}>"
+                    _message = _message or _commit.message.splitlines()[0]
+                    if not _committed_at:
+                        import datetime
+                        _committed_at = datetime.datetime.fromtimestamp(
+                            _commit.committed_date,
+                            tz=datetime.timezone.utc,
+                        ).isoformat()
+                except Exception:
+                    pass
+
+            _init_impact_db()
+            _upsert_impact(
+                repo_id=repo_id,
+                commit_sha=commit_sha,
+                parent_sha=parent_sha,
+                committed_at=_committed_at,
+                author=_author,
+                message=_message,
+                changed_files=changed_files,
+                impact=impact_dict,
+                scores={
+                    "risk_score":           scores_dict["risk_score"],
+                    "total_affected":       scores_dict["total_affected"],
+                    "security_score":       scores_dict["security_score"],
+                    "availability_score":   scores_dict["availability_score"],
+                    "performance_score":    scores_dict["performance_score"],
+                    "observability_score":  scores_dict["observability_score"],
+                    "ops_score":            scores_dict["ops_score"],
+                    "deps_score":           scores_dict["deps_score"],
+                },
+            )
+            log.info("Commit impact recorded",
+                     repo_id=repo_id, commit=commit_sha[:8],
+                     affected=scores_dict["total_affected"],
+                     risk=scores_dict["risk_score"])
+        except Exception as exc:
+            log.warning("Commit impact recording failed — scan result unaffected",
+                        repo_id=repo_id, commit=commit_sha[:8], exc=str(exc))
 
     def _affected_fqns(self, repo_id: str, diff_items) -> set[str]:
         """

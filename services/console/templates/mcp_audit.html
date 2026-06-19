@@ -182,8 +182,6 @@
     <div class="stat-box"><div class="sv" id="sv-errors">—</div><div class="sl">Errors (24h)</div></div>
     <div class="stat-box"><div class="sv" id="sv-avgms">—</div><div class="sl">Avg ms (24h)</div></div>
     <div class="stat-box"><div class="sv" id="sv-maxms">—</div><div class="sl">Max ms (24h)</div></div>
-    <div class="stat-box"><div class="sv" id="sv-intok" style="color:var(--purple)">—</div><div class="sl">~In tok (24h)</div></div>
-    <div class="stat-box"><div class="sv" id="sv-outtok" style="color:var(--success)">—</div><div class="sl">~Out tok (24h)</div></div>
     <div class="stat-box" style="align-items:flex-start;text-align:left;justify-content:flex-start">
       <div class="sl" style="margin-bottom:.4rem">Tool Breakdown</div>
       <div id="tool-breakdown"><div style="color:var(--text-3);font-size:.78rem">Loading…</div></div>
@@ -242,8 +240,6 @@ function renderStats(stats) {
   document.getElementById('sv-errors').style.color   = errs > 0 ? 'var(--danger)' : 'var(--success)';
   document.getElementById('sv-avgms').textContent    = stats.avg_ms || 0;
   document.getElementById('sv-maxms').textContent    = stats.max_ms || 0;
-  document.getElementById('sv-intok').textContent    = fmtTok(stats.total_input_tok  || 0);
-  document.getElementById('sv-outtok').textContent   = fmtTok(stats.total_output_tok || 0);
 }
 
 function renderCalls(calls) {
@@ -317,8 +313,6 @@ function renderCalls(calls) {
           <td style="color:#64748b;font-family:monospace;font-size:.7rem">${c.request_id||'—'}</td>
           <td><span class="tag tag-tool">${c.tool}</span></td>
           <td style="color:#94a3b8;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${argSummary(c.arguments)}</td>
-          <td style="color:#a78bfa;font-size:.75rem">${fmtTok(c.input_tokens_est)}</td>
-          <td style="color:#34d399;font-size:.75rem">${fmtTok(c.output_tokens_est)}</td>
           <td style="color:#64748b">${fmtSize(c.response_size)}</td>
           <td style="color:${c.elapsed_ms>3000?'#f87171':c.elapsed_ms>1000?'#fbbf24':'#94a3b8'}">${Math.round(c.elapsed_ms||0)}</td>
           <td>${c.status==='ok'?'<span class="tag tag-ok">ok</span>':'<span class="tag tag-err">err</span>'}</td>
@@ -356,8 +350,6 @@ function renderSessions(sessions) {
         <span>🖥 ${s.client||'unknown'}</span>
         <span>📞 ${s.call_count} calls</span>
         ${s.error_count > 0 ? `<span style="color:#f87171">⚠ ${s.error_count} err</span>` : ''}
-        <span style="color:var(--purple)">↑~${fmtTok(s.total_input_tok)} tok</span>
-        <span style="color:var(--success)">↓~${fmtTok(s.total_output_tok)} tok</span>
         <span style="color:var(--text-3)">${fmtTs(s.started_at)}</span>
       </div>
     </div>
@@ -500,25 +492,6 @@ async function showDetail(id) {
           <span class="eff-badge ${verdictCls}" style="font-size:.65rem">${verdict}</span>
           <span style="color:var(--text-3);font-size:.68rem;margin-left:auto">${loopLabel}</span>
         </h4>
-        ${tr.tok_input != null ? `
-        <div style="display:flex;gap:.75rem;flex-wrap:wrap;font-size:.72rem;margin-bottom:.5rem;padding:.35rem .5rem;background:#0f1117;border-radius:4px">
-          <span style="color:var(--purple)" title="Real input tokens (from transcript)">↑ ${fmtTok(tr.tok_input)} in</span>
-          <span style="color:var(--success)" title="Real output tokens">↓ ${fmtTok(tr.tok_output)} out</span>
-          ${tr.tok_cache_read ? `<span style="color:#64748b" title="Cache read tokens (~10% cost)">📦 ${fmtTok(tr.tok_cache_read)} cached</span>` : ''}
-          ${tr.tok_cache_create ? `<span style="color:#f59e0b" title="Cache creation tokens (billed)">✍ ${fmtTok(tr.tok_cache_create)} cache-write</span>` : ''}
-          <span style="color:var(--text-3);margin-left:auto" title="Actual API counts from Claude Code transcript">real · not estimated</span>
-        </div>
-        ${tr.saved_tool_calls > 0 ? `
-        <div class="savings-grid">
-          <span class="sg-label">⚡ ${tr.kg_input_tokens > 0 ? 'Saved by CodeKG' : 'Est. saved by CodeKG'}</span>
-          <span class="sg-in">${tr.kg_input_tokens > 0 ? '' : '~'}${fmtTok(tr.saved_input_tok)} input</span>
-          <span class="sg-out">${tr.kg_output_tokens > 0 ? '' : '~'}${fmtTok(tr.saved_output_tok)} output</span>
-          <span class="sg-note">${tr.kg_input_tokens > 0 ? 'from telemetry' : 'estimated'}</span>
-          <span class="sg-meta" style="grid-column:1/5">${tr.saved_tool_calls} avoided file reads · ${tr.kg_input_tokens > 0 ? 'real token counts from submitted telemetry' : 'est. = KG calls × 3 reads × 1,500 tok/file'}</span>
-        </div>` : (tr.total_codekg === 0 ? `
-        <div style="display:flex;gap:.5rem;font-size:.72rem;margin-bottom:.5rem;padding:.35rem .5rem;background:#3f1717;border:1px solid #7f1d1d;border-radius:4px">
-          <span style="color:#f87171">⚠ No CodeKG used — no token savings</span>
-        </div>` : '')}` : ''}
         ${loopPrompt ? `<div style="font-size:.72rem;color:#94a3b8;margin-bottom:.6rem;padding:.4rem .6rem;background:#0f1117;border-left:2px solid #6366f1;border-radius:0 4px 4px 0">"${escHtml(loopPrompt.slice(0,300))}"</div>` : ''}
         <div class="timeline" style="max-height:340px;overflow-y:auto;padding:.25rem .5rem" id="tl-container-${id}">
           ${timelineItems}
@@ -556,15 +529,6 @@ async function showDetail(id) {
         <div class="detail-row"><div class="dk">Request ID</div><div class="dv" style="font-family:monospace">${c.request_id||'—'}</div></div>
         <div class="detail-row"><div class="dk">Elapsed</div><div class="dv">${Math.round(c.elapsed_ms||0)} ms</div></div>
         <div class="detail-row"><div class="dk">Response size</div><div class="dv">${fmtSize(c.response_size)}</div></div>
-        <div class="detail-row">
-          <div class="dk">~Tokens (MCP estimated)</div>
-          <div class="dv">
-            <span style="color:var(--purple)">↑ ${fmtTok(c.input_tokens_est)} in</span>
-            &nbsp;·&nbsp;
-            <span style="color:var(--success)">↓ ${fmtTok(c.output_tokens_est)} out</span>
-            <span style="color:var(--text-3);font-size:.7rem"> (chars÷4)</span>
-          </div>
-        </div>
         ${c.error ? `<div class="detail-row"><div class="dk">Error</div><div class="dv" style="color:#f87171">${c.error}</div></div>` : ''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.75rem">
@@ -741,23 +705,10 @@ function renderSessionsEnriched(sessions) {
         <span>🖥 ${s.client||'unknown'}</span>
         <span>📞 ${s.call_count} calls</span>
         ${s.error_count > 0 ? `<span style="color:#f87171">⚠ ${s.error_count} err</span>` : ''}
-        <span style="color:var(--purple)">↑~${fmtTok(s.total_input_tok)} tok</span>
-        <span style="color:var(--success)">↓~${fmtTok(s.total_output_tok)} tok</span>
         ${tr ? `<span style="color:#64748b">${tr.total_turns} tool calls</span>` : ''}
         <span style="color:var(--text-3)">${fmtTs(s.started_at)}</span>
       </div>
       ${tr && tr.user_prompt ? `<div style="font-size:.72rem;color:#64748b;margin-top:.2rem;font-style:italic">"${tr.user_prompt.slice(0,80)}…"</div>` : ''}
-      ${tr && tr.tok_input != null ? `
-        <div style="font-size:.7rem;margin-top:.2rem;display:flex;gap:.6rem;flex-wrap:wrap">
-          <span style="color:var(--purple)" title="Real input tokens from transcript">↑ ${fmtTok(tr.tok_input)} in</span>
-          <span style="color:var(--success)" title="Real output tokens">↓ ${fmtTok(tr.tok_output)} out</span>
-          ${tr.tok_cache_read ? `<span style="color:#64748b" title="Cache read tokens (cheap)">📦 ${fmtTok(tr.tok_cache_read)} cached</span>` : ''}
-          ${tr.tok_cache_create ? `<span style="color:#f59e0b" title="Cache write tokens">✍ ${fmtTok(tr.tok_cache_create)} cache-write</span>` : ''}
-        </div>` : ''}
-      ${tr && tr.saved_tool_calls > 0 ? `
-        <div style="font-size:.7rem;color:#4ade80;margin-top:.15rem">
-          ⚡ ~${fmtTok(tr.saved_input_tok + tr.saved_output_tok)} tokens saved (${tr.saved_tool_calls} avoided calls)
-        </div>` : ''}
     </div>`;
   }).join('');
 }

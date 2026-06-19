@@ -6,7 +6,7 @@
 
 ## What MCP is
 
-MCP is an open protocol for AI agents to call structured tools. The codeKG MCP server runs as a persistent SSE (Server-Sent Events) service on port 8002. Every call is logged to `mcp_audit.db` and surfaced in the console telemetry UI.
+MCP is an open protocol for AI agents to call structured tools. The codeKG MCP server runs as a persistent SSE (Server-Sent Events) service on port 8002.
 
 ```
 Claude Code
@@ -18,11 +18,13 @@ codekg-mcp  (SSE server at http://localhost:8002/sse — persistent, shared)
 codekg-api  (returns JSON)
     │
     ▼
-codekg-mcp  (formats, logs to mcp_audit.db, returns TextContent)
+codekg-mcp  (formats result, returns TextContent)
     │
     ▼
 Claude Code (receives structured result, uses it without touching source files)
 ```
+
+> **Note:** The MCP server does not currently write to `mcp_audit.db`. Tool calls are logged to Docker stdout only. Telemetry (tokens, tool call counts, user prompts) is submitted separately by the Claude Code stop hook to `POST /telemetry/session`.
 
 ---
 
@@ -294,9 +296,8 @@ capture_insight(
 ## Session identity
 
 Each MCP process gets an 8-character session ID at startup (`SESSION_ID = str(uuid4())[:8]`). This ID appears in:
-- All `mcp_audit.db` rows for the session
 - All `capture_insight` calls (links insights to the session that captured them)
-- The console telemetry view
+- The console telemetry view (via stop hook submission)
 
 ```python
 # In SSE mode: per-connection context vars (_cv_session_id) are used
@@ -307,16 +308,11 @@ Each MCP process gets an 8-character session ID at startup (`SESSION_ID = str(uu
 
 ## Audit logging
 
-Every tool call is logged synchronously to `mcp_audit.db` before the result is returned:
+MCP tool calls are logged to Docker stdout (structured JSON). They are **not** currently written to `mcp_audit.db` — the MCP server has no audit logging code.
 
-```sql
-INSERT INTO mcp_calls (
-    session_id, tool_name, input_json, result_summary,
-    step_tokens, created_at
-) VALUES (?, ?, ?, ?, ?, ?)
-```
+Telemetry is collected separately via the Claude Code stop hook (`require_telemetry.py`), which reads the session transcript and posts token usage and tool call records to `POST /telemetry/session` on the API. This data is surfaced in the console `/telemetry` and `/telemetry/{session_id}` pages.
 
-The console `/mcp-audit` page and `/telemetry/{session_id}` page surface these logs with token costs and query plans.
+The `/mcp-audit` console page shows only the older `submit_session_telemetry` MCP calls that pre-date the switch to the stop hook pattern.
 
 ---
 

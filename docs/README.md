@@ -15,7 +15,7 @@ Complete reference documentation for all major areas of the system.
 | [07](./07-watcher.md) | **Watcher Service** | Polling loop, scan container lifecycle, incremental vs full scan, post-scan flow |
 | [08](./08-neo4j-schema.md) | **Neo4j Schema** | All node labels, properties, relationships, and common Cypher query patterns |
 | [09](./09-policies.md) | **Architectural Policies** | Policy lifecycle, writing Cypher constraints, auto-generated policies, MCP integration |
-| [10](./10-telemetry-insights.md) | **Telemetry & Insights** | Token cost calculation, session views, tribal knowledge capture, staleness, quality guide |
+| [10](./10-telemetry-insights.md) | **Telemetry & Insights** | Stop hook telemetry, session views, tribal knowledge capture, approval gate, staleness, quality guide |
 
 ## Quick orientation
 

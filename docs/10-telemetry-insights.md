@@ -16,9 +16,34 @@ They are complementary. Telemetry is observability — it helps you understand a
 
 # Telemetry
 
+## How telemetry is collected
+
+Telemetry is submitted by the **Claude Code stop hook** (`require_telemetry.py`), not by the MCP server. At the end of each Claude Code turn the hook:
+
+1. Reads the session transcript (`.jsonl` file)
+2. Extracts token usage, tool calls, and the user prompt
+3. POSTs to `http://localhost:8000/telemetry/session`
+
+The hook never blocks — it always exits 0 regardless of errors.
+
+```python
+# .claude/hooks/require_telemetry.py — registered in ~/.claude/settings.json
+# Runs on every Claude Code "Stop" event
+payload = {
+    "session_id":  parsed["session_id"],
+    "user_prompt": parsed["user_prompt"],
+    "usage":       parsed["usage"],       # input, output, cache tokens
+    "tool_calls":  parsed["tool_calls"],  # list of {tool_name, input, result_preview}
+    "cwd":         hook_input.get("cwd"),
+}
+_post("http://localhost:8000/telemetry/session", payload)
+```
+
+> Insights (Tribal Knowledge) are **not** submitted by the stop hook. Claude is expected to call the `capture_insight` MCP tool directly at the end of each session.
+
 ## What gets recorded
 
-Every MCP tool call is recorded in `telemetry.db` with:
+Token usage and tool calls per turn are recorded in `telemetry.db`:
 
 ```sql
 -- sessions table
@@ -124,19 +149,9 @@ target = (inp.get("applies_to")      # capture_insight
 
 ## MCP audit log
 
-The `mcp_audit.db` (separate from `telemetry.db`) stores the raw MCP protocol calls including full input and output. Accessible at `/mcp-audit` in the console.
+The `mcp_audit.db` stores MCP call records and is accessible at `/mcp-audit` in the console. However, the MCP server does not currently write to it — MCP tool calls are logged to Docker stdout only. The `/mcp-audit` page therefore only shows records from the older `submit_session_telemetry` MCP tool path, which pre-dates the stop hook approach.
 
-```sql
-CREATE TABLE mcp_calls (
-    id             INTEGER PRIMARY KEY,
-    session_id     TEXT,
-    tool_name      TEXT,
-    input_json     TEXT,
-    result_summary TEXT,
-    step_tokens    INTEGER,
-    created_at     TEXT
-);
-```
+For current session activity, use `/telemetry` instead.
 
 ---
 
@@ -187,6 +202,18 @@ capture_insight(
 The `applies_to` field must be a dot-separated FQN. For module-level insights, use the module path with dots (`services.api.agent_index.generator`). For class-level, use the full class FQN. For method-level, use `ClassName#methodName`.
 
 ---
+
+## Approval gate
+
+Captured insights are stored with `approved = false` by default. They must be approved in the console (`/insights`) before they appear in agent index files.
+
+Only insights with **`approved = true` AND `importance > 75`** are published to:
+- `.codekg/modules/<name>.md` (inlined at the top)
+- `.codekg/insights/index.md` (complete reference)
+
+Insights with `importance ≤ 75` are stored and visible in the console but not published to index files.
+
+> With many sessions accumulating insights, use the console Insights page to review and approve the ones worth surfacing. Unapproved insights are still stored in Neo4j and visible in the console — they just don't reach agents.
 
 ## Where insights surface
 

@@ -3,5 +3,5 @@
 from routes import (  # noqa: F401
     repos, dashboard, policies, modules, classes,
     patterns, ask, mcp_audit, system_health, audit_log,
-    insights, hygiene, agent_index, telemetry, getstarted,
+    insights, hygiene, agent_index, telemetry, getstarted, commits,
 )

@@ -18,7 +18,7 @@
 <div class="page-header">
   <div>
     <h1>Telemetry</h1>
-    <p>Claude Code sessions captured by the Stop hook — exact token counts from transcripts</p>
+    <p>Claude Code sessions captured by the Stop hook</p>
   </div>
 </div>
 
@@ -35,11 +35,6 @@
       <th>Session</th>
       <th>Last seen</th>
       <th>Turns</th>
-      <th title="Uncached input tokens only — what you're actually billed for at full rate">Input tokens (billed)</th>
-      <th title="cache_read / (cache_read + input) — higher is cheaper">Cache hit %</th>
-      <th title="Output tokens — task complexity, not affected by CodeKG">Output</th>
-      <th title="Estimated input tokens avoided by using CodeKG instead of manual exploration">Saved by CodeKG ↓</th>
-      <th title="Estimated input context if Claude had explored the codebase manually">Input without CodeKG ↑</th>
     </tr></thead>
     <tbody>
     {% for s in sessions %}
@@ -47,25 +42,6 @@
       <td><code>{{ s.session_id[:12] }}</code></td>
       <td>{{ s.last_seen[:16].replace('T',' ') if s.last_seen else '—' }}</td>
       <td class="num">{{ s.turn_count or 0 }}</td>
-      <td class="num">
-        {{ '{:,}'.format(s.total_input) if s.total_input else '—' }}
-      </td>
-      <td class="num">
-        {% set ctx = (s.total_input or 0) + (s.total_cache_read or 0) %}
-        {% if ctx %}
-          {% set pct = ((s.total_cache_read or 0) / ctx * 100)|round(1) %}
-          <span style="color:{{ 'var(--success)' if pct >= 80 else 'var(--warning)' if pct >= 50 else 'var(--danger)' }}">{{ pct }}%</span>
-        {% else %}—{% endif %}
-      </td>
-      <td class="num" style="color:var(--text-3)">{{ '{:,}'.format(s.total_output or 0) if s.total_output else '—' }}</td>
-      <td class="num" style="color:var(--success);font-weight:600">
-        {% if s.tokens_saved %}{{ '{:,}'.format(s.tokens_saved) }}{% else %}—{% endif %}
-      </td>
-      <td class="num" style="color:var(--text-3)">
-        {% set ctx = (s.total_input or 0) + (s.total_cache_read or 0) %}
-        {% set without = ctx + (s.tokens_saved or 0) %}
-        {{ '{:,}'.format(without) if without else '—' }}
-      </td>
     </tr>
     {% endfor %}
     </tbody>

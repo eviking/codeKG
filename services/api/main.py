@@ -533,6 +533,77 @@ def impact_commit(
     return report.to_dict()
 
 
+@app.get("/impact/commits")
+def list_commit_analyses(repo_id: str | None = None, limit: int = 50) -> list:
+    """List stored commit impact analyses, newest first."""
+    import shared.commit_impact_store as _store
+    _store.init_db()
+    return _store.list_analyses(repo_id=repo_id, limit=limit)
+
+
+@app.get("/impact/commits/{repo_id}/{commit_sha}")
+def get_commit_analysis(repo_id: str, commit_sha: str) -> dict:
+    """Retrieve the full impact analysis for a specific commit."""
+    import shared.commit_impact_store as _store
+    _store.init_db()
+    result = _store.get_analysis(repo_id=repo_id, commit_sha=commit_sha)
+    if not result:
+        raise HTTPException(404, f"No analysis found for {repo_id}@{commit_sha}")
+    return result
+
+
+@app.get("/impact/commits/{repo_id}/{commit_sha}/diff")
+def get_commit_diff(repo_id: str, commit_sha: str) -> dict:
+    """Return per-file unified diffs for a commit."""
+    import subprocess
+    repo_path = _load_registry().get(repo_id, "")
+    if not repo_path:
+        raise HTTPException(404, f"Repo {repo_id} not found in registry")
+
+    # Get parent SHA from the store so we can diff correctly
+    import shared.commit_impact_store as _store
+    _store.init_db()
+    analysis = _store.get_analysis(repo_id=repo_id, commit_sha=commit_sha)
+    parent_sha = (analysis or {}).get("parent_sha")
+
+    try:
+        if parent_sha:
+            result = subprocess.run(
+                ["git", "-C", repo_path, "diff", "--unified=6", parent_sha, commit_sha],
+                capture_output=True, text=True, timeout=30,
+            )
+        else:
+            # Initial commit — diff against empty tree
+            result = subprocess.run(
+                ["git", "-C", repo_path, "show", "--unified=6", "--format=", commit_sha],
+                capture_output=True, text=True, timeout=30,
+            )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, "git diff timed out")
+    except Exception as e:
+        raise HTTPException(500, f"git diff failed: {e}")
+
+    if result.returncode not in (0, 1):
+        raise HTTPException(500, f"git error: {result.stderr[:400]}")
+
+    # Split into per-file chunks
+    files: list[dict] = []
+    current: dict | None = None
+    for line in result.stdout.splitlines():
+        if line.startswith("diff --git "):
+            if current:
+                files.append(current)
+            parts = line.split(" b/", 1)
+            fname = parts[1] if len(parts) == 2 else line
+            current = {"filename": fname, "lines": []}
+        elif current is not None:
+            current["lines"].append(line)
+    if current:
+        files.append(current)
+
+    return {"repo_id": repo_id, "commit_sha": commit_sha, "parent_sha": parent_sha, "files": files}
+
+
 # ------------------------------------------------------------------
 # Freshness / provenance endpoint
 # ------------------------------------------------------------------

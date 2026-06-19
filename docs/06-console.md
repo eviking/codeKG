@@ -27,7 +27,8 @@ services/console/
 │   ├── config.py        # GET /config, POST /api/config (env/settings UI)
 │   ├── getstarted.py    # GET /getstarted (setup wizard), POST /getstarted/*
 │   ├── ask.py           # POST /api/ask (natural language query proxy)
-│   ├── audit_log.py     # GET /audit-log (LLM audit log)
+│   ├── audit_log.py     # GET /audit (LLM audit log)
+│   ├── commits.py       # GET /commits, /commits/{repo_id}/{sha}, proxy for diff
 │   └── system_health.py # GET /system-health, GET /api/system-health
 ├── templates/
 │   ├── base.html        # shared layout, nav, CSS tokens
@@ -84,6 +85,21 @@ def _template_ctx(request: Request) -> dict:
 ```
 
 The selected repo is stored in a cookie (`selected_repo`). Switching repos via the top-right dropdown sets this cookie and reloads the page. All data queries are scoped to `selected_repo`.
+
+---
+
+## Navigation groups
+
+The sidebar is divided into four groups:
+
+| Group | Pages |
+|-------|-------|
+| **Codebase** | Repositories, Modules, Classes, Hygiene, Insights, Agent Indexing, Commit Impact |
+| **Architecture** | Patterns, Policies, Ask |
+| **Observability** | LLM Audit, MCP Audit, Telemetry, System Health |
+| **Settings** | Config |
+
+> Commit Impact lives under **Codebase** (not Observability) because it analyses what code changes did — it is a codebase understanding tool, not an AI tooling monitor.
 
 ---
 
@@ -228,9 +244,20 @@ target = (inp.get('applies_to')      # capture_insight
        or inp.get('insight', '')[:80])
 ```
 
+### Commit Impact — `GET /commits`
+
+Lists all analysed commits across registered repos with risk scores, sortable and filterable by field. Each commit shows:
+- Overall risk score and affected node count
+- Per-vector scores: Security, Availability, Performance, Observability, Operations, Dependencies
+- Lazy-loaded git diff per file (fetched on demand via "Show code changes")
+
+Risk scores are computed from 27 signal functions operating on actual diff content (not filenames). Per-repo configuration via `impact_vectors.yaml` at the repo root.
+
+Commit detail at `/commits/{repo_id}/{sha}` shows score breakdowns with fired signals, rationale per vector, and an inline diff viewer with dark syntax highlighting.
+
 ### MCP Audit — `GET /mcp-audit`
 
-Raw log of all MCP tool calls across all sessions. Useful for debugging which tools the agent is calling and with what inputs.
+Shows historical MCP tool call records. Note: since switching to the SSE transport + stop hook pattern, the MCP server no longer writes to `mcp_audit.db` — new entries only appear via the older `submit_session_telemetry` path. For current session activity, use `/telemetry` instead.
 
 ### Insights — `GET /insights`
 

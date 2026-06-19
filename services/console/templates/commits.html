@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Commit Impact{% endblock %}
+{% block content %}
+<style>
+  .page-header { margin-bottom:1rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; color:var(--text); }
+  .page-sub    { font-size:.8rem; color:var(--text-2); margin-top:.2rem; }
+
+  /* ── Toolbar ── */
+  .toolbar { display:flex; align-items:center; gap:.6rem; margin-bottom:1rem; flex-wrap:wrap; }
+  .toolbar input, .toolbar select {
+    font-size:.8rem; padding:.35rem .6rem; border:1px solid var(--border);
+    border-radius:var(--radius); background:var(--surface); color:var(--text);
+    outline:none; height:32px;
+  }
+  .toolbar input:focus, .toolbar select:focus { border-color:var(--primary); }
+  .toolbar input[type=text] { flex:1; min-width:180px; max-width:340px; }
+  .filter-label { font-size:.72rem; color:var(--text-3); white-space:nowrap; }
+  .count-badge  { margin-left:auto; font-size:.75rem; color:var(--text-3); white-space:nowrap; }
+
+  /* ── Table ── */
+  .commit-table { width:100%; border-collapse:collapse; }
+  .commit-table th {
+    font-size:.65rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--text-3); padding:.5rem .75rem; text-align:left;
+    border-bottom:2px solid var(--border); white-space:nowrap;
+    cursor:pointer; user-select:none; position:relative;
+  }
+  .commit-table th:hover { color:var(--text-2); }
+  .commit-table th.sorted-asc::after  { content:" ▲"; font-size:.6rem; }
+  .commit-table th.sorted-desc::after { content:" ▼"; font-size:.6rem; }
+  .commit-table td {
+    padding:.55rem .75rem; border-bottom:1px solid var(--border);
+    font-size:.82rem; color:var(--text); vertical-align:middle;
+  }
+  .commit-table tr:hover td { background:var(--surface-2); }
+  .commit-table tr.hidden-row { display:none; }
+
+  .sha-link { font-family:'JetBrains Mono', monospace; font-size:.78rem;
+              color:var(--primary); font-weight:500; }
+  .msg-cell { max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .author-cell { color:var(--text-2); font-size:.78rem; }
+  .files-badge { font-size:.72rem; background:var(--surface-2); color:var(--text-2);
+                 border-radius:20px; padding:.1rem .5rem; }
+
+  /* ── Risk meter ── */
+  .risk-cell { display:flex; align-items:center; gap:.5rem; }
+  .risk-bar  { flex:1; height:6px; background:var(--border); border-radius:3px;
+               max-width:80px; overflow:hidden; }
+  .risk-fill { height:100%; border-radius:3px; }
+  .risk-val  { font-size:.75rem; font-weight:600; font-family:'JetBrains Mono', monospace;
+               width:32px; text-align:right; }
+  .risk-low    { background:var(--success); }
+  .risk-medium { background:var(--warning); }
+  .risk-high   { background:var(--danger); }
+  .rv-low    { color:var(--success); }
+  .rv-medium { color:var(--warning); }
+  .rv-high   { color:var(--danger); }
+
+  /* ── Dimension dots ── */
+  .dim-dots { display:flex; gap:.25rem; align-items:center; }
+  .dim-dot  { width:8px; height:8px; border-radius:50%; }
+
+  .card { background:var(--surface); border:1px solid var(--border);
+          border-radius:var(--radius-lg); padding:1.25rem 1.5rem;
+          box-shadow:var(--shadow); }
+
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-3); font-size:.9rem; }
+  .no-results  { text-align:center; padding:2rem; color:var(--text-3); font-size:.84rem; display:none; }
+</style>
+
+<div class="page-header">
+  <div class="page-title">Commit Impact</div>
+  <div class="page-sub">Per-commit change-impact analysis — security, availability, performance, and more</div>
+</div>
+
+{% if not commits %}
+<div class="card">
+  <div class="empty-state">
+    No commit analyses yet — run an incremental ingestion scan to populate this page.
+  </div>
+</div>
+{% else %}
+
+{# collect unique repos for filter dropdown #}
+{% set repos = commits | map(attribute='repo_id') | unique | sort | list %}
+
+<div class="toolbar">
+  <input id="msg-filter" type="text" placeholder="Filter by message or author…" oninput="applyFilters()">
+
+  {% if repos | length > 1 %}
+  <span class="filter-label">Repo</span>
+  <select id="repo-filter" onchange="applyFilters()">
+    <option value="">All repos</option>
+    {% for r in repos %}
+    <option value="{{ r }}" {{ 'selected' if filter_repo == r }}>{{ r }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+
+  <span class="filter-label">Risk</span>
+  <select id="risk-filter" onchange="applyFilters()">
+    <option value="">All</option>
+    <option value="high">High (≥70%)</option>
+    <option value="medium">Medium (35–69%)</option>
+    <option value="low">Low (&lt;35%)</option>
+  </select>
+
+  <span class="filter-label">Vector</span>
+  <select id="vector-filter" onchange="applyFilters()">
+    <option value="">Any vector</option>
+    <option value="security">Security &gt; 0</option>
+    <option value="availability">Availability &gt; 0</option>
+    <option value="performance">Performance &gt; 0</option>
+    <option value="observability">Observability &gt; 0</option>
+    <option value="ops">Operations &gt; 0</option>
+    <option value="deps">Dependencies &gt; 0</option>
+  </select>
+
+  <span class="count-badge" id="row-count"></span>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden;">
+  <table class="commit-table" id="commit-table">
+    <thead>
+      <tr>
+        <th data-col="sha">Commit</th>
+        <th data-col="repo">Repo</th>
+        <th data-col="msg">Message</th>
+        <th data-col="author">Author</th>
+        <th data-col="files" data-num="1">Files</th>
+        <th data-col="affected" data-num="1">Affected</th>
+        <th data-col="risk" data-num="1">Risk</th>
+        <th title="Security · Availability · Performance · Observability · Ops · Deps">Vectors</th>
+        <th data-col="when">When</th>
+      </tr>
+    </thead>
+    <tbody id="commit-tbody">
+    {% for c in commits %}
+      {% set risk = c.risk_score | float %}
+      {% set risk_pct = (risk * 100) | int %}
+      {% set risk_cls = "risk-high" if risk >= 0.7 else ("risk-medium" if risk >= 0.35 else "risk-low") %}
+      {% set rv_cls   = "rv-high"   if risk >= 0.7 else ("rv-medium"   if risk >= 0.35 else "rv-low") %}
+      {% set risk_lvl = "high" if risk >= 0.7 else ("medium" if risk >= 0.35 else "low") %}
+      {% set nfiles = c.changed_files | length if c.changed_files is iterable else 0 %}
+      {% set author_name = (c.author or '').split('<')[0].strip() or '—' %}
+      {% set when_val = c.committed_at or c.created_at or '' %}
+      <tr
+        data-sha="{{ c.commit_sha }}"
+        data-repo="{{ c.repo_id }}"
+        data-msg="{{ (c.message or '') | lower }}"
+        data-author="{{ author_name | lower }}"
+        data-files="{{ nfiles }}"
+        data-affected="{{ c.total_affected }}"
+        data-risk="{{ risk }}"
+        data-risk-lvl="{{ risk_lvl }}"
+        data-security="{{ c.security_score | float }}"
+        data-availability="{{ c.availability_score | float }}"
+        data-performance="{{ c.performance_score | float }}"
+        data-observability="{{ c.observability_score | float }}"
+        data-ops="{{ c.ops_score | float }}"
+        data-deps="{{ c.deps_score | float }}"
+        data-when="{{ when_val }}"
+      >
+        <td>
+          <a class="sha-link" href="/commits/{{ c.repo_id }}/{{ c.commit_sha }}">
+            {{ c.commit_sha[:8] }}
+          </a>
+        </td>
+        <td style="font-size:.75rem; color:var(--text-2);">{{ c.repo_id }}</td>
+        <td class="msg-cell" title="{{ c.message or '' }}">{{ c.message or '—' }}</td>
+        <td class="author-cell">{{ author_name }}</td>
+        <td><span class="files-badge">{{ nfiles }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace; font-size:.78rem;">{{ c.total_affected }}</td>
+        <td>
+          <div class="risk-cell">
+            <div class="risk-bar">
+              <div class="risk-fill {{ risk_cls }}" style="width:{{ risk_pct }}%"></div>
+            </div>
+            <span class="risk-val {{ rv_cls }}">{{ risk_pct }}%</span>
+          </div>
+        </td>
+        <td>
+          <div class="dim-dots">
+            {% set dims = [
+              (c.security_score,     '#dc2626', 'Security'),
+              (c.availability_score, '#d97706', 'Availability'),
+              (c.performance_score,  '#0284c7', 'Performance'),
+              (c.observability_score,'#7c3aed', 'Observability'),
+              (c.ops_score,          '#16a34a', 'Operations'),
+              (c.deps_score,         '#94a3b8', 'Dependencies'),
+            ] %}
+            {% for score, color, label in dims %}
+              <div class="dim-dot" title="{{ label }}: {{ (score * 100) | int }}%"
+                   style="background:{{ color }}; opacity:{{ [0.15, score | float] | max }};"></div>
+            {% endfor %}
+          </div>
+        </td>
+        <td style="font-size:.75rem; color:var(--text-3); white-space:nowrap;">
+          {{ when_val[:16].replace('T', ' ') if when_val else '—' }}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="no-results" id="no-results">No commits match the current filters.</div>
+</div>
+
+<script>
+(function () {
+  let sortCol = null, sortDir = 1;
+
+  const tbody  = document.getElementById('commit-tbody');
+  const count  = document.getElementById('row-count');
+  const noRes  = document.getElementById('no-results');
+  const ths    = document.querySelectorAll('.commit-table th[data-col]');
+
+  // ── Sort ──────────────────────────────────────────────────────────
+  ths.forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) sortDir *= -1;
+      else { sortCol = col; sortDir = 1; }
+      ths.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+      th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+      sortRows();
+    });
+  });
+
+  function sortRows() {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isNum = sortCol && document.querySelector(`th[data-col="${sortCol}"]`)?.dataset.num;
+    rows.sort((a, b) => {
+      let av = '', bv = '';
+      if (sortCol === 'sha')      { av = a.dataset.sha;    bv = b.dataset.sha; }
+      else if (sortCol === 'repo'){ av = a.dataset.repo;   bv = b.dataset.repo; }
+      else if (sortCol === 'msg') { av = a.dataset.msg;    bv = b.dataset.msg; }
+      else if (sortCol === 'author') { av = a.dataset.author; bv = b.dataset.author; }
+      else if (sortCol === 'files')    { av = +a.dataset.files;    bv = +b.dataset.files; }
+      else if (sortCol === 'affected') { av = +a.dataset.affected; bv = +b.dataset.affected; }
+      else if (sortCol === 'risk')     { av = +a.dataset.risk;     bv = +b.dataset.risk; }
+      else if (sortCol === 'when') { av = a.dataset.when; bv = b.dataset.when; }
+      if (isNum || typeof av === 'number') return sortDir * (av - bv);
+      return sortDir * String(av).localeCompare(String(bv));
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    updateCount();
+  }
+
+  // ── Filter ─────────────────────────────────────────────────────────
+  function applyFilters() {
+    const txt    = (document.getElementById('msg-filter')?.value || '').toLowerCase();
+    const repo   = (document.getElementById('repo-filter')?.value || '').toLowerCase();
+    const riskLv = document.getElementById('risk-filter')?.value || '';
+    const vec    = document.getElementById('vector-filter')?.value || '';
+
+    let visible = 0;
+    tbody.querySelectorAll('tr').forEach(row => {
+      const show =
+        (!txt    || row.dataset.msg.includes(txt) || row.dataset.author.includes(txt)
+                 || row.dataset.sha.startsWith(txt)) &&
+        (!repo   || row.dataset.repo.toLowerCase() === repo) &&
+        (!riskLv || row.dataset.riskLvl === riskLv) &&
+        (!vec    || +row.dataset[vec] > 0);
+      row.classList.toggle('hidden-row', !show);
+      if (show) visible++;
+    });
+    noRes.style.display = visible === 0 ? '' : 'none';
+    updateCount(visible);
+  }
+
+  function updateCount(visible) {
+    const total = tbody.querySelectorAll('tr').length;
+    const v = visible !== undefined ? visible : tbody.querySelectorAll('tr:not(.hidden-row)').length;
+    count.textContent = v === total ? `${total} commits` : `${v} / ${total} commits`;
+  }
+
+  // Initialise count
+  updateCount();
+
+  // Expose for oninput/onchange
+  window.applyFilters = applyFilters;
+})();
+</script>
+
+{% endif %}
+{% endblock %}

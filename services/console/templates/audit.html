@@ -57,14 +57,6 @@
     <div class="lbl">Total cost</div>
   </div>
   <div class="audit-stat">
-    <div class="val">{{ "{:,}".format((stats.totals.net_input_tokens or 0)|int) }}</div>
-    <div class="lbl">Input tokens (billed)</div>
-  </div>
-  <div class="audit-stat">
-    <div class="val">{{ "{:,}".format((stats.totals.output_tokens or 0)|int) }}</div>
-    <div class="lbl">Output tokens</div>
-  </div>
-  <div class="audit-stat">
     <div class="val">{{ "{:.0f}".format((stats.totals.cache_ratio or 0) * 100) }}%</div>
     <div class="lbl">Cache hit ratio</div>
   </div>
@@ -77,8 +69,7 @@
   <table class="by-model-table">
     <thead>
       <tr>
-        <th>Model</th><th>Calls</th><th>Input tokens (billed)</th><th>Output tokens</th>
-        <th>Cache read</th><th>Cache %</th><th>Cost (USD)</th><th>Avg latency</th>
+        <th>Model</th><th>Calls</th><th>Cost (USD)</th><th>Avg latency</th>
       </tr>
     </thead>
     <tbody>
@@ -86,10 +77,6 @@
     <tr>
       <td class="{{ 'model-haiku' if 'haiku' in m.model else 'model-sonnet' if 'sonnet' in m.model else 'model-opus' }}">{{ m.model }}</td>
       <td>{{ m.calls }}</td>
-      <td>{{ "{:,}".format((m.net_input_tokens or 0)|int) }}</td>
-      <td>{{ "{:,}".format((m.output_tokens or 0)|int) }}</td>
-      <td>{{ "{:,}".format((m.cache_read_tokens or 0)|int) }}</td>
-      <td>{{ "{:.0f}".format(((m.cache_read_tokens or 0) / (m.input_tokens or 1)) * 100) }}%</td>
       <td class="cost-val">${{ "%.5f"|format(m.cost_usd or 0) }}</td>
       <td>{{ ((m.avg_ms or 0)|int) }}ms</td>
     </tr>
@@ -136,9 +123,6 @@
       <th>Time</th>
       <th>Source</th>
       <th>Model</th>
-      <th>In</th>
-      <th>Out</th>
-      <th>Cache</th>
       <th>Cost</th>
       <th>Latency</th>
       <th></th>
@@ -153,9 +137,6 @@
     <td class="{{ 'model-haiku' if 'haiku' in (c.model or '') else 'model-sonnet' if 'sonnet' in (c.model or '') else 'model-opus' }}" style="font-size:0.75rem">
       {{ (c.model or '').replace('claude-','') }}
     </td>
-    <td class="token-val">{{ "{:,}".format((c.input_tokens or 0) - (c.cache_read_tokens or 0)) }}</td>
-    <td class="token-val">{{ "{:,}".format(c.output_tokens or 0) }}</td>
-    <td class="token-val" style="color:var(--primary)">{{ "{:,}".format(c.cache_read_tokens or 0) if c.cache_read_tokens else '—' }}</td>
     <td class="cost-val">${{ "%.5f"|format(c.cost_usd or 0) }}</td>
     <td style="color:var(--text-3);font-family:monospace">{{ c.elapsed_ms or '—' }}ms</td>
     <td>
@@ -165,14 +146,14 @@
     </td>
   </tr>
   <tr class="detail-row" id="detail-{{ c.id }}">
-    <td colspan="10" class="detail-cell">
+    <td colspan="7" class="detail-cell">
       <div class="detail-inner">
         <div>
-          <h4>Input{% if c.input_tokens %} · {{ "{:,}".format(c.input_tokens - (c.cache_read_tokens or 0)) }} billed{% if c.cache_read_tokens %} + {{ "{:,}".format(c.cache_read_tokens) }} cached{% endif %}{% endif %}</h4>
+          <h4>Input</h4>
           <pre>{{ c.input_text or '—' }}</pre>
         </div>
         <div>
-          <h4>Output{% if c.output_tokens %} · {{ "{:,}".format(c.output_tokens) }} tokens{% endif %}{% if c.error %} · <span style="color:var(--danger)">ERROR</span>{% endif %}</h4>
+          <h4>Output{% if c.error %} · <span style="color:var(--danger)">ERROR</span>{% endif %}</h4>
           <pre>{% if c.error %}<span style="color:var(--danger)">{{ c.error }}</span>
 {% endif %}{{ c.output_text or '—' }}</pre>
         </div>

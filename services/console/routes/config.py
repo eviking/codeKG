@@ -463,11 +463,15 @@ async def config_page(request: Request):
         s = item["section"]
         if s not in sections:
             sections[s] = []
-        # Mark whether value comes from env file vs process env vs default
+        # Mark whether value comes from env file vs process env vs default.
+        # The env file value is shown as the current value when present — it
+        # represents the user's saved intent, even if the process env still
+        # reflects the old value until the next container restart.
         env_file_val = env_file_values.get(item["key"])
         proc_env_val = os.environ.get(item["key"])
         if env_file_val is not None:
             item["source"] = "file"
+            item["value"] = env_file_val   # show saved value, not stale process env
         elif proc_env_val is not None:
             item["source"] = "env"
         else:

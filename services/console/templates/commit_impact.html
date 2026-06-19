@@ -1,0 +1,562 @@
+{% extends "base.html" %}
+{% block title %}Commit {{ sha[:8] }} Impact{% endblock %}
+{% block content %}
+<style>
+  .back-link   { font-size:.8rem; color:var(--text-3); margin-bottom:1rem; display:inline-flex; align-items:center; gap:.3rem; }
+  .back-link:hover { color:var(--primary); text-decoration:none; }
+  .commit-header { display:flex; align-items:flex-start; gap:1.5rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .commit-meta { flex:1; min-width:0; }
+  .commit-sha  { font-family:'JetBrains Mono', monospace; font-size:.85rem; color:var(--text-3); }
+  .commit-msg  { font-size:1.15rem; font-weight:700; color:var(--text); margin:.2rem 0 .4rem; }
+  .commit-byline { font-size:.8rem; color:var(--text-2); }
+
+  /* ── Overall score card ── */
+  .score-card  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+                 padding:1.25rem 1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem; }
+  .score-grid  { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-top:1rem; }
+  .score-item  { display:flex; flex-direction:column; gap:.3rem; }
+  .score-label { font-size:.62rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); }
+  .score-bar-wrap { height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
+  .score-bar   { height:100%; border-radius:4px; }
+  .score-val   { font-size:.82rem; font-weight:700; font-family:'JetBrains Mono', monospace; }
+  .score-reason { font-size:.72rem; color:var(--text-2); line-height:1.4; margin-top:.1rem; }
+
+  .risk-ring-wrap { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:.35rem; }
+  .risk-ring   { position:relative; width:88px; height:88px; }
+  .risk-ring svg { transform:rotate(-90deg); }
+  .risk-ring-label { position:absolute; inset:0; display:flex; flex-direction:column;
+                     align-items:center; justify-content:center; }
+  .risk-ring-pct   { font-size:1.15rem; font-weight:800; font-family:'JetBrains Mono', monospace; }
+  .risk-ring-sub   { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--text-3); }
+
+  .c-danger  { color:var(--danger); }
+  .c-warning { color:var(--warning); }
+  .c-success { color:var(--success); }
+  .c-info    { color:var(--info); }
+  .c-purple  { color:var(--purple); }
+  .c-text2   { color:var(--text-2); }
+
+  /* ── Section cards ── */
+  .section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+                  margin-bottom:1.25rem; overflow:hidden; box-shadow:var(--shadow); }
+  .section-head { display:flex; align-items:center; gap:.6rem; padding:.8rem 1.25rem;
+                  border-bottom:1px solid var(--border); background:var(--surface); cursor:pointer; user-select:none; }
+  .section-head:hover { background:var(--surface-2); }
+  .section-icon  { font-size:1rem; }
+  .section-title { font-size:.88rem; font-weight:700; flex:1; }
+  .section-badge { font-size:.7rem; font-weight:700; padding:.15rem .55rem; border-radius:20px;
+                   background:var(--surface-2); color:var(--text-2); min-width:24px; text-align:center; }
+  .badge-danger  { background:var(--danger-lt);  color:var(--danger); }
+  .badge-warning { background:var(--warning-lt); color:var(--warning); }
+  .badge-info    { background:var(--info-lt);    color:var(--info); }
+  .badge-purple  { background:var(--purple-lt);  color:var(--purple); }
+  .badge-success { background:var(--success-lt); color:var(--success); }
+  .section-body  { padding:1rem 1.25rem; }
+  .collapse-toggle { font-size:.7rem; color:var(--text-3); }
+
+  .item-row { display:flex; align-items:flex-start; gap:.6rem; padding:.45rem 0; border-bottom:1px solid var(--border); }
+  .item-row:last-child { border-bottom:none; }
+  .item-fqn   { font-family:'JetBrains Mono', monospace; font-size:.78rem; flex:1; color:var(--text); }
+  .item-kind  { font-size:.65rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+                padding:.1rem .4rem; border-radius:3px; background:var(--surface-2); color:var(--text-3); flex-shrink:0; }
+  .item-hop   { font-size:.7rem; color:var(--text-3); flex-shrink:0; }
+  .item-reason { font-size:.7rem; color:var(--text-2); flex-shrink:0; }
+
+  /* ── Diff viewer ── */
+  .diff-loading { color:var(--text-3); font-size:.82rem; padding:.5rem 0; }
+  .diff-file-block { margin-bottom:1rem; border:1px solid #334155; border-radius:var(--radius); overflow:hidden; }
+  .diff-file-header {
+    font-family:'JetBrains Mono', monospace; font-size:.75rem; font-weight:600;
+    padding:.45rem .85rem; background:#1e293b; color:#94a3b8;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+    user-select:none; border-bottom:1px solid #334155;
+  }
+  .diff-file-header:hover { background:#263245; }
+  .diff-file-header .diff-fname { color:#e2e8f0; flex:1; }
+  .diff-file-header .diff-toggle { font-size:.65rem; color:#64748b; margin-left:.5rem; }
+  .diff-body { overflow:auto; max-height:560px; background:#0f172a; }
+  .diff-body table { width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:.73rem; }
+  .diff-body td { padding:.12rem .7rem; white-space:pre; line-height:1.6; color:#cbd5e1; }
+  .diff-body td.ln {
+    width:42px; min-width:42px; text-align:right; padding-right:.6rem;
+    color:#475569; border-right:1px solid #1e293b; user-select:none;
+    background:#0f172a;
+  }
+  /* added lines — dark green bg, bright green text */
+  .diff-line-add td          { background:#0d2b1a; }
+  .diff-line-add td.ln       { background:#0a2116; color:#4ade80; border-right-color:#14532d; }
+  .diff-line-add td.code     { color:#86efac; background:#0d2b1a; }
+  /* deleted lines — dark red bg, bright red text */
+  .diff-line-del td          { background:#2d1010; }
+  .diff-line-del td.ln       { background:#240d0d; color:#f87171; border-right-color:#7f1d1d; }
+  .diff-line-del td.code     { color:#fca5a5; background:#2d1010; }
+  /* hunk header @@ ... @@ */
+  .diff-line-hunk td         { background:#172033; color:#5b7fa6; font-style:italic; }
+  .diff-line-hunk td.ln      { background:#172033; color:#3d5a7a; border-right-color:#1e293b; }
+
+  .file-row   { font-family:'JetBrains Mono', monospace; font-size:.75rem; padding:.3rem 0;
+                border-bottom:1px solid var(--border); color:var(--text-2); }
+  .file-row:last-child { border-bottom:none; }
+
+  .policy-row  { padding:.5rem 0; border-bottom:1px solid var(--border); }
+  .policy-row:last-child { border-bottom:none; }
+  .policy-title { font-size:.82rem; font-weight:600; }
+  .policy-desc  { font-size:.75rem; color:var(--text-2); margin-top:.15rem; }
+  .severity-badge { font-size:.65rem; font-weight:700; padding:.1rem .4rem; border-radius:3px;
+                    text-transform:uppercase; letter-spacing:.05em; }
+  .sev-error   { background:var(--danger-lt);  color:var(--danger); }
+  .sev-warning { background:var(--warning-lt); color:var(--warning); }
+  .sev-info    { background:var(--info-lt);    color:var(--info); }
+  .violated-tag { font-size:.65rem; color:var(--danger); margin-left:.5rem; }
+
+  .test-row   { font-family:'JetBrains Mono', monospace; font-size:.78rem; padding:.35rem 0;
+                border-bottom:1px solid var(--border); }
+  .test-row:last-child { border-bottom:none; }
+  .test-reason { font-family:inherit; font-size:.72rem; color:var(--text-2); font-style:italic; display:block; }
+
+  .ep-row   { display:flex; align-items:center; gap:.5rem; padding:.35rem 0;
+              border-bottom:1px solid var(--border); font-size:.78rem; }
+  .ep-row:last-child { border-bottom:none; }
+  .ep-method { font-size:.68rem; font-weight:700; padding:.1rem .4rem; border-radius:3px;
+               background:#1e293b; color:#7dd3fc; font-family:'JetBrains Mono',monospace; }
+  .ep-path   { font-family:'JetBrains Mono', monospace; color:var(--text); flex:1; }
+  .ep-handler { font-size:.7rem; color:var(--text-3); }
+
+  .narrative { background:var(--surface-2); border-radius:var(--radius); padding:1rem 1.25rem;
+               font-size:.85rem; line-height:1.7; color:var(--text); margin-bottom:1.25rem; }
+  .narrative strong { color:var(--text); }
+
+  .not-found { text-align:center; padding:4rem; color:var(--text-3); }
+</style>
+
+<a class="back-link" href="/commits">← All Commits</a>
+
+{% if not analysis %}
+<div class="not-found">
+  No impact analysis found for <code>{{ sha[:8] }}</code>.<br>
+  <span style="font-size:.8rem;">This commit may not have been analysed yet, or the analysis is still in progress.</span>
+</div>
+{% else %}
+
+{% set impact  = analysis.get('impact', {}) %}
+{% set summary = impact.get('summary', {}) %}
+{% set risk    = analysis.risk_score | float %}
+{% set risk_pct = (risk * 100) | int %}
+{% set risk_color = '#dc2626' if risk >= 0.7 else ('#d97706' if risk >= 0.35 else '#16a34a') %}
+{% set risk_label = 'HIGH' if risk >= 0.7 else ('MEDIUM' if risk >= 0.35 else 'LOW') %}
+{% set n_direct    = summary.get('directly_affected_classes', 0) %}
+{% set n_callers   = summary.get('callers', 0) %}
+{% set n_trans     = summary.get('transitive_dependents', 0) %}
+{% set n_endpoints = summary.get('exposed_endpoints', 0) %}
+{% set n_policies  = summary.get('relevant_policies', 0) %}
+{% set n_files     = analysis.changed_files | length %}
+
+{# ── Header ── #}
+<div class="commit-header">
+  <div class="commit-meta">
+    <div class="commit-sha">{{ analysis.repo_id }} @ {{ analysis.commit_sha }}</div>
+    <div class="commit-msg">{{ analysis.message or 'Untitled commit' }}</div>
+    <div class="commit-byline">
+      {{ analysis.author or 'Unknown author' }}
+      {% if analysis.committed_at %}
+        &nbsp;·&nbsp; {{ analysis.committed_at[:19].replace('T', ' ') }} UTC
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="risk-ring-wrap">
+    {% set r = 36 %}
+    {% set circ = (2 * 3.14159 * r) | round(1) %}
+    {% set dash = (circ * (1 - risk)) | round(1) %}
+    <div class="risk-ring">
+      <svg width="88" height="88" viewBox="0 0 88 88">
+        <circle cx="44" cy="44" r="{{ r }}" fill="none" stroke="var(--border)" stroke-width="8"/>
+        <circle cx="44" cy="44" r="{{ r }}" fill="none"
+                stroke="{{ risk_color }}" stroke-width="8"
+                stroke-dasharray="{{ circ }}"
+                stroke-dashoffset="{{ dash }}"
+                stroke-linecap="round"/>
+      </svg>
+      <div class="risk-ring-label">
+        <span class="risk-ring-pct" style="color:{{ risk_color }}">{{ risk_pct }}%</span>
+        <span class="risk-ring-sub">risk</span>
+      </div>
+    </div>
+    <span style="font-size:.7rem; font-weight:700; color:{{ risk_color }};">{{ risk_label }} RISK</span>
+  </div>
+</div>
+
+{# ── Narrative summary ── #}
+<div class="narrative">
+  This commit touches <strong>{{ n_files }}</strong> file{{ 's' if n_files != 1 }}
+  and directly affects <strong>{{ n_direct }}</strong> class{{ 'es' if n_direct != 1 }}.
+  {% if n_callers %}<strong>{{ n_callers }}</strong> caller{{ 's are' if n_callers != 1 else ' is' }} one hop away.{% endif %}
+  {% if n_trans %}<strong>{{ n_trans }}</strong> class{{ 'es' if n_trans != 1 }} are transitively impacted.{% endif %}
+  {% if n_endpoints %}<strong>{{ n_endpoints }}</strong> API endpoint{{ 's are' if n_endpoints != 1 else ' is' }} exposed by affected code — <span style="color:var(--danger); font-weight:600;">availability risk.</span>{% endif %}
+  {% if n_policies %}<strong>{{ n_policies }}</strong> architectural polic{{ 'ies' if n_policies != 1 else 'y' }} may need review.{% endif %}
+</div>
+
+{# ── Score grid with rationale ── #}
+{% set sec_score  = analysis.security_score     | float %}
+{% set avl_score  = analysis.availability_score | float %}
+{% set prf_score  = analysis.performance_score  | float %}
+{% set obs_score  = analysis.observability_score| float %}
+{% set ops_score  = analysis.ops_score          | float %}
+{% set dep_score  = analysis.deps_score         | float %}
+
+{% set all_signals = impact.get('signals', {}) %}
+
+<div class="score-card">
+  <div style="font-size:.75rem; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.07em;">Impact Vectors</div>
+  <div class="score-grid">
+    {% set vectors = [
+      ('Security',      sec_score,  '#dc2626', 'security',      'No security signals fired — no auth/crypto/external-call changes detected.'),
+      ('Availability',  avl_score,  '#d97706', 'availability',  'No availability signals fired — fan-in, timeouts, and retry patterns unchanged.'),
+      ('Performance',   prf_score,  '#0284c7', 'performance',   'No performance signals fired — no heavy compute, parallelism, or cache changes.'),
+      ('Observability', obs_score,  '#7c3aed', 'observability', 'No observability signals fired — logging and metrics appear unchanged.'),
+      ('Operations',    ops_score,  '#16a34a', 'operations',    'No operations signals fired — no infra, migration, or policy changes.'),
+      ('Dependencies',  dep_score,  '#94a3b8', 'dependencies',  'No dependency signals fired — no manifest files changed.'),
+    ] %}
+    {% for label, score, color, vec_key, zero_msg in vectors %}
+    {% set pct = (score * 100) | int %}
+    {% set fired = all_signals.get(vec_key, []) %}
+    <div class="score-item">
+      <div class="score-label">{{ label }}</div>
+      <div class="score-bar-wrap">
+        <div class="score-bar" style="width:{{ pct }}%; background:{{ color }};"></div>
+      </div>
+      <div class="score-val" style="color:{{ color }};">{{ pct }}%</div>
+      <div class="score-reason">
+        {% if fired %}
+          {% for sig in fired %}
+            <span style="display:block; margin-bottom:.1rem;">
+              <span style="color:{{ color }}; font-weight:700;">↑</span>
+              {{ sig.detail }}
+              <span style="color:var(--text-3); font-size:.68rem;">(×{{ sig.weight }})</span>
+            </span>
+          {% endfor %}
+        {% else %}
+          {{ zero_msg }}
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Changed Files with Diff ── #}
+{% set files = analysis.changed_files or [] %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">📄</span>
+    <span class="section-title">Changed Files</span>
+    <span class="section-badge">{{ files | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not files %}
+      <div style="color:var(--text-3); font-size:.82rem;">No files recorded.</div>
+    {% else %}
+      <div style="display:flex; gap:.5rem; margin-bottom:.75rem; align-items:center; flex-wrap:wrap;">
+        <button class="btn-sm" onclick="loadDiff(this)" data-url="{{ diff_url }}"
+                style="font-size:.75rem; padding:.25rem .65rem; border:1px solid var(--border);
+                       border-radius:var(--radius); background:var(--surface-2); color:var(--text-2);
+                       cursor:pointer;">
+          Show code changes
+        </button>
+        <span id="diff-status" style="font-size:.75rem; color:var(--text-3);"></span>
+      </div>
+      <div id="diff-container"></div>
+      {% for f in files %}
+      <div class="file-row">{{ f }}</div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Directly affected classes ── #}
+{% set direct = impact.get('directly_affected', []) %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">🎯</span>
+    <span class="section-title">Directly Affected Classes</span>
+    <span class="section-badge {{ 'badge-danger' if direct | length > 5 else '' }}">{{ direct | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not direct %}
+      <div style="color:var(--text-3); font-size:.82rem;">None detected — changed files may not be indexed yet.</div>
+    {% else %}
+      {% for n in direct %}
+      <div class="item-row">
+        <span class="item-kind">{{ n.kind or 'class' }}</span>
+        <span class="item-fqn"><a href="/classes/{{ n.fqn }}" style="color:var(--primary);">{{ n.fqn }}</a></span>
+        {% if n.module %}<span class="item-reason" style="color:var(--text-3);">{{ n.module }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Callers ── #}
+{% set callers = impact.get('callers', []) %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">📞</span>
+    <span class="section-title">Direct Callers</span>
+    <span class="section-badge {{ 'badge-warning' if callers | length > 3 else '' }}">{{ callers | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not callers %}
+      <div style="color:var(--text-3); font-size:.82rem;">No direct callers found.</div>
+    {% else %}
+      {% for n in callers %}
+      <div class="item-row">
+        <span class="item-kind">{{ n.kind or 'class' }}</span>
+        <span class="item-fqn"><a href="/classes/{{ n.fqn }}" style="color:var(--primary);">{{ n.fqn }}</a></span>
+        <span class="item-hop">+{{ n.hop_distance or 1 }} hop{{ 's' if (n.hop_distance or 1) != 1 }}</span>
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Transitive dependents ── #}
+{% set trans = impact.get('transitive_dependents', []) %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">🌊</span>
+    <span class="section-title">Transitive Dependents</span>
+    <span class="section-badge {{ 'badge-warning' if trans | length > 10 else '' }}">{{ trans | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not trans %}
+      <div style="color:var(--text-3); font-size:.82rem;">No transitive dependents found.</div>
+    {% else %}
+      {% for n in trans %}
+      <div class="item-row">
+        <span class="item-kind">{{ n.kind or 'class' }}</span>
+        <span class="item-fqn"><a href="/classes/{{ n.fqn }}" style="color:var(--primary);">{{ n.fqn }}</a></span>
+        <span class="item-hop">+{{ n.hop_distance or 1 }} hop{{ 's' if (n.hop_distance or 1) != 1 }}</span>
+        <span class="item-reason">{{ n.reason }}</span>
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Exposed API endpoints ── #}
+{% set endpoints = impact.get('exposed_endpoints', []) %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">🔌</span>
+    <span class="section-title">Exposed API Endpoints</span>
+    <span class="section-badge {{ 'badge-danger' if endpoints | length > 0 else '' }}">{{ endpoints | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not endpoints %}
+      <div style="color:var(--text-3); font-size:.82rem;">No endpoints exposed by affected code.</div>
+    {% else %}
+      <div style="font-size:.78rem; color:var(--warning); margin-bottom:.75rem; font-weight:600;">
+        ⚠ These HTTP endpoints are exposed by code touched in this commit — verify they still behave correctly.
+      </div>
+      {% for ep in endpoints %}
+      <div class="ep-row">
+        <span class="ep-method">{{ ep.http_method }}</span>
+        <span class="ep-path">{{ ep.path }}</span>
+        <span class="ep-handler">{{ ep.handler_class }}</span>
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Relevant architectural policies ── #}
+{% set policies = impact.get('relevant_policies', []) %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">📋</span>
+    <span class="section-title">Relevant Architectural Policies</span>
+    {% set violated = policies | selectattr('is_violated') | list %}
+    <span class="section-badge {{ 'badge-danger' if violated else '' }}">{{ policies | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not policies %}
+      <div style="color:var(--text-3); font-size:.82rem;">No relevant policies for the affected modules.</div>
+    {% else %}
+      {% for p in policies %}
+      <div class="policy-row">
+        <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+          <span class="policy-title">{{ p.title }}</span>
+          <span class="severity-badge sev-{{ p.severity }}">{{ p.severity }}</span>
+          {% if p.is_violated %}<span class="violated-tag">⚠ already violated</span>{% endif %}
+        </div>
+        <div class="policy-desc">{{ p.natural_language }}</div>
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Suggested tests ── #}
+{% set tests = impact.get('suggested_tests', []) %}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">🧪</span>
+    <span class="section-title">Suggested Tests to Verify</span>
+    <span class="section-badge {{ 'badge-info' if tests | length > 0 else '' }}">{{ tests | length }}</span>
+    <span class="collapse-toggle">▾</span>
+  </div>
+  <div class="section-body">
+    {% if not tests %}
+      <div style="color:var(--text-3); font-size:.82rem;">No test suggestions — ensure test coverage for affected classes manually.</div>
+    {% else %}
+      {% for t in tests %}
+      <div class="test-row">
+        <a href="/classes/{{ t.fqn }}" style="color:var(--primary);">{{ t.fqn }}</a>
+        <span class="test-reason">{{ t.reason }}</span>
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Raw data ── #}
+<div class="section-card">
+  <div class="section-head" onclick="toggleSection(this)">
+    <span class="section-icon">🔬</span>
+    <span class="section-title">Raw Impact Data</span>
+    <span class="section-badge">JSON</span>
+    <span class="collapse-toggle">▸</span>
+  </div>
+  <div class="section-body" style="display:none;">
+    <pre style="font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-2);
+                background:var(--surface-2); padding:1rem; border-radius:var(--radius);
+                overflow:auto; max-height:400px; white-space:pre-wrap; word-break:break-word;">{{ impact | tojson(indent=2) }}</pre>
+  </div>
+</div>
+
+{% endif %}
+
+<script>
+function toggleSection(head) {
+  const body = head.nextElementSibling;
+  const toggle = head.querySelector('.collapse-toggle');
+  if (!body) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? '' : 'none';
+  toggle.textContent = isHidden ? '▾' : '▸';
+}
+
+async function loadDiff(btn) {
+  const url = btn.dataset.url;
+  const container = document.getElementById('diff-container');
+  const status = document.getElementById('diff-status');
+
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  status.textContent = '';
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(`${res.status} — ${msg.slice(0, 120)}`);
+    }
+    const data = await res.json();
+    const files = data.files || [];
+
+    if (!files.length) {
+      container.innerHTML = '<div style="color:var(--text-3); font-size:.82rem; margin-bottom:.5rem;">No diff available for this commit.</div>';
+      btn.remove();
+      return;
+    }
+
+    container.innerHTML = files.map(f => renderFileDiff(f)).join('');
+    btn.textContent = 'Hide code changes';
+    btn.onclick = () => {
+      const isHidden = container.style.display === 'none';
+      container.style.display = isHidden ? '' : 'none';
+      btn.textContent = isHidden ? 'Hide code changes' : 'Show code changes';
+    };
+    btn.disabled = false;
+    status.textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+  } catch (e) {
+    status.textContent = '⚠ ' + e.message;
+    btn.textContent = 'Show code changes';
+    btn.disabled = false;
+  }
+}
+
+function renderFileDiff(file) {
+  const lines = file.lines || [];
+  const id = 'diff_' + Math.random().toString(36).slice(2);
+
+  let tableRows = '';
+  let addedN = 0, deletedN = 0;
+  let lnLeft = 0, lnRight = 0;
+
+  // Parse hunk headers to track line numbers
+  for (const raw of lines) {
+    const hunkMatch = raw.match(/^@@\s*-(\d+)(?:,\d+)?\s*\+(\d+)(?:,\d+)?\s*@@/);
+    if (hunkMatch) {
+      lnLeft = parseInt(hunkMatch[1], 10);
+      lnRight = parseInt(hunkMatch[2], 10);
+      const hunkInfo = raw.replace(/@@.*@@/, '').trim();
+      tableRows += `<tr class="diff-line-hunk"><td class="ln" colspan="2"></td><td class="code">${escHtml(raw)}</td></tr>`;
+      continue;
+    }
+    if (raw.startsWith('---') || raw.startsWith('+++') || raw.startsWith('index ') || raw.startsWith('new file') || raw.startsWith('deleted file')) {
+      continue;
+    }
+    if (raw.startsWith('+')) {
+      tableRows += `<tr class="diff-line-add"><td class="ln"></td><td class="ln">${lnRight}</td><td class="code">${escHtml(raw.slice(1))}</td></tr>`;
+      lnRight++; addedN++;
+    } else if (raw.startsWith('-')) {
+      tableRows += `<tr class="diff-line-del"><td class="ln">${lnLeft}</td><td class="ln"></td><td class="code">${escHtml(raw.slice(1))}</td></tr>`;
+      lnLeft++; deletedN++;
+    } else {
+      tableRows += `<tr><td class="ln">${lnLeft}</td><td class="ln">${lnRight}</td><td class="code">${escHtml(raw.slice(1))}</td></tr>`;
+      lnLeft++; lnRight++;
+    }
+  }
+
+  const stats = [
+    addedN   ? `<span style="color:#4ade80">+${addedN}</span>` : '',
+    deletedN ? `<span style="color:#f87171">-${deletedN}</span>` : '',
+  ].filter(Boolean).join(' ');
+
+  return `
+    <div class="diff-file-block">
+      <div class="diff-file-header" onclick="toggleDiffFile('${id}')">
+        <span class="diff-fname">${escHtml(file.filename)}</span>
+        ${stats ? `<span style="font-size:.7rem; margin-right:.5rem;">${stats}</span>` : ''}
+        <span class="diff-toggle" id="${id}_toggle">▾</span>
+      </div>
+      <div class="diff-body" id="${id}">
+        ${tableRows ? `<table>${tableRows}</table>` : '<div style="padding:.5rem 1rem; font-size:.75rem; color:var(--text-3);">No changes</div>'}
+      </div>
+    </div>`;
+}
+
+function toggleDiffFile(id) {
+  const body = document.getElementById(id);
+  const toggle = document.getElementById(id + '_toggle');
+  if (!body) return;
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  toggle.textContent = hidden ? '▾' : '▸';
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+</script>
+{% endblock %}

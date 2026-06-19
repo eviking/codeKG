@@ -1,0 +1,68 @@
+# CodeKG commit impact vector configuration
+# Place this file at the root of any repo that CodeKG scans.
+# CodeKG merges these values with its built-in defaults — any signal you omit
+# keeps its default weight. Set enabled: false to silence a signal entirely.
+#
+# Weight guide:
+#   2.0  — critical, amplifies the signal significantly
+#   1.5  — important
+#   1.0  — default, neutral
+#   0.5  — present but minor for this repo
+#   0.0  — same as enabled: false
+
+vectors:
+
+  security:
+    signals:
+      new_external_http_call:   { enabled: true,  weight: 1.5 }
+      crypto_function_changed:  { enabled: true,  weight: 2.0 }
+      auth_method_changed:      { enabled: true,  weight: 1.5 }
+      secret_access_added:      { enabled: true,  weight: 2.0 }
+      new_third_party_lib:      { enabled: true,  weight: 1.0 }
+      endpoint_exposed:         { enabled: true,  weight: 1.0 }
+
+  availability:
+    signals:
+      high_fan_in:               { enabled: true,  weight: 1.5, threshold: 5 }
+      timeout_param_changed:     { enabled: true,  weight: 1.5 }
+      retry_pattern_changed:     { enabled: true,  weight: 1.5 }
+      exception_handling_changed:{ enabled: true,  weight: 1.0 }
+      async_model_changed:       { enabled: true,  weight: 1.0 }
+
+  performance:
+    signals:
+      high_transitive_blast: { enabled: true, weight: 1.0, threshold: 10 }
+      loop_pattern_changed:  { enabled: true, weight: 1.0 }
+      parallelism_changed:   { enabled: true, weight: 1.5 }
+      caching_changed:       { enabled: true, weight: 1.5 }
+      db_query_changed:      { enabled: true, weight: 1.0 }
+      heavy_lib_imported:
+        enabled: true
+        weight:  1.0
+        libs:    [numpy, pandas, torch, tensorflow, scipy, dask, ray]
+
+  observability:
+    signals:
+      net_log_decrease:       { enabled: true, weight: 2.0 }
+      metric_trace_changed:   { enabled: true, weight: 1.5 }
+      silent_exception_added: { enabled: true, weight: 2.0 }
+
+  operations:
+    signals:
+      infra_file_changed:
+        enabled:  true
+        weight:   1.5
+        patterns: [Dockerfile, docker-compose, .github/workflows, Makefile,
+                   .gitlab-ci, Jenkinsfile, buildspec, cloudbuild]
+      new_migration:   { enabled: true, weight: 1.5 }
+      env_var_changed: { enabled: true, weight: 1.0 }
+      policy_violation:{ enabled: true, weight: 1.5 }
+
+  dependencies:
+    signals:
+      new_package_added:  { enabled: true, weight: 2.0 }
+      package_removed:    { enabled: true, weight: 1.5 }
+      heavy_package_added:
+        enabled: true
+        weight:  1.0
+        libs:    [torch, tensorflow, scipy, numpy, pandas, dask, ray]
