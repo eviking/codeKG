@@ -9,6 +9,7 @@ Diff lines are the raw unified-diff lines for all files in the commit
 """
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
@@ -17,26 +18,26 @@ from typing import Any
 
 def _added(diff_lines: list[str]) -> list[str]:
     """Lines added in this commit (start with '+', not '+++')."""
-    return [l[1:] for l in diff_lines if l.startswith("+") and not l.startswith("+++")]
+    return [ln[1:] for ln in diff_lines if ln.startswith("+") and not ln.startswith("+++")]
 
 
 def _removed(diff_lines: list[str]) -> list[str]:
     """Lines removed in this commit (start with '-', not '---')."""
-    return [l[1:] for l in diff_lines if l.startswith("-") and not l.startswith("---")]
+    return [ln[1:] for ln in diff_lines if ln.startswith("-") and not ln.startswith("---")]
 
 
 def _any_match(lines: list[str], patterns: list[str], flags: int = re.IGNORECASE) -> list[str]:
     """Return lines matching any of the given regex patterns."""
     combined = "|".join(f"(?:{p})" for p in patterns)
     rx = re.compile(combined, flags)
-    return [l for l in lines if rx.search(l)]
+    return [ln for ln in lines if rx.search(ln)]
 
 
 def _filenames(diff_lines: list[str]) -> list[str]:
     """Extract filenames from diff --git a/... b/... headers."""
     names = []
-    for l in diff_lines:
-        m = re.match(r"^diff --git a/(.+) b/(.+)$", l)
+    for ln in diff_lines:
+        m = re.match(r"^diff --git a/(.+) b/(.+)$", ln)
         if m:
             names.append(m.group(2))
     return names
@@ -131,7 +132,7 @@ def sig_new_third_party_lib(diff_lines: list[str], graph: dict, cfg: Any) -> tup
         "hashlib", "itertools", "functools", "collections", "contextlib",
         "threading", "subprocess", "traceback", "unittest", "dataclasses",
     }
-    py_imports  = [l for l in _added(diff_lines) if re.match(r"^\s*(import|from)\s+(\w+)", l)]
+    py_imports  = [ln for ln in _added(diff_lines) if re.match(r"^\s*(import|from)\s+(\w+)", ln)]
     new_third_party = []
     for line in py_imports:
         m = re.match(r"^\s*(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
@@ -141,8 +142,8 @@ def sig_new_third_party_lib(diff_lines: list[str], graph: dict, cfg: Any) -> tup
                 new_third_party.append(pkg)
 
     # Also check requirements / package.json added lines
-    req_lines = [l for l in _added(diff_lines)
-                 if re.match(r"^[a-zA-Z][\w\-]+[>=<!~]", l.strip())]
+    req_lines = [ln for ln in _added(diff_lines)
+                 if re.match(r"^[a-zA-Z][\w\-]+[>=<!~]", ln.strip())]
     total = len(set(new_third_party)) + len(req_lines)
     if not total:
         return 0.0, ""
@@ -334,11 +335,11 @@ def sig_db_query_changed(diff_lines: list[str], graph: dict, cfg: Any) -> tuple[
 def sig_heavy_lib_imported(diff_lines: list[str], graph: dict, cfg: Any) -> tuple[float, str]:
     """Heavy compute library (numpy, torch, etc.) newly imported."""
     libs = cfg.libs or ["numpy", "pandas", "torch", "tensorflow", "scipy", "dask", "ray"]
-    pattern = r"^\s*(import|from)\s+(" + "|".join(re.escape(l) for l in libs) + r")\b"
+    pattern = r"^\s*(import|from)\s+(" + "|".join(re.escape(lib) for lib in libs) + r")\b"
     hits = _any_match(_added(diff_lines), [pattern])
     if not hits:
         return 0.0, ""
-    found = list({re.search(pattern, l).group(2) for l in hits if re.search(pattern, l)})
+    found = list({re.search(pattern, ln).group(2) for ln in hits if re.search(pattern, ln)})
     return min(1.0, len(hits) * 0.4), f"Heavy lib(s) imported: {', '.join(found)}"
 
 
@@ -401,7 +402,7 @@ def sig_infra_file_changed(diff_lines: list[str], graph: dict, cfg: Any) -> tupl
     hits = [f for f in fnames if any(p.lower() in f.lower() for p in patterns)]
     if not hits:
         return 0.0, ""
-    short = [Path(h).name for h in hits[:3]]
+    short = [os.path.basename(h) for h in hits[:3]]
     return min(1.0, len(hits) * 0.4), f"Infra file(s) changed: {', '.join(short)}"
 
 
@@ -507,19 +508,17 @@ def sig_heavy_package_added(diff_lines: list[str], graph: dict, cfg: Any) -> tup
     manifest_files = _dep_manifest_files(diff_lines)
     if not manifest_files:
         return 0.0, ""
-    pattern = r"(?i)\b(" + "|".join(re.escape(l) for l in libs) + r")\b"
+    pattern = r"(?i)\b(" + "|".join(re.escape(lib) for lib in libs) + r")\b"
     hits = _any_match(_added(diff_lines), [pattern])
     if not hits:
         return 0.0, ""
-    found = list({re.search(pattern, l, re.IGNORECASE).group(1) for l in hits
-                  if re.search(pattern, l, re.IGNORECASE)})
+    found = list({re.search(pattern, ln, re.IGNORECASE).group(1) for ln in hits
+                  if re.search(pattern, ln, re.IGNORECASE)})
     return min(1.0, len(hits) * 0.5), f"Heavy package(s) added: {', '.join(found)}"
 
 
 # ── Signal registry ───────────────────────────────────────────────────────────
 # Maps signal name → function. Used by the scorer to call the right function.
-
-from pathlib import Path as _Path  # already imported above; re-alias for clarity
 
 SIGNAL_REGISTRY: dict[str, callable] = {
     # security
