@@ -519,15 +519,15 @@ class AbapParser:
                     "target": _text(ids[-1], src).strip(),
                     "repo_id": repo_id,
                 })
-        elif node.type == "method_call":
-            ids = [c for c in node.named_children if c.type == "identifier"]
-            # >= 2: obj->method( ) where obj is an identifier (e.g. lo_obj->run)
-            # == 1: me->method( ) where 'me' is a keyword node, not an identifier
-            if ids:
+        elif node.type == "function_call":
+            # me->method( ) and lo_obj->method( ) both parse as function_call
+            # with a `name` field (identifier) holding the method name.
+            name_node = node.child_by_field_name("name")
+            if name_node:
                 edges.append({
                     "type": "CALLS",
                     "source": caller_fqn,
-                    "target": _text(ids[-1], src).strip(),
+                    "target": _text(name_node, src).strip(),
                     "repo_id": repo_id,
                 })
         elif node.type == "call_function_statement":
