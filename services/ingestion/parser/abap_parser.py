@@ -521,7 +521,9 @@ class AbapParser:
                 })
         elif node.type == "method_call":
             ids = [c for c in node.named_children if c.type == "identifier"]
-            if len(ids) >= 2:
+            # >= 2: obj->method( ) where obj is an identifier (e.g. lo_obj->run)
+            # == 1: me->method( ) where 'me' is a keyword node, not an identifier
+            if ids:
                 edges.append({
                     "type": "CALLS",
                     "source": caller_fqn,
