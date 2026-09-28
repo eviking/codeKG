@@ -1274,7 +1274,42 @@ def _validate_index_refs(visible: list[dict]) -> list[tuple[str, str]]:
     return result
 
 
-def _ai_publish(repo_id: str, repo_path: str) -> dict:
+#: A publish never legitimately removes most of the index at once. Below this many files
+#: the ratio is meaningless, so a small absolute floor applies as well.
+_PUBLISH_DELETE_FLOOR = 3
+_PUBLISH_DELETE_FRACTION = 0.5
+
+
+def _publish_deletion_is_suspicious(doomed: int, on_disk: int) -> bool:
+    """Whether this publish removes so much of the index that it is probably a mistake.
+
+    Deleting a few files is routine — a module disappears, an insight file empties. What
+    is never routine is a bundle that wipes most of what is there, and that is exactly
+    what a half-populated store produces.
+    """
+    if doomed == 0:
+        return False
+    return doomed > max(_PUBLISH_DELETE_FLOOR, on_disk * _PUBLISH_DELETE_FRACTION)
+
+
+def _expected_publish_paths(visible: list[dict], codekg_dir) -> set:
+    """The .codekg/ paths this bundle is responsible for."""
+    from pathlib import Path  # noqa: F401 - Path arrives via codekg_dir's type
+    paths = set()
+    for f in visible:
+        if f["file_key"] in ("claude_md", "agents_md"):
+            # Written to the repository root when it already has one; the .codekg/ copy
+            # is the fallback, and either way it is this path that must not be reaped.
+            paths.add(codekg_dir / ("CLAUDE.md" if f["file_key"] == "claude_md" else "AGENTS.md"))
+            continue
+        directory = f.get("directory") or ""
+        paths.add((codekg_dir / directory / f["filename"]) if directory
+                  else (codekg_dir / f["filename"]))
+    return paths
+
+
+def _ai_publish(repo_id: str, repo_path: str, *,
+                commit: bool = True, force: bool = False) -> dict:
     import subprocess
     from pathlib import Path
     from agent_index import generator as gen, store
@@ -1298,6 +1333,26 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
 
     codekg_dir = Path(repo_path) / ".codekg"
     codekg_dir.mkdir(exist_ok=True)
+
+    # Work out what this bundle would remove BEFORE writing anything. Publishing is a
+    # mirror operation: whatever is not in the bundle is deleted from disk. That is
+    # correct when the store is populated and catastrophic when it is not — a store
+    # holding three entries because a regen never finished will quietly delete a
+    # sixteen-file index and commit the deletion.
+    expected_paths = _expected_publish_paths(visible, codekg_dir)
+    on_disk = {f for f in codekg_dir.rglob("*") if f.is_file()}
+    doomed = on_disk - expected_paths
+    if not force and _publish_deletion_is_suspicious(len(doomed), len(on_disk)):
+        return {
+            "ok": False,
+            "error": (
+                f"Refusing to publish: the bundle has {len(visible)} visible file(s) and "
+                f"would delete {len(doomed)} of the {len(on_disk)} currently in .codekg/. "
+                "That usually means the store was never fully regenerated — run "
+                "/agent-index/regen to completion first. Pass force=true to publish anyway."
+            ),
+            "would_delete": sorted(str(p.relative_to(repo_path)) for p in doomed),
+        }
 
     written = []
     for f in visible:
@@ -1330,33 +1385,33 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
         dest.write_text(content, encoding="utf-8")
         written.append(str(dest.relative_to(repo_path)))
 
-    # Build set of paths that should exist on disk (visible files only)
-    expected_paths: set[Path] = set()
-    for f in visible:
-        if f["file_key"] in ("claude_md", "agents_md"):
-            # Written to repo root or .codekg/ root — not inside a subdirectory to track
-            target_name = "CLAUDE.md" if f["file_key"] == "claude_md" else "AGENTS.md"
-            expected_paths.add(codekg_dir / target_name)
-            continue
-        directory = f.get("directory") or ""
-        expected_paths.add(
-            (codekg_dir / directory / f["filename"]) if directory else (codekg_dir / f["filename"])
-        )
-
-    # Delete any .codekg/ file not in the expected set — covers hidden files AND
-    # files removed from the store entirely (e.g. old per-module insight files)
+    # Delete what the bundle no longer covers — hidden files, and files dropped from the
+    # store entirely (old per-module insight files, say). The set was computed and
+    # sanity-checked above, before any of the writes.
     deleted = []
-    for existing_file in codekg_dir.rglob("*"):
-        if not existing_file.is_file():
-            continue
-        if existing_file not in expected_paths:
-            existing_file.unlink()
-            deleted.append(str(existing_file.relative_to(repo_path)))
+    for existing_file in sorted(doomed):
+        existing_file.unlink(missing_ok=True)
+        deleted.append(str(existing_file.relative_to(repo_path)))
 
     # ── Validate: check that every .codekg/ path referenced in any file
     # actually exists in the bundle being published. Dangling references waste
     # Claude Code context on files that don't exist.
     dangling_refs = _validate_index_refs(visible)
+
+    branch = subprocess.run(
+        ["git", "-C", repo_path, "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+
+    if not commit:
+        # Files are on disk; the caller takes it from here. Useful when the index should
+        # land in a review branch, or in no commit at all.
+        return {"ok": True, "files_written": len(written), "files_deleted": len(deleted),
+                "branch": branch, "committed": False,
+                "warnings": [
+                    f"Dangling reference in '{src}': `.codekg/{ref}` is not in the published bundle"
+                    for src, ref in dangling_refs
+                ] or None}
 
     try:
         subprocess.run(["git", "-C", repo_path, "add", "-f", ".codekg/"], check=True, capture_output=True, text=True)
@@ -1397,7 +1452,8 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
 
         store.mark_published(repo_id, sha)
         result_payload = {"ok": True, "files_written": len(written), "files_deleted": len(deleted),
-                          "sha": sha, "commit_output": result.stdout.strip()}
+                          "sha": sha, "branch": branch, "committed": True,
+                          "commit_output": result.stdout.strip()}
         if dangling_refs:
             result_payload["warnings"] = [
                 f"Dangling reference in '{src}': `.codekg/{ref}` is not in the published bundle"
@@ -1437,6 +1493,11 @@ class _PublishRequest(_BaseModel):
     """Validates requests that publish reviewed agent-index content. Watch out for versioning assumptions here, because publishing mutates state that other services may already be reading."""
 
     repo_id: str
+    #: Publishing commits to whatever branch the repository is currently on. Set false to
+    #: write the files and leave the commit to the caller.
+    commit: bool = True
+    #: Override the guard that refuses a bundle which would delete most of the index.
+    force: bool = False
 
 @app.post("/agent-index/publish")
 def ai_publish(body: _PublishRequest) -> dict:
@@ -1446,7 +1507,7 @@ def ai_publish(body: _PublishRequest) -> dict:
     repo_path = registry.get(body.repo_id)
     if not repo_path:
         raise HTTPException(404, f"Repo {body.repo_id} not found in registry")
-    result = _ai_publish(body.repo_id, repo_path)
+    result = _ai_publish(body.repo_id, repo_path, commit=body.commit, force=body.force)
     if not result["ok"]:
         raise HTTPException(500, result.get("error"))
     return result
