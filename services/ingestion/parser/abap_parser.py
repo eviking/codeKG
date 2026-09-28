@@ -41,8 +41,11 @@ def _load_abap_language() -> Language:
     if not os.path.exists(so_path):
         raise ImportError(
             f"ABAP grammar .so not found at {so_path}. "
-            "Compile it from https://github.com/kennyhml/tree-sitter-abap:\n"
+            "Compile it from https://github.com/kennyhml/tree-sitter-abap. That repo does "
+            "not commit a generated parser, so `src/parser.c` has to be produced first "
+            "with the tree-sitter CLI (npm or cargo):\n"
             "  git clone --depth=1 https://github.com/kennyhml/tree-sitter-abap.git /tmp/ts-abap\n"
+            "  cd /tmp/ts-abap && npx tree-sitter generate\n"
             "  gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_abap.so "
             "/tmp/ts-abap/src/parser.c /tmp/ts-abap/src/scanner.c"
         )
@@ -51,6 +54,20 @@ def _load_abap_language() -> Language:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         return Language(lib.tree_sitter_abap())
+
+
+def abap_grammar_available() -> bool:
+    """Whether the ABAP grammar can be loaded at all.
+
+    The grammar has no PyPI package and is not built into the image, so on most
+    installations it is absent. Callers use this to leave `.abap` out of a scan with one
+    warning, rather than turning every ABAP file in the repository into a parse error.
+    """
+    try:
+        _get_abap_language()
+    except Exception:
+        return False
+    return True
 
 
 _ABAP_LANGUAGE: Optional[Language] = None
