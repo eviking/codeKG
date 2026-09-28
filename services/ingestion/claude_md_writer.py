@@ -21,6 +21,7 @@ Dynamic content (queried from KG, updated every scan):
 """
 from __future__ import annotations
 
+import errno
 import os
 from pathlib import Path
 from datetime import datetime, timezone
@@ -650,15 +651,25 @@ def write_claude_md(driver, repo_id: str, repo_path: str) -> bool:
     Generate and write .claude/CLAUDE.md into the repo directory.
     Returns True on success, False on failure.
     """
+    out = Path(repo_path) / ".claude" / "CLAUDE.md"
     try:
         content = generate(driver, repo_id, repo_path)
-        claude_dir = Path(repo_path) / ".claude"
-        claude_dir.mkdir(exist_ok=True)
-        out = claude_dir / "CLAUDE.md"
+        out.parent.mkdir(exist_ok=True)
         out.write_text(content, encoding="utf-8")
         log.info("CLAUDE.md written", repo_id=repo_id, path=str(out),
                  size=len(content))
         return True
+    except OSError as exc:
+        if exc.errno == errno.EROFS:
+            # Expected, not a fault: scan containers mount the repository read-only so
+            # that indexing cannot modify the code it is reading. Saying "write failed"
+            # sent people looking for a permissions problem that is deliberate.
+            log.info("CLAUDE.md not written — repository is mounted read-only for scans; "
+                     "publishing the agent index is what writes it",
+                     repo_id=repo_id, path=str(out))
+            return False
+        log.warning("CLAUDE.md write failed", repo_id=repo_id, path=str(out), exc=str(exc))
+        return False
     except Exception as exc:
-        log.warning("CLAUDE.md write failed", repo_id=repo_id, exc=str(exc))
+        log.warning("CLAUDE.md write failed", repo_id=repo_id, path=str(out), exc=str(exc))
         return False
