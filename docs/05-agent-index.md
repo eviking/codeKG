@@ -53,7 +53,7 @@ The master navigation file. Always read first.
 
 ```markdown
 # CodeKG Agent Index — codeKG
-_Generated 2026-06-05 20:34 UTC · kept current by git commit triggers_
+_Generated 2026-06-05 20:34 UTC from commit `a1b2c3d` · refreshed when a scan is published, not on commit_
 
 ## ⚠ STOP — read this before doing anything
 
