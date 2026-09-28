@@ -32,7 +32,9 @@ echo "→ Installing test dependencies"
   "docker>=7.0.0" "itsdangerous>=2.1.2" \
   "tree-sitter>=0.22.3" "tree-sitter-java>=0.21.0" \
   "tree-sitter-python>=0.23.0" "tree-sitter-cpp>=0.23.0" \
-  "mcp>=1.3.0"
+  "mcp>=1.3.0,<2"          # must match services/mcp/requirements.txt — 2.x drops the
+                           # low-level decorators main.py registers with, and the MCP
+                           # suite then fails at collection rather than at a test
 
 # ── Run tests ─────────────────────────────────────────────────────────────
 
