@@ -14,6 +14,21 @@ from parser.python_parser import PythonParser
 from parser.cpp_parser import CppParser, CPP_EXTENSIONS
 from parser.apex_parser import ApexParser, APEX_EXTENSIONS
 from parser.js_parser import JsParser, JS_TS_EXTENSIONS
+
+#: Salesforce metadata files are named `*.js-meta.xml`, not `*.xml`, so they have to be
+#: matched on the whole name rather than on `Path.suffix`.
+_SF_METADATA_SUFFIXES = frozenset({
+    ".js-meta.xml", ".flow-meta.xml", ".object-meta.xml",
+    ".field-meta.xml", ".permissionSet-meta.xml", ".profile-meta.xml",
+})
+
+#: What a full scan looks for. Kept identical to the set the previous rglob passes
+#: covered; the parsers themselves remain the source of truth for each language.
+_FULL_SCAN_SUFFIXES = frozenset(
+    {".java", ".py", ".html", ".cmp", ".app", ".design"}
+    | set(CPP_EXTENSIONS) | set(APEX_EXTENSIONS) | set(JS_TS_EXTENSIONS)
+    | set(_SF_METADATA_SUFFIXES)
+)
 from parser.abap_parser import AbapParser, ABAP_EXTENSIONS
 from parser.lwc_parser import LwcParser, LWC_EXTENSIONS
 from parser.flow_parser import FlowParser
@@ -25,6 +40,7 @@ from parser.api_extractor import ApiExtractor
 from parser.concurrency_extractor import ConcurrencyExtractor
 from parser.build_extractor import BuildExtractor, extract_modules
 from parser.repo_structure import extract_project_identity, extract_repo_map
+from shared.source_discovery import discover_source_files
 from kg.writer import KGWriter
 from pattern_detector import detect_patterns, save_patterns_to_kg
 from shared.config import cfg
@@ -261,40 +277,11 @@ class IngestionEngine:
 
         path = Path(repo_path)
 
-        # Directories to exclude from scanning — vendor, virtual envs, generated output
-        _SKIP_DIRS = {
-            ".venv", "venv", "env", ".env",
-            "node_modules", "__pycache__", ".git",
-            "build", "dist", ".eggs", ".tox",
-            "site-packages",                    # any depth venv packages
-            ".gradle", ".mvn", "target",        # Java build output
-        }
-
-        def _excluded(f: Path) -> bool:
-            return any(part in _SKIP_DIRS for part in f.parts)
-
-        source_files = [
-            f for f in (
-                list(path.rglob("*.java")) +
-                list(path.rglob("*.py")) +
-                [f for ext in CPP_EXTENSIONS for f in path.rglob(f"*{ext}")] +
-                [f for ext in APEX_EXTENSIONS for f in path.rglob(f"*{ext}")] +
-                [f for ext in JS_TS_EXTENSIONS for f in path.rglob(f"*{ext}")] +
-                list(path.rglob("*.html")) +
-                list(path.rglob("*.js-meta.xml")) +
-                list(path.rglob("*.flow-meta.xml")) +
-                list(path.rglob("*.object-meta.xml")) +
-                list(path.rglob("*.field-meta.xml")) +
-                list(path.rglob("*.permissionSet-meta.xml")) +
-                list(path.rglob("*.profile-meta.xml")) +
-                list(path.rglob("*.cmp")) +
-                list(path.rglob("*.app")) +
-                list(path.rglob("*.design"))
-            )
-            if not _excluded(f)
-        ]
-        # Deduplicate (rglob patterns can overlap on case-insensitive FS)
-        source_files = list(dict.fromkeys(source_files))
+        # One pruning pass rather than ~30 full-tree rglobs whose results were filtered
+        # afterwards. See shared.source_discovery for what the old version did to a
+        # bind-mounted home directory: 724,304 paths collected to keep 115,274, twelve
+        # hours, and a container that could no longer be killed.
+        source_files = discover_source_files(path, _FULL_SCAN_SUFFIXES)
         total = len(source_files)
 
         log.info("Full scan started",
