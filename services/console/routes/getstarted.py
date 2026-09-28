@@ -93,14 +93,16 @@ def _wizard_state() -> dict:
             repo_scanned = False
 
     # Step 3: agent index published (any .codekg/INDEX.md exists in any registered repo)
-    index_published = False
-    for repo_path in registry.values():
-        host_path = repo_path
-        if host_path.startswith("/host-home") and cfg.paths.host_home:
-            host_path = cfg.paths.host_home + host_path[len("/host-home"):]
-        if Path(host_path, ".codekg", "INDEX.md").exists():
-            index_published = True
-            break
+    #
+    # The registry already stores container paths (`/host-home/...`), which is what this
+    # process can open. Translating them to the HOST path first — as this did — asks the
+    # container whether `/Users/someone/project/.codekg/INDEX.md` exists, and inside the
+    # container it never does. The step therefore read "not published" even with a freshly
+    # published index sitting on disk.
+    index_published = any(
+        Path(repo_path, ".codekg", "INDEX.md").exists()
+        for repo_path in registry.values()
+    )
 
     # Step 4: MCP wired (we can't detect this reliably — just track via cookie/session)
     # We return False and let the page show instructions
