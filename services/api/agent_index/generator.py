@@ -1512,9 +1512,14 @@ FORM subroutines, Open SQL, INCLUDE programs, and BAdI implementations. Apply th
 
 def generate_claude_md_snippet(repo_id: str, visible_keys: set | None = None) -> str:
     platform = _detect_platform(repo_id)
+    # No LIMIT. This list is what tells an agent which `.codekg/modules/<name>.md` to
+    # read, and it used to stop at twelve entries ordered by module id — so adding a
+    # module silently pushed the alphabetically-last ones out of the list while their
+    # index files went on being published. A module absent from the list is a module
+    # nobody is told to read, and the larger the repository the more of them there are.
     modules = run_query(
         "MATCH (m:Module {repo_id: $repo_id}) RETURN m.module_id AS id, m.name AS name "
-        "ORDER BY m.module_id LIMIT 12",
+        "ORDER BY m.module_id",
         repo_id=repo_id,
     )
     total_loc = get_repo_total_loc(repo_id)
@@ -1655,9 +1660,14 @@ def generate_agents_md_snippet(repo_id: str, visible_keys: set | None = None) ->
     # We only swap the final 'When to call CodeKG MCP tools' section for a
     # shell-command equivalent that Codex can actually execute.
     platform = _detect_platform(repo_id)
+    # No LIMIT. This list is what tells an agent which `.codekg/modules/<name>.md` to
+    # read, and it used to stop at twelve entries ordered by module id — so adding a
+    # module silently pushed the alphabetically-last ones out of the list while their
+    # index files went on being published. A module absent from the list is a module
+    # nobody is told to read, and the larger the repository the more of them there are.
     modules = run_query(
         "MATCH (m:Module {repo_id: $repo_id}) RETURN m.module_id AS id, m.name AS name "
-        "ORDER BY m.module_id LIMIT 12",
+        "ORDER BY m.module_id",
         repo_id=repo_id,
     )
     total_loc = get_repo_total_loc(repo_id)
