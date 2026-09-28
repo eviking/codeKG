@@ -2,6 +2,12 @@ version: "3.9"
 
 services:
 
+# `init: true` on every Python service below: PID 1 would otherwise be the app itself,
+# which reaps nothing. One zombie child and the container stops responding to signals —
+# `docker stop` returns "tried to kill container, but did not receive an exit event" —
+# and the wedge spreads to the daemon until Docker itself is restarted. tini forwards
+# signals and reaps, so the containers stop in milliseconds instead. neo4j ships its own.
+
   neo4j:
     image: neo4j:5-community
     container_name: codekg-neo4j
@@ -28,6 +34,7 @@ services:
       - codekg
 
   ingestion:
+    init: true            # see the note above `services:`
     build:
       context: .
       dockerfile: services/ingestion/Dockerfile
@@ -47,6 +54,7 @@ services:
       - codekg
 
   watcher:
+    init: true            # see the note above `services:`
     build:
       context: .
       dockerfile: services/watcher/Dockerfile
@@ -76,6 +84,7 @@ services:
       - codekg
 
   api:
+    init: true            # see the note above `services:`
     build:
       context: .
       dockerfile: services/api/Dockerfile
@@ -104,6 +113,7 @@ services:
       - codekg
 
   mcp:
+    init: true            # see the note above `services:`
     build:
       context: .
       dockerfile: services/mcp/Dockerfile
@@ -131,6 +141,7 @@ services:
     restart: unless-stopped
 
   console:
+    init: true            # see the note above `services:`
     build:
       context: .
       dockerfile: services/console/Dockerfile
