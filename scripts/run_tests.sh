@@ -84,4 +84,15 @@ PYTHONPATH="$ROOT/services/watcher:$ROOT:${PYTHONPATH:-}" \
   -v --tb=short "$@"
 
 echo ""
+echo "═══════════════════════════════════════════════════════"
+echo "  Running shared tests"
+echo "═══════════════════════════════════════════════════════"
+# shared/ is imported by every service, so its suite was the one place a regression
+# could land and still be reported as a green run.
+PYTHONPATH="$ROOT:${PYTHONPATH:-}" \
+"$VENV/bin/pytest" \
+  "$ROOT/shared/tests/" \
+  -v --tb=short "$@"
+
+echo ""
 echo "✓ All tests passed"
