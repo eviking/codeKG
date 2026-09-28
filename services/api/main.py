@@ -1358,8 +1358,13 @@ def _ai_publish(repo_id: str, repo_path: str) -> dict:
     # Claude Code context on files that don't exist.
     dangling_refs = _validate_index_refs(visible)
 
+    # `.codekg/` plus any root-level file this publish rewrote. CLAUDE.md and AGENTS.md
+    # live at the repository root, so staging only `.codekg/` left them modified but
+    # uncommitted — the commit claimed to publish the index while omitting the part of
+    # it agents actually read first.
+    staged = [".codekg/"] + [w for w in written if not w.startswith(".codekg/")]
     try:
-        subprocess.run(["git", "-C", repo_path, "add", "-f", ".codekg/"], check=True, capture_output=True, text=True)
+        subprocess.run(["git", "-C", repo_path, "add", "-f", *staged], check=True, capture_output=True, text=True)
         result = subprocess.run(
             ["git", "-C", repo_path, "commit",
              "-m", "chore: update CodeKG agent index [skip ci]", "--allow-empty"],
