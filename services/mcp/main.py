@@ -679,6 +679,7 @@ async def _main():
     if transport == "sse":
         from mcp.server.sse import SseServerTransport
         from starlette.applications import Starlette
+        from starlette.responses import Response
         from starlette.routing import Route, Mount
         import uvicorn
 
@@ -701,6 +702,11 @@ async def _main():
                     server.create_initialization_options(),
                     stateless=True,
                 )
+            # Starlette calls whatever an endpoint returns; returning None raises
+            # "TypeError: 'NoneType' object is not callable" the moment the stream ends
+            # or the client disconnects. The response is already sent by connect_sse —
+            # this is the empty acknowledgement the framework needs to unwind cleanly.
+            return Response()
 
         starlette_app = Starlette(routes=[
             Route("/sse", endpoint=handle_sse),
