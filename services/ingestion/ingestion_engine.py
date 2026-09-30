@@ -29,7 +29,7 @@ _FULL_SCAN_SUFFIXES = frozenset(
     | set(CPP_EXTENSIONS) | set(APEX_EXTENSIONS) | set(JS_TS_EXTENSIONS)
     | set(_SF_METADATA_SUFFIXES)
 )
-from parser.abap_parser import AbapParser, ABAP_EXTENSIONS
+from parser.abap_parser import AbapParser, ABAP_EXTENSIONS, abap_grammar_available
 from parser.lwc_parser import LwcParser, LWC_EXTENSIONS
 from parser.flow_parser import FlowParser
 from parser.sobject_parser import SObjectParser, SOBJECT_EXTENSIONS
@@ -281,7 +281,18 @@ class IngestionEngine:
         # afterwards. See shared.source_discovery for what the old version did to a
         # bind-mounted home directory: 724,304 paths collected to keep 115,274, twelve
         # hours, and a container that could no longer be killed.
-        source_files = discover_source_files(path, _FULL_SCAN_SUFFIXES)
+        # ABAP joins the set only when its grammar is loadable. It has no PyPI package
+        # and is not built into the image, so on most installations it is absent — and
+        # discovering `.abap` without it turns every ABAP file in the repository into a
+        # parse error instead of saying once, plainly, what is missing.
+        suffixes = set(_FULL_SCAN_SUFFIXES)
+        if abap_grammar_available():
+            suffixes |= set(ABAP_EXTENSIONS)
+        else:
+            log.warning("ABAP grammar unavailable — .abap files will not be indexed",
+                        repo_id=repo_id)
+
+        source_files = discover_source_files(path, suffixes)
         total = len(source_files)
 
         log.info("Full scan started",

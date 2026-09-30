@@ -258,6 +258,7 @@ Uses tree-sitter-abap (compiled from source — no PyPI package). Extracts:
 > **Local setup (one-time):**
 > ```bash
 > git clone --depth=1 https://github.com/kennyhml/tree-sitter-abap.git /tmp/ts-abap
+> cd /tmp/ts-abap && npx tree-sitter generate   # the repo ships no generated parser.c
 > gcc -shared -fPIC -o services/ingestion/parser/tree_sitter_abap.so \
 >   /tmp/ts-abap/src/parser.c /tmp/ts-abap/src/scanner.c
 > ```
