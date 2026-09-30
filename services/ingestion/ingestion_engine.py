@@ -430,6 +430,22 @@ class IngestionEngine:
             except Exception as exc:
                 log.warning("Policy scan failed", repo_id=repo_id, exc=str(exc))
 
+        # Everything above only ever MERGEd. A full scan has just enumerated the entire
+        # repository, so this is the one moment where "not seen" reliably means "gone" —
+        # a file deleted, renamed, or newly excluded. Without it the graph accumulates
+        # classes that no longer exist and serves them as current.
+        with log.timed("prune_stale_nodes", repo_id=repo_id):
+            try:
+                removed = self._writer.prune_files_not_in(
+                    repo_id, [str(f) for f in source_files])
+                removed_modules = self._writer.prune_modules_not_in(
+                    repo_id, [m.module_id for m in discovered_modules])
+                if removed or removed_modules:
+                    log.info("Stale nodes pruned", repo_id=repo_id,
+                             nodes=removed, modules=removed_modules)
+            except Exception as exc:
+                log.warning("Prune failed", repo_id=repo_id, exc=str(exc))
+
         with log.timed("build_object_models", repo_id=repo_id):
             try:
                 om_count = build_object_models(self._writer._driver, repo_id)

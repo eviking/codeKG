@@ -12,6 +12,9 @@ from neo4j import GraphDatabase, Driver
 
 from parser.java_parser import ParsedFile
 from kg.provenance import make_provenance, provenance_set_clause, now_utc
+from shared.codekg_logging.codekg_logger import get_logger
+
+log = get_logger(__name__, service="ingestion")
 
 
 class KGWriter:
@@ -794,6 +797,52 @@ class KGWriter:
                 file_path=file_path,
                 repo_id=repo_id,
             )
+
+    def prune_files_not_in(self, repo_id: str, keep_paths) -> int:
+        """Remove nodes that came from files this scan did not see. Full scans only.
+
+        `MERGE` never forgets, so a file deleted, renamed, or newly excluded from the
+        scan leaves its classes in the graph forever, carrying the commit of whichever
+        scan last saw them — and they go on being served as part of the codebase.
+
+        Only safe when the caller has enumerated the WHOLE repository. An incremental
+        update sees a handful of changed files, and calling this with that set would
+        delete everything else.
+        """
+        keep = list(keep_paths)
+        if not keep:
+            # A scan that found nothing is a broken scan, not an empty repository.
+            log.warning("Skipping prune — no files in the keep set", repo_id=repo_id)
+            return 0
+        with self._driver.session() as s:
+            res = s.run(
+                """
+                MATCH (n {repo_id: $repo_id})
+                WHERE n.file_path IS NOT NULL AND NOT n.file_path IN $keep
+                OPTIONAL MATCH (n)-[:HAS_METHOD]->(m)
+                DETACH DELETE n, m
+                RETURN count(DISTINCT n) AS removed
+                """,
+                repo_id=repo_id, keep=keep,
+            )
+            return (res.single() or {}).get("removed", 0)
+
+    def prune_modules_not_in(self, repo_id: str, keep_module_ids) -> int:
+        """Same, for modules discovered by the build extractor."""
+        keep = list(keep_module_ids)
+        if not keep:
+            return 0
+        with self._driver.session() as s:
+            res = s.run(
+                """
+                MATCH (m:Module {repo_id: $repo_id})
+                WHERE NOT m.module_id IN $keep
+                DETACH DELETE m
+                RETURN count(m) AS removed
+                """,
+                repo_id=repo_id, keep=keep,
+            )
+            return (res.single() or {}).get("removed", 0)
 
     def update_last_commit(self, repo_id: str, commit_sha: str):
         with self._driver.session() as s:
