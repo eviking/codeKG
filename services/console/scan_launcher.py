@@ -125,7 +125,19 @@ def launch_scan(
         env["SCAN_FROM_COMMIT"] = from_commit
         env["SCAN_TO_COMMIT"]   = to_commit
 
+    # The Docker API is not compose: a bind source that is not absolute is read as a
+    # NAMED VOLUME, and compose's own default for this setting is the relative "./repos".
+    # A fresh install therefore fails with
+    #   create ./repos: "./repos" includes invalid characters for a local volume name
+    # which names neither the setting at fault nor the file to change. Say it plainly.
     host_repos = HOST_REPOS_PATH or REPOS_PATH
+    if not Path(host_repos).is_absolute():
+        raise RuntimeError(
+            f"REPOS_PATH must be an absolute host path, got {host_repos!r}. "
+            "The scan container is created through the Docker API, which resolves "
+            "relative sources as named volumes rather than as directories. "
+            "Set REPOS_PATH=/absolute/path/to/repos in .env and restart the console."
+        )
     volumes = {host_repos: {"bind": "/repos", "mode": "rw"}}
     if HOME_MOUNT:
         volumes[HOME_MOUNT] = {"bind": "/host-home", "mode": "ro"}
@@ -151,6 +163,11 @@ def launch_scan(
         INGESTION_IMAGE,
         command=["python", "run_scan.py"],
         detach=True,
+        # Run tini as PID 1. Without it the scan process is PID 1, reaps nothing, and a
+        # zombie child leaves a container Docker cannot kill: "tried to kill container,
+        # but did not receive an exit event". That wedge then spreads to the daemon, so
+        # a scan that misbehaves takes the whole engine down instead of just failing.
+        init=True,
         remove=False,     # we remove it ourselves after capturing logs
         environment=env,
         volumes=volumes,
