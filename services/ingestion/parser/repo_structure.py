@@ -9,11 +9,22 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
+from shared.source_discovery import (
+    SKIP_DIRS as _CANONICAL_SKIP_DIRS,
+    _configured_skip_dirs,
+    discover_source_files,
+    iter_files,
+)
 
+
+# Unioned with the canonical set so that excluding a directory once — in
+# shared.source_discovery.SKIP_DIRS or via CODEKG_SKIP_DIRS — also keeps it out of the
+# repository map. Otherwise a directory can be absent from the index yet still listed as
+# part of the project, which is how `worktrees` kept showing up.
 SKIP_DIRS = {
     ".git", ".gradle", ".mvn", "target", "build", "out", "node_modules",
     ".idea", ".vscode", "__pycache__", "generated", "gen",
-}
+} | set(_CANONICAL_SKIP_DIRS) | set(_configured_skip_dirs())
 
 
 class ProjectIdentity:
@@ -65,15 +76,33 @@ def extract_project_identity(repo_path: str) -> ProjectIdentity:
     return identity
 
 
+#: Suffix -> language, for the file-count heuristic below.
+_LANGUAGE_BY_SUFFIX: dict[str, str] = {
+    ".java": "java",
+    ".py": "python",
+    ".cls": "apex", ".trigger": "apex", ".apex": "apex",
+    ".ts": "typescript", ".tsx": "typescript",
+    ".js": "javascript", ".jsx": "javascript",
+    ".mjs": "javascript", ".cjs": "javascript",
+    ".abap": "abap",
+    **{ext: "cpp" for ext in
+       (".cpp", ".cc", ".cxx", ".c++", ".h", ".hpp", ".hh", ".hxx")},
+}
+
+
 def _detect_language(root: Path) -> str:
-    """Detect primary language by counting source files."""
+    """Detect primary language by counting source files.
+
+    This used to be `root.rglob("*")` with an `is_file()` call on every entry and no
+    exclusions whatsoever — a stat of every inode under the repository, vendored trees
+    included, purely to decide one string. On a bind-mounted checkout that is the same
+    trap the scan's own discovery fell into; it shares the pruning walk now.
+    """
     counts: dict[str, int] = {
         "java": 0, "python": 0, "cpp": 0, "apex": 0,
         "javascript": 0, "typescript": 0, "abap": 0,
     }
-    for p in root.rglob("*"):
-        if not p.is_file():
-            continue
+    for p in discover_source_files(root, _LANGUAGE_BY_SUFFIX):
         s = p.suffix.lower()
         if s == ".java":
             counts["java"] += 1
@@ -260,9 +289,9 @@ def _infer_directory_purpose(path: Path) -> str:
 def _find_package_roots(path: Path) -> list[str]:
     """Find the top-level Java package prefixes declared in this directory subtree."""
     packages: set[str] = set()
-    for java_file in path.rglob("*.java"):
-        if any(skip in java_file.parts for skip in SKIP_DIRS):
-            continue
+    # Pruned during descent, not filtered after: `worktrees/` alone held ~54k files in
+    # the checkout whose scan hung, and it is not a dotdir, so nothing else excludes it.
+    for java_file in iter_files(path, suffixes={".java"}, extra_skip_dirs=SKIP_DIRS):
         try:
             text = java_file.read_text(errors="replace", encoding="utf-8")
             m = re.search(r"^\s*package\s+([\w.]+)\s*;", text, re.MULTILINE)

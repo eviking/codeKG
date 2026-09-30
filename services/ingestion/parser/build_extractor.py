@@ -19,6 +19,10 @@ from typing import Optional
 import tree_sitter_java as tsjava
 from tree_sitter import Language, Parser, Node
 
+# One pruning pass instead of rglob over the whole checkout — a bind-mounted tree
+# makes the difference between a second and a container that cannot be killed.
+from shared.source_discovery import has_any_file, iter_files
+
 JAVA_LANGUAGE = Language(tsjava.language())
 
 
@@ -464,7 +468,7 @@ class BuildExtractor:
     def _extract_test_categories(self, root: Path, build_info: BuildInfo) -> list[TestCategory]:
         categories: dict[str, TestCategory] = {}
 
-        for java_file in root.rglob("*.java"):
+        for java_file in iter_files(root, suffixes={".java"}):
             if not any(part in ("test", "tests", "it", "integration-test")
                        for part in java_file.parts):
                 continue
@@ -640,7 +644,7 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
         fs_build_tool = "maven"
 
     seen_paths = {m.path for m in modules}
-    for bf in root.rglob("build.gradle"):
+    for bf in iter_files(root, names={"build.gradle"}):
         subdir = bf.parent
         if subdir == root:
             continue
@@ -706,7 +710,7 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
                 pass
         # Fallback: any subdirectory containing CMakeLists.txt is a module
         if not modules:
-            for cmake_file in root.rglob("CMakeLists.txt"):
+            for cmake_file in iter_files(root, names={"CMakeLists.txt"}):
                 subdir = cmake_file.parent
                 if subdir == root:
                     continue
@@ -781,7 +785,7 @@ def extract_modules(repo_path: str) -> list[ModuleInfo]:
                      ".tox", ".venv", "venv", "env", ".eggs", "docs", "tests"}
 
         def _has_python_files(d: Path) -> bool:
-            return any(d.rglob("*.py"))
+            return has_any_file(d, suffixes={".py"})
 
         def _add_package(top: Path, name: str, pkg_prefix: str):
             rel = str(top.relative_to(root))
