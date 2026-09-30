@@ -139,6 +139,21 @@ class KGWriter:
                 """,
                 rows=rows,
             )
+            # MERGE alone never forgets. A directory removed from the repo — or newly
+            # excluded from the scan — keeps its node forever, carrying the commit SHA of
+            # whichever scan last saw it, and goes on being reported as part of the
+            # project. `worktrees` survived three scans that way after it was excluded.
+            #
+            # Pruned only when this scan produced entries: an extraction that failed and
+            # returned nothing must not be read as "the repository has no directories".
+            s.run(
+                """
+                MATCH (d:DirectoryEntry {repo_id: $repo_id})
+                WHERE NOT d.path IN $paths
+                DETACH DELETE d
+                """,
+                repo_id=repo_id, paths=[e.path for e in entries],
+            )
 
     def upsert_api_endpoints(self, repo_id: str, endpoints):
         if not endpoints:
