@@ -26,10 +26,25 @@ services:
       - neo4j_logs:/logs
       - ./neo4j/conf:/conf
     healthcheck:
-      test: ["CMD", "neo4j", "status"]
+      # `neo4j status` shells out to the launcher and reads the JVM's pid file. On a
+      # loaded host that has been measured at 41 s against the 5 s timeout this used to
+      # carry, so the check could never pass — and because every other service gates on
+      # `condition: service_healthy`, the WHOLE stack then refuses to start while the
+      # database is answering queries normally:
+      #
+      #   dependency failed to start: container codekg-neo4j is unhealthy
+      #
+      # Asking the HTTP port is the only question a dependent service cares about, and
+      # cost 1.7 s where `neo4j status` cost 41 s. `CMD` rather than `CMD-SHELL` on
+      # purpose: `/bin/sh` in this image is dash, so a `/dev/tcp` probe — the obvious
+      # thing to reach for — silently never passes. `wget` ships in the image. The
+      # timeout is generous because `docker exec` alone was 12 s on that host, and
+      # `start_period` covers first boot, which took 140 s to reach "Bolt enabled".
+      test: ["CMD", "wget", "--spider", "-q", "-T", "5", "http://localhost:7474/"]
       interval: 10s
-      timeout: 5s
+      timeout: 15s
       retries: 10
+      start_period: 180s
     networks:
       - codekg
 
