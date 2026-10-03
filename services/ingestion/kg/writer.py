@@ -808,22 +808,46 @@ class KGWriter:
         Only safe when the caller has enumerated the WHOLE repository. An incremental
         update sees a handful of changed files, and calling this with that set would
         delete everything else.
+
+        Done in two cheap steps rather than one expensive one. Asking the database
+        `WHERE NOT n.file_path IN $keep` reads as a filter and is a nested loop: no label
+        to narrow by, no index on `file_path`, and a linear scan of the keep list for
+        every node. On one repository that was 28,431 nodes against 1,783 paths — tens of
+        millions of string comparisons on every scan, which is enough to leave Neo4j
+        thrashing its heap afterwards. Reading the distinct paths once and taking the
+        difference in Python is one pass and a hash lookup, and the delete then touches
+        only what is actually going.
         """
-        keep = list(keep_paths)
+        keep = set(keep_paths)
         if not keep:
             # A scan that found nothing is a broken scan, not an empty repository.
             log.warning("Skipping prune — no files in the keep set", repo_id=repo_id)
             return 0
         with self._driver.session() as s:
+            present = [
+                record["p"]
+                for record in s.run(
+                    """
+                    MATCH (n {repo_id: $repo_id})
+                    WHERE n.file_path IS NOT NULL
+                    RETURN DISTINCT n.file_path AS p
+                    """,
+                    repo_id=repo_id,
+                )
+            ]
+            stale = [p for p in present if p not in keep]
+            if not stale:
+                # The common case by far: nothing to do, and no delete issued at all.
+                return 0
             res = s.run(
                 """
-                MATCH (n {repo_id: $repo_id})
-                WHERE n.file_path IS NOT NULL AND NOT n.file_path IN $keep
+                UNWIND $stale AS p
+                MATCH (n {repo_id: $repo_id, file_path: p})
                 OPTIONAL MATCH (n)-[:HAS_METHOD]->(m)
                 DETACH DELETE n, m
                 RETURN count(DISTINCT n) AS removed
                 """,
-                repo_id=repo_id, keep=keep,
+                repo_id=repo_id, stale=stale,
             )
             return (res.single() or {}).get("removed", 0)
 
