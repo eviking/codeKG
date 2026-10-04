@@ -7,7 +7,6 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional
 
 from shared.source_discovery import (
     SKIP_DIRS as _CANONICAL_SKIP_DIRS,
@@ -31,15 +30,15 @@ class ProjectIdentity:
     """Describes the high-level identity of a scanned project. Watch out for naming stability here, because several downstream artifacts use this object to label generated summaries."""
 
     def __init__(self):
-        self.name: Optional[str] = None
-        self.group_id: Optional[str] = None
-        self.artifact_id: Optional[str] = None
-        self.version: Optional[str] = None
-        self.description: Optional[str] = None
-        self.build_tool: Optional[str] = None       # maven | gradle | ant
-        self.java_version: Optional[str] = None
+        self.name: str | None = None
+        self.group_id: str | None = None
+        self.artifact_id: str | None = None
+        self.version: str | None = None
+        self.description: str | None = None
+        self.build_tool: str | None = None       # maven | gradle | ant
+        self.java_version: str | None = None
         self.primary_language: str = "java"
-        self.root_path: Optional[str] = None
+        self.root_path: str | None = None
 
 
 class DirectoryEntry:
@@ -154,7 +153,7 @@ def _parse_pom(pom_path: Path, identity: ProjectIdentity):
         root = tree.getroot()
         ns = {"m": "http://maven.apache.org/POM/4.0.0"}
 
-        def get(tag: str) -> Optional[str]:
+        def get(tag: str) -> str | None:
             el = root.find(f"m:{tag}", ns) or root.find(tag)
             return el.text.strip() if el is not None and el.text else None
 

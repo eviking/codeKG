@@ -43,7 +43,7 @@ def fresh_db(tmp_path):
     os.environ["AGENT_INDEX_DB"] = db_path
 
     # Re-patch the module-level constant
-    import agent_index.store as store
+    from agent_index import store
     store.AGENT_INDEX_DB = db_path
 
     store.init_db()

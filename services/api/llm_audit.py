@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from shared.config import cfg
-from typing import Any, Optional
+from typing import Any
 
 # ── Pricing ($ per million tokens, as of 2026-05) ────────────────────────────
 _PRICING: dict[str, dict[str, float]] = {
@@ -66,7 +66,7 @@ def compute_cost(
 
 _DB_PATH = Path(cfg.paths.llm_audit_db)
 _lock = threading.Lock()
-_conn: Optional[sqlite3.Connection] = None
+_conn: sqlite3.Connection | None = None
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -126,9 +126,9 @@ def log_call_simple(
     output_tokens: int = 0,
     cache_read_tokens: int = 0,
     cache_write_tokens: int = 0,
-    elapsed_ms: Optional[int] = None,
-    error: Optional[str] = None,
-    meta: Optional[dict] = None,
+    elapsed_ms: int | None = None,
+    error: str | None = None,
+    meta: dict | None = None,
 ) -> int:
     """Log a completed API call. Returns the row id."""
     cost = compute_cost(model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
@@ -157,7 +157,7 @@ class _Entry:
     model: str
     input_text: str
     _start: float = field(default_factory=time.perf_counter)
-    _row_id: Optional[int] = None
+    _row_id: int | None = None
 
     def record(self, response: Any, error: str = "") -> None:
         elapsed_ms = round((time.perf_counter() - self._start) * 1000)

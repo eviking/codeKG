@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
@@ -28,7 +27,7 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _extract_docstring(body_node: Node, src: bytes) -> Optional[str]:
+def _extract_docstring(body_node: Node, src: bytes) -> str | None:
     """Return the first string literal in a function/class body if it's a docstring."""
     if body_node is None:
         return None
@@ -68,7 +67,7 @@ def _collect_base_classes(bases_node: Node, src: bytes) -> list[str]:
     return bases
 
 
-def _type_hint(node: Node, src: bytes) -> Optional[str]:
+def _type_hint(node: Node, src: bytes) -> str | None:
     """Extract type annotation text from a typed_parameter or return annotation."""
     if node is None:
         return None
@@ -99,7 +98,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None   # module dotted path
+        self.package_fqn: str | None = None   # module dotted path
         self.imports: list[str] = []
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []
@@ -203,8 +202,8 @@ class PythonParser:
                             result.imports.append(f"{mod}.{_text(name_node, src)}")
 
     def _handle_class(self, node: Node, src: bytes, result: ParsedFile,
-                      parent_fqn: Optional[str], module_fqn: str,
-                      decorators_node: Optional[Node] = None):
+                      parent_fqn: str | None, module_fqn: str,
+                      decorators_node: Node | None = None):
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
@@ -290,7 +289,7 @@ class PythonParser:
 
     def _handle_function(self, node: Node, src: bytes, result: ParsedFile,
                          class_fqn: str,
-                         decorators_node: Optional[Node] = None):
+                         decorators_node: Node | None = None):
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return

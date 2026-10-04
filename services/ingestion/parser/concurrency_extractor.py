@@ -12,7 +12,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_java as tsjava
 from tree_sitter import Language, Parser, Node
@@ -49,9 +48,9 @@ class ThreadPoolDeclaration:
     class_fqn: str
     field_name: str
     pool_type: str
-    configuration: Optional[str] = None    # e.g. "newFixedThreadPool(10)"
-    file_path: Optional[str] = None
-    line: Optional[int] = None
+    configuration: str | None = None    # e.g. "newFixedThreadPool(10)"
+    file_path: str | None = None
+    line: int | None = None
 
 
 @dataclass
@@ -61,9 +60,9 @@ class AsyncMethod:
     class_fqn: str
     method_name: str
     mechanism: str                  # @Async | CompletableFuture | Mono | Flux | synchronized
-    return_type: Optional[str] = None
-    file_path: Optional[str] = None
-    line: Optional[int] = None
+    return_type: str | None = None
+    file_path: str | None = None
+    line: int | None = None
 
 
 @dataclass
@@ -72,9 +71,9 @@ class ConcurrencyFact:
 
     class_fqn: str
     fact_type: str                  # thread_safe | not_thread_safe | guarded_by | synchronized_method | volatile_field
-    detail: Optional[str] = None
-    file_path: Optional[str] = None
-    line: Optional[int] = None
+    detail: str | None = None
+    file_path: str | None = None
+    line: int | None = None
 
 
 def _text(node: Node, src: bytes) -> str:

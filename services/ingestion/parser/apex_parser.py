@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import ctypes
 from tree_sitter import Language, Parser, Node
@@ -60,7 +59,7 @@ APEX_EXTENSIONS = {".cls", ".trigger", ".apex"}
 _APEX_LANGUAGE = None
 
 
-def _get_apex_language() -> "Language":
+def _get_apex_language() -> Language:
     global _APEX_LANGUAGE
     if _APEX_LANGUAGE is None:
         _APEX_LANGUAGE = _load_apex_language()
@@ -71,7 +70,7 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _extract_apexdoc(node: Node, src: bytes) -> Optional[str]:
+def _extract_apexdoc(node: Node, src: bytes) -> str | None:
     """Find a /** ... */ ApexDoc comment immediately preceding this node."""
     parent = node.parent
     if parent is None:
@@ -96,7 +95,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None   # namespace (if declared)
+        self.package_fqn: str | None = None   # namespace (if declared)
         self.imports: list[str] = []              # not meaningful in Apex — left empty
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []
@@ -145,7 +144,7 @@ class ApexParser:
     # ------------------------------------------------------------------
 
     def _handle_class(self, node: Node, src: bytes, result: ParsedFile,
-                      namespace: str, parent_fqn: Optional[str] = None):
+                      namespace: str, parent_fqn: str | None = None):
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
@@ -239,7 +238,7 @@ class ApexParser:
     # ------------------------------------------------------------------
 
     def _handle_interface(self, node: Node, src: bytes, result: ParsedFile,
-                          namespace: str, parent_fqn: Optional[str] = None):
+                          namespace: str, parent_fqn: str | None = None):
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
@@ -273,7 +272,7 @@ class ApexParser:
     # ------------------------------------------------------------------
 
     def _handle_enum(self, node: Node, src: bytes, result: ParsedFile,
-                     namespace: str, parent_fqn: Optional[str] = None):
+                     namespace: str, parent_fqn: str | None = None):
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return

@@ -6,7 +6,6 @@ annotations, inheritance, and import dependencies) without invoking any LLM.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_java as tsjava
 from tree_sitter import Language, Parser, Node
@@ -18,7 +17,7 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _extract_javadoc(node: Node, src: bytes) -> Optional[str]:
+def _extract_javadoc(node: Node, src: bytes) -> str | None:
     """
     Find the /** ... */ block comment immediately preceding this type declaration
     in its parent's children list. Returns cleaned text or None.
@@ -39,8 +38,7 @@ def _extract_javadoc(node: Node, src: bytes) -> Optional[str]:
             if text.startswith("/**"):
                 # strip /** and */ then clean leading * on each line
                 inner = text[3:]
-                if inner.endswith("*/"):
-                    inner = inner[:-2]
+                inner = inner.removesuffix("*/")
                 lines = inner.splitlines()
                 cleaned = []
                 for line in lines:
@@ -55,7 +53,7 @@ def _extract_javadoc(node: Node, src: bytes) -> Optional[str]:
     return None
 
 
-def _child_text(node: Node, field: str, src: bytes) -> Optional[str]:
+def _child_text(node: Node, field: str, src: bytes) -> str | None:
     child = node.child_by_field_name(field)
     return _text(child, src) if child else None
 
@@ -86,7 +84,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None
+        self.package_fqn: str | None = None
         self.imports: list[str] = []
         self.classes: list[dict] = []        # ClassNode dicts
         self.interfaces: list[dict] = []
@@ -150,7 +148,7 @@ class JavaParser:
         node: Node,
         src: bytes,
         result: ParsedFile,
-        parent_fqn: Optional[str],
+        parent_fqn: str | None,
     ):
         name_node = node.child_by_field_name("name")
         if name_node is None:

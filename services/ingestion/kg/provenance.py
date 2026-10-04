@@ -13,7 +13,6 @@ Confidence defaults per source tool (matches the research report's confidence ti
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 
 TOOL_CONFIDENCE: dict[str, float] = {
@@ -36,8 +35,8 @@ def now_utc() -> str:
 def make_provenance(
     commit_sha: str,
     source_tool: str,
-    confidence: Optional[float] = None,
-    freshness_ts: Optional[str] = None,
+    confidence: float | None = None,
+    freshness_ts: str | None = None,
 ) -> dict:
     """
     Return a flat dict of provenance properties ready to splat into a Cypher SET.

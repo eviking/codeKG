@@ -14,7 +14,6 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_java as tsjava
 from tree_sitter import Language, Parser, Node
@@ -31,9 +30,9 @@ class BuildInfo:
     """Summarizes the build and test stack discovered for a repository. Watch out for default values here, because downstream prompts assume these fields are always populated sensibly."""
 
     build_tool: str                         # maven | gradle
-    java_version: Optional[str] = None
+    java_version: str | None = None
     test_framework: str = "junit5"          # junit4 | junit5 | testng
-    spring_boot_version: Optional[str] = None
+    spring_boot_version: str | None = None
     key_dependencies: list[str] = field(default_factory=list)
     build_commands: dict[str, str] = field(default_factory=dict)  # label → command
 
@@ -43,7 +42,7 @@ class TestCategory:
     """Groups tests by annotation or base-class signal. Watch out for the description text here, because it is surfaced directly in generated onboarding material."""
 
     annotation: str                         # e.g. @SpringBootTest, @DataJpaTest
-    base_class: Optional[str]               # e.g. AbstractIntegrationTest
+    base_class: str | None               # e.g. AbstractIntegrationTest
     description: str
     example_classes: list[str] = field(default_factory=list)
 

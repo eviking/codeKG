@@ -20,7 +20,6 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional
 
 
 LWC_EXTENSIONS = {".html"}
@@ -46,7 +45,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None
+        self.package_fqn: str | None = None
         self.imports: list[str] = []
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []
@@ -142,7 +141,7 @@ class LwcParser:
 
         # Try namespace-aware parse first, then strip-namespace fallback
         targets: list[str] = []
-        api_version: Optional[str] = None
+        api_version: str | None = None
 
         try:
             root = ET.fromstring(text)
