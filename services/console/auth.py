@@ -19,7 +19,6 @@ Session:
 from __future__ import annotations
 
 import secrets
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Request
@@ -69,7 +68,7 @@ def encode_session(user: dict) -> str:
     return _signer.dumps(payload)
 
 
-def decode_session(cookie: str) -> Optional[dict]:
+def decode_session(cookie: str) -> dict | None:
     """
     Verify and decode a session cookie.
     Returns None if the cookie is missing, expired, or tampered with.
@@ -82,7 +81,7 @@ def decode_session(cookie: str) -> Optional[dict]:
         return None
 
 
-def current_user(request: Request) -> Optional[dict]:
+def current_user(request: Request) -> dict | None:
     """Extract the authenticated user from the request, or None."""
     if not AUTH_ENABLED:
         return {"id": 0, "login": "local", "avatar": "", "name": "Local User"}

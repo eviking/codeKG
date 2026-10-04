@@ -533,11 +533,7 @@ async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
             data = _get(f"/context/module/{arguments['module_id']}")
             response_text = json.dumps(data, indent=2)
 
-        elif name == "get_class_context":
-            data = _get(f"/context/class/{arguments['fqn']}")
-            response_text = json.dumps(data, indent=2)
-
-        elif name == "get_class":
+        elif name == "get_class_context" or name == "get_class":
             data = _get(f"/context/class/{arguments['fqn']}")
             response_text = json.dumps(data, indent=2)
 

@@ -35,7 +35,6 @@ import json as _json
 import os
 import secrets
 import time
-from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -287,7 +286,7 @@ def feature_context(classes: str = Query(..., description="Comma-separated FQNs"
 # ------------------------------------------------------------------
 
 @app.get("/violations")
-def list_violations(repo_id: Optional[str] = None, severity: Optional[str] = None) -> list[dict]:
+def list_violations(repo_id: str | None = None, severity: str | None = None) -> list[dict]:
     filters = []
     params: dict = {}
     if repo_id:
@@ -335,7 +334,7 @@ def pr_violations(files: str = Query(..., description="Comma-separated file path
 # ------------------------------------------------------------------
 
 @app.get("/policies")
-def list_policies(status: Optional[str] = "active") -> list[dict]:
+def list_policies(status: str | None = "active") -> list[dict]:
     params: dict = {}
     where = ""
     if status:
@@ -358,7 +357,7 @@ def get_policy(policy_id: str) -> dict:
 # ------------------------------------------------------------------
 
 @app.get("/search/class")
-def search_class(q: str, repo_id: Optional[str] = None, limit: int = 20) -> list[dict]:
+def search_class(q: str, repo_id: str | None = None, limit: int = 20) -> list[dict]:
     """
     Search classes by name (case-insensitive substring).
     Returns object_model snapshots when available, otherwise basic class info.
@@ -429,7 +428,7 @@ def llm_models(provider: str) -> JSONResponse:
 
 
 @app.get("/patterns")
-def get_patterns(repo_id: Optional[str] = None) -> list[dict]:
+def get_patterns(repo_id: str | None = None) -> list[dict]:
     scope = "AND ap.repo_id = $repo_id" if repo_id else ""
     rows = run_query(f"""
         MATCH (ap:ArchPattern) WHERE 1=1 {scope}
@@ -469,7 +468,7 @@ def get_patterns(repo_id: Optional[str] = None) -> list[dict]:
 def impact_files(
     files: str = Query(..., description="Comma-separated file paths"),
     repo_id: str = Query(..., description="Repository ID"),
-    commit_sha: Optional[str] = None,
+    commit_sha: str | None = None,
 ) -> dict:
     """
     Compute blast radius for a set of changed files.
@@ -488,7 +487,7 @@ def impact_files(
 def impact_pr(
     files: str = Query(..., description="Comma-separated file paths changed in the PR"),
     repo_id: str = Query(..., description="Repository ID"),
-    commit_sha: Optional[str] = None,
+    commit_sha: str | None = None,
 ) -> dict:
     """
     CI/CD-friendly endpoint: given files changed in a PR, return the full
@@ -804,7 +803,7 @@ def update_insight_staleness(body: dict) -> dict:
 
 
 @app.get("/insights/all")
-def list_insights(repo_id: Optional[str] = None, include_hidden: bool = False, pending_only: bool = False) -> list[dict]:
+def list_insights(repo_id: str | None = None, include_hidden: bool = False, pending_only: bool = False) -> list[dict]:
     """List all Insight nodes grouped by scope, ordered system→module→class→method."""
     extra = "AND tk.repo_id = $repo_id" if repo_id else ""
     hidden_filter = "" if include_hidden else "AND coalesce(tk.hidden, false) = false"

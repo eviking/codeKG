@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 from tree_sitter import Language, Parser, Node
 
@@ -81,7 +80,7 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _jsdoc(node: Node, src: bytes) -> Optional[str]:
+def _jsdoc(node: Node, src: bytes) -> str | None:
     """Return the JSDoc comment (/** … */) immediately before this node."""
     parent = node.parent
     if parent is None:
@@ -99,7 +98,7 @@ def _jsdoc(node: Node, src: bytes) -> Optional[str]:
     return None
 
 
-def _extract_string(node: Node, src: bytes) -> Optional[str]:
+def _extract_string(node: Node, src: bytes) -> str | None:
     """Get the string value from a string literal node."""
     raw = _text(node, src).strip("\"'`")
     return raw if raw else None
@@ -109,7 +108,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None
+        self.package_fqn: str | None = None
         self.imports: list[str] = []
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []
@@ -273,7 +272,7 @@ class JsParser:
 
     def _handle_class(self, node: Node, src: bytes, result: ParsedFile,
                       namespace: str, abstract: bool = False,
-                      parent_fqn: Optional[str] = None):
+                      parent_fqn: str | None = None):
         # name node: identifier or type_identifier
         name_node = node.child_by_field_name("name")
         if name_node is None:
@@ -363,7 +362,7 @@ class JsParser:
     # ------------------------------------------------------------------
 
     def _handle_interface(self, node: Node, src: bytes, result: ParsedFile,
-                          namespace: str, parent_fqn: Optional[str] = None):
+                          namespace: str, parent_fqn: str | None = None):
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
@@ -523,7 +522,7 @@ class JsParser:
                           class_fqn: str,
                           extra_annotations: list[str] | None = None):
         modifiers: list[str] = []
-        fname: Optional[str] = None
+        fname: str | None = None
         # Collect decorators that are children of this field_definition node
         # (JS grammar embeds the decorator inside the field node, not as a sibling)
         field_annotations: list[str] = list(extra_annotations or [])
@@ -537,9 +536,7 @@ class JsParser:
             elif child.type == "accessibility_modifier":
                 modifiers.append(_text(child, src).lower())
             elif child.type in ("property_identifier",
-                                "private_property_identifier"):
-                fname = _text(child, src).strip()
-            elif child.type == "identifier" and fname is None:
+                                "private_property_identifier") or child.type == "identifier" and fname is None:
                 fname = _text(child, src).strip()
 
         # TS grammar exposes name via field
@@ -717,7 +714,7 @@ class JsParser:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _func_name(self, node: Node, src: bytes) -> Optional[str]:
+    def _func_name(self, node: Node, src: bytes) -> str | None:
         name_node = node.child_by_field_name("name")
         return _text(name_node, src).strip() if name_node else None
 
@@ -753,7 +750,7 @@ class JsParser:
                 params.append(_text(p, src))
         return params
 
-    def _extract_return_type(self, node: Node, src: bytes) -> Optional[str]:
+    def _extract_return_type(self, node: Node, src: bytes) -> str | None:
         # TypeScript return type annotation sits as "return_type" field
         rt = node.child_by_field_name("return_type")
         if rt:

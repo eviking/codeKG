@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Optional
 
 from parser.java_parser import ParsedFile
 
@@ -96,14 +95,14 @@ class SCIPSymbolInformation:
     documentation: list[str] = field(default_factory=list)
     relationships: list[SCIPRelationship] = field(default_factory=list)
     # Extra KG-specific fields (not in SCIP spec but carried through pipeline)
-    file_path: Optional[str] = None
-    start_line: Optional[int] = None
-    end_line: Optional[int] = None
+    file_path: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
     annotations: list[str] = field(default_factory=list)
     modifiers: list[str] = field(default_factory=list)
     parameters: list[str] = field(default_factory=list)
-    return_type: Optional[str] = None
-    type_name: Optional[str] = None
+    return_type: str | None = None
+    type_name: str | None = None
 
 
 @dataclass
@@ -120,7 +119,7 @@ class SCIPDocument:
     # Flat edge list for relationships between symbols
     relationships: list[tuple[str, str, RelationshipKind]] = field(default_factory=list)
     # Package FQN for this file
-    package_symbol: Optional[str] = None
+    package_symbol: str | None = None
 
 
 # ------------------------------------------------------------------

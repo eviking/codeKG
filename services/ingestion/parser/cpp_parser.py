@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_cpp as tscpp
 from tree_sitter import Language, Parser, Node
@@ -39,7 +38,7 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _extract_doxygen(node: Node, src: bytes) -> Optional[str]:
+def _extract_doxygen(node: Node, src: bytes) -> str | None:
     """
     Find a /** ... */ or /// comment immediately preceding this node
     in the parent's children list.
@@ -61,8 +60,7 @@ def _extract_doxygen(node: Node, src: bytes) -> Optional[str]:
             if text.startswith("/**"):
                 # Block doxygen
                 inner = text[3:]
-                if inner.endswith("*/"):
-                    inner = inner[:-2]
+                inner = inner.removesuffix("*/")
                 cleaned = []
                 for line in inner.splitlines():
                     line = line.strip().lstrip("*").strip()
@@ -121,7 +119,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None   # outermost namespace
+        self.package_fqn: str | None = None   # outermost namespace
         self.imports: list[str] = []              # #include paths
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []

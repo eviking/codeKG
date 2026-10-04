@@ -32,7 +32,7 @@ import sys
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 
 # ------------------------------------------------------------------
@@ -162,7 +162,7 @@ def _bootstrap(service: str) -> None:
     _bootstrapped = True
 
 
-def get_logger(name: str, service: Optional[str] = None) -> CodeKGLogger:
+def get_logger(name: str, service: str | None = None) -> CodeKGLogger:
     """
     Returns a CodeKGLogger bound to the given logger name.
     Call once per module at module level:

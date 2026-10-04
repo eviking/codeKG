@@ -23,7 +23,6 @@ Each result carries:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from neo4j import Driver
 
@@ -35,8 +34,8 @@ class ImpactedNode:
     fqn: str
     name: str
     kind: str                       # class | method | interface | enum
-    file_path: Optional[str]
-    module: Optional[str]
+    file_path: str | None
+    module: str | None
     hop_distance: int               # 0 = directly in changed file
     reason: str                     # "direct" | "caller" | "importer" | "transitive"
     confidence: float = 1.0
@@ -51,7 +50,7 @@ class ImpactedEndpoint:
     path: str
     handler_class: str
     handler_method: str
-    file_path: Optional[str]
+    file_path: str | None
     confidence: float = 1.0
 
 
@@ -72,7 +71,7 @@ class SuggestedTest:
 
     fqn: str
     name: str
-    file_path: Optional[str]
+    file_path: str | None
     reason: str                     # why this test is suggested
 
 
@@ -82,7 +81,7 @@ class ImpactReport:
 
     repo_id: str
     changed_files: list[str]
-    commit_sha: Optional[str]
+    commit_sha: str | None
 
     directly_affected: list[ImpactedNode] = field(default_factory=list)
     callers: list[ImpactedNode] = field(default_factory=list)
@@ -164,7 +163,7 @@ class ImpactEngine:
         self,
         repo_id: str,
         changed_files: list[str],
-        commit_sha: Optional[str] = None,
+        commit_sha: str | None = None,
     ) -> ImpactReport:
         report = ImpactReport(
             repo_id=repo_id,

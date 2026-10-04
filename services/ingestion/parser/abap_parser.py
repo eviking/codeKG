@@ -26,7 +26,6 @@ import ctypes
 import os
 import warnings
 from pathlib import Path
-from typing import Optional
 
 from tree_sitter import Language, Parser, Node
 
@@ -70,7 +69,7 @@ def abap_grammar_available() -> bool:
     return True
 
 
-_ABAP_LANGUAGE: Optional[Language] = None
+_ABAP_LANGUAGE: Language | None = None
 
 
 def _get_abap_language() -> Language:
@@ -84,14 +83,14 @@ def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _first_child_of_type(node: Node, *types: str) -> Optional[Node]:
+def _first_child_of_type(node: Node, *types: str) -> Node | None:
     for child in node.named_children:
         if child.type in types:
             return child
     return None
 
 
-def _first_identifier(node: Node, src: bytes) -> Optional[str]:
+def _first_identifier(node: Node, src: bytes) -> str | None:
     """Return text of first identifier-typed named child."""
     for child in node.named_children:
         if child.type == "identifier":
@@ -99,7 +98,7 @@ def _first_identifier(node: Node, src: bytes) -> Optional[str]:
     return None
 
 
-def _collect_comment_above(node: Node, lines: list[str]) -> Optional[str]:
+def _collect_comment_above(node: Node, lines: list[str]) -> str | None:
     start_line = node.start_point[0]
     comments = []
     for i in range(start_line - 1, max(start_line - 6, -1), -1):
@@ -217,7 +216,7 @@ class AbapParser:
     # ------------------------------------------------------------------
 
     def _handle_class_def(self, node: Node, src: bytes, lines: list[str],
-                          repo_id: str) -> tuple[Optional[dict], dict]:
+                          repo_id: str) -> tuple[dict | None, dict]:
         name = _first_identifier(node, src)
         if not name:
             return None, {}
@@ -305,7 +304,7 @@ class AbapParser:
     # ------------------------------------------------------------------
 
     def _handle_interface_def(self, node: Node, src: bytes, lines: list[str],
-                              repo_id: str) -> Optional[dict]:
+                              repo_id: str) -> dict | None:
         name = _first_identifier(node, src)
         if not name:
             return None
@@ -347,7 +346,7 @@ class AbapParser:
 
     def _handle_method_impl(self, node: Node, src: bytes, lines: list[str],
                             class_fqn: str, repo_id: str,
-                            method_specs: dict) -> Optional[dict]:
+                            method_specs: dict) -> dict | None:
         raw_name = _first_identifier(node, src)
         if not raw_name:
             return None
@@ -391,7 +390,7 @@ class AbapParser:
     # ------------------------------------------------------------------
 
     def _parse_method_spec(self, node: Node, src: bytes, visibility: str,
-                           class_fqn: str, repo_id: str) -> Optional[dict]:
+                           class_fqn: str, repo_id: str) -> dict | None:
         name = _first_identifier(node, src)
         if not name:
             return None
@@ -459,7 +458,7 @@ class AbapParser:
     # ------------------------------------------------------------------
 
     def _handle_form(self, node: Node, src: bytes, lines: list[str],
-                     repo_id: str, module_stem: str) -> Optional[dict]:
+                     repo_id: str, module_stem: str) -> dict | None:
         name = _first_identifier(node, src)
         if not name:
             return None
@@ -490,7 +489,7 @@ class AbapParser:
     # ------------------------------------------------------------------
 
     def _handle_field(self, node: Node, src: bytes, class_fqn: str,
-                      repo_id: str, visibility: str) -> Optional[dict]:
+                      repo_id: str, visibility: str) -> dict | None:
         spec_type = "data_spec" if node.type == "data_declaration" else "class_data_spec"
         spec = _first_child_of_type(node, spec_type)
         if not spec:
@@ -682,7 +681,7 @@ class AbapParser:
     # so its methods don't appear as dead code even with no direct callers.
     # ------------------------------------------------------------------
 
-    def _detect_badi_definition(self, node: Node, src: bytes) -> Optional[str]:
+    def _detect_badi_definition(self, node: Node, src: bytes) -> str | None:
         """Return BAdI name if this class_definition implements a BAdI interface."""
         if node.type != "class_definition":
             return None

@@ -18,7 +18,6 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional
 
 
 FLOW_EXTENSIONS = {".flow-meta.xml"}
@@ -46,7 +45,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None
+        self.package_fqn: str | None = None
         self.imports: list[str] = []
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []
@@ -181,7 +180,7 @@ def _find_all(parent: ET.Element, tag: str, ns: dict) -> list[ET.Element]:
     return results
 
 
-def _find_one(parent: ET.Element, path: str, ns: dict) -> Optional[ET.Element]:
+def _find_one(parent: ET.Element, path: str, ns: dict) -> ET.Element | None:
     """Find a single element by path, trying namespaced then bare form."""
     ns_path = "/".join(f"sf:{p}" for p in path.split("/"))
     el = parent.find(ns_path, ns)
@@ -190,7 +189,7 @@ def _find_one(parent: ET.Element, path: str, ns: dict) -> Optional[ET.Element]:
     return el
 
 
-def _child_text(parent: ET.Element, tag: str, ns: dict) -> Optional[str]:
+def _child_text(parent: ET.Element, tag: str, ns: dict) -> str | None:
     """Get text content of a direct child element."""
     el = _find_one(parent, tag, ns)
     return el.text.strip() if el is not None and el.text else None

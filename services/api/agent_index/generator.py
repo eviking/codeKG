@@ -8,7 +8,7 @@ from __future__ import annotations
 import textwrap
 from datetime import datetime, timezone
 
-from typing import Callable as _Callable
+from collections.abc import Callable as _Callable
 
 from shared.config import cfg
 

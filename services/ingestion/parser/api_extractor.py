@@ -10,7 +10,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import tree_sitter_java as tsjava
 from tree_sitter import Language, Parser, Node
@@ -40,18 +39,18 @@ class ApiEndpoint:
     handler_class: str                  # FQN of the controller class
     handler_method: str                 # method name
     path_variables: list[str] = field(default_factory=list)   # {id}, {name}
-    request_body_type: Optional[str] = None
-    response_type: Optional[str] = None
+    request_body_type: str | None = None
+    response_type: str | None = None
     annotations: list[str] = field(default_factory=list)
-    file_path: Optional[str] = None
-    line: Optional[int] = None
+    file_path: str | None = None
+    line: int | None = None
 
 
 def _text(node: Node, src: bytes) -> str:
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _annotation_value(annotation_node: Node, src: bytes, attr: str = "value") -> Optional[str]:
+def _annotation_value(annotation_node: Node, src: bytes, attr: str = "value") -> str | None:
     """Extract a named attribute or the default value from an annotation node."""
     text = _text(annotation_node, src)
     # Try named attribute: @Foo(path = "/bar") or @Foo(value = "/bar")
@@ -153,9 +152,9 @@ class ApiExtractor:
         return_type = _text(return_type_node, src) if return_type_node else None
 
         # Scan method annotations for HTTP mapping
-        http_method: Optional[str] = None
+        http_method: str | None = None
         method_path: str = ""
-        request_body_type: Optional[str] = None
+        request_body_type: str | None = None
         found_mapping = False
 
         params_node = method_node.child_by_field_name("parameters")
@@ -217,7 +216,7 @@ class ApiExtractor:
             line=method_node.start_point[0] + 1,
         )]
 
-    def _extract_request_body_type(self, params_node: Node, src: bytes) -> Optional[str]:
+    def _extract_request_body_type(self, params_node: Node, src: bytes) -> str | None:
         for param in params_node.children:
             if param.type != "formal_parameter":
                 continue

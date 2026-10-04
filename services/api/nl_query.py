@@ -277,7 +277,7 @@ def _parse_unified_diff(raw: str) -> list[dict]:
             elif line.startswith("-") and not line.startswith("---"):
                 current_hunk["lines"].append({"type": "removed", "text": line[1:]})
             else:
-                current_hunk["lines"].append({"type": "context", "text": line[1:] if line.startswith(" ") else line})
+                current_hunk["lines"].append({"type": "context", "text": line.removeprefix(" ")})
     if current_hunk:
         hunks.append(current_hunk)
     return hunks

@@ -4,7 +4,6 @@ These are used by both the ingestion service and the API/MCP layer.
 """
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class NodeLabel(str, Enum):
@@ -105,7 +104,7 @@ class RepositoryNode:
     name: str
     path: str           # local filesystem path
     language: str = "java"
-    last_commit: Optional[str] = None
+    last_commit: str | None = None
 
 
 @dataclass
@@ -115,7 +114,7 @@ class PackageNode:
     fqn: str            # fully-qualified name, e.g. "com.example.payment"
     name: str
     repo_id: str
-    module: Optional[str] = None
+    module: str | None = None
 
 
 @dataclass
@@ -127,10 +126,10 @@ class ClassNode:
     package_fqn: str
     repo_id: str
     kind: str = "class"         # class | interface | enum | abstract
-    module: Optional[str] = None
-    file_path: Optional[str] = None
-    start_line: Optional[int] = None
-    end_line: Optional[int] = None
+    module: str | None = None
+    file_path: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
     annotations: list[str] = field(default_factory=list)
 
 
@@ -141,11 +140,11 @@ class MethodNode:
     fqn: str            # e.g. "com.example.payment.PaymentService#processPayment"
     name: str
     class_fqn: str
-    return_type: Optional[str] = None
+    return_type: str | None = None
     parameters: list[str] = field(default_factory=list)
     modifiers: list[str] = field(default_factory=list)
-    start_line: Optional[int] = None
-    end_line: Optional[int] = None
+    start_line: int | None = None
+    end_line: int | None = None
     annotations: list[str] = field(default_factory=list)
 
 
@@ -156,7 +155,7 @@ class FieldNode:
     fqn: str            # e.g. "com.example.payment.PaymentService#amount"
     name: str
     class_fqn: str
-    type_name: Optional[str] = None
+    type_name: str | None = None
     modifiers: list[str] = field(default_factory=list)
 
 
@@ -165,7 +164,7 @@ class ModuleNode:
     """Represents a logical module or bounded context in the graph. Watch out for how modules are inferred here, because not every repo has an explicit module system."""
 
     module_id: str      # logical name, e.g. "payment", "user", "notification"
-    description: Optional[str] = None
+    description: str | None = None
 
 
 @dataclass

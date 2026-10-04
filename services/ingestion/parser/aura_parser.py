@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 AURA_EXTENSIONS = {".cmp", ".app", ".design"}
 
@@ -44,7 +43,7 @@ class ParsedFile:
     def __init__(self, file_path: str, repo_id: str):
         self.file_path = file_path
         self.repo_id = repo_id
-        self.package_fqn: Optional[str] = None
+        self.package_fqn: str | None = None
         self.imports: list[str] = []
         self.classes: list[dict] = []
         self.interfaces: list[dict] = []
